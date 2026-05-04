@@ -1,6 +1,6 @@
 import { Buffer } from 'node:buffer';
 
-const UPSTREAM_URL = globalThis.process?.env?.VITE_SUPABASE_URL || 'https://yafvayoaqgoibxrbburd.supabase.co';
+const UPSTREAM_URL = globalThis.process?.env?.VITE_SUPABASE_URL;
 const PROXY_PREFIX_PATTERN = /^\/(?:api\/)?supabase/;
 
 const METHODS_WITHOUT_BODY = new Set(['GET', 'HEAD']);
@@ -61,6 +61,18 @@ const sendResponseHeaders = (res, upstreamResponse) => {
 };
 
 export default async function handler(req, res) {
+  if (!UPSTREAM_URL) {
+    res.statusCode = 500;
+    res.setHeader('content-type', 'application/json; charset=utf-8');
+    res.end(
+      JSON.stringify({
+        error: 'missing_supabase_url',
+        message: 'Falta configurar VITE_SUPABASE_URL en Vercel.',
+      }),
+    );
+    return;
+  }
+
   const requestUrl = new URL(req.url, `https://${req.headers.host || 'localhost'}`);
   const upstreamPath = requestUrl.pathname.replace(PROXY_PREFIX_PATTERN, '');
   const upstreamUrl = `${UPSTREAM_URL}${upstreamPath}${requestUrl.search}`;
