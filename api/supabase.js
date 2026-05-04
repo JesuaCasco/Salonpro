@@ -1,7 +1,7 @@
 import { Buffer } from 'node:buffer';
 
 const UPSTREAM_URL = globalThis.process?.env?.VITE_SUPABASE_URL;
-const PROXY_PREFIX_PATTERN = /^\/(?:api\/)?supabase/;
+const PROXY_PREFIX_PATTERN = /^\/(?:api\/)?supabase\/?/;
 
 const METHODS_WITHOUT_BODY = new Set(['GET', 'HEAD']);
 
@@ -15,7 +15,7 @@ const readRawBody = async (req) => {
   return chunks.length > 0 ? Buffer.concat(chunks) : undefined;
 };
 
-const buildUpstreamHeaders = (req, body) => {
+const buildUpstreamHeaders = (req) => {
   const headers = new Headers();
   const skippedRequestHeaders = new Set([
     'accept-encoding',
@@ -38,10 +38,6 @@ const buildUpstreamHeaders = (req, body) => {
 
     headers.set(key, value);
   });
-
-  if (body && !headers.has('content-length')) {
-    headers.set('content-length', String(body.byteLength));
-  }
 
   return headers;
 };
@@ -74,7 +70,14 @@ export default async function handler(req, res) {
   }
 
   const requestUrl = new URL(req.url, `https://${req.headers.host || 'localhost'}`);
-  const upstreamPath = requestUrl.pathname.replace(PROXY_PREFIX_PATTERN, '');
+  const forwardedPath = requestUrl.searchParams.get('path');
+  if (forwardedPath !== null) {
+    requestUrl.searchParams.delete('path');
+  }
+
+  const upstreamPath = forwardedPath !== null
+    ? `/${forwardedPath.replace(/^\/+/, '')}`
+    : `/${requestUrl.pathname.replace(PROXY_PREFIX_PATTERN, '').replace(/^\/+/, '')}`;
   const upstreamUrl = `${UPSTREAM_URL}${upstreamPath}${requestUrl.search}`;
   const method = (req.method || 'GET').toUpperCase();
   const body = METHODS_WITHOUT_BODY.has(method) ? undefined : await readRawBody(req);
@@ -82,7 +85,7 @@ export default async function handler(req, res) {
   try {
     const upstreamResponse = await fetch(upstreamUrl, {
       method,
-      headers: buildUpstreamHeaders(req, body),
+      headers: buildUpstreamHeaders(req),
       body,
       redirect: 'manual',
     });
