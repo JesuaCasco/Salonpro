@@ -5,8 +5,17 @@ export const supabasePublishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_
 export const isProductionBuild = import.meta.env.PROD;
 export const isLocalDevModeEnabled = !isProductionBuild && import.meta.env.VITE_ENABLE_LOCAL_MODE === 'true';
 export const shouldSeedLocalDevMode = isLocalDevModeEnabled && import.meta.env.VITE_SEED_LOCAL_MODE === 'true';
-export const supabaseUrl = directSupabaseUrl;
 export const supabaseDirectUrl = directSupabaseUrl;
+
+const getSameOriginSupabaseUrl = () => {
+  if (!directSupabaseUrl || typeof window === 'undefined' || !window.location?.origin) {
+    return directSupabaseUrl;
+  }
+
+  return `${window.location.origin}/api/supabase`;
+};
+
+export const supabaseUrl = getSameOriginSupabaseUrl();
 
 const RETRYABLE_SUPABASE_ERROR_PATTERNS = [
   'dns_hostname_not_found',

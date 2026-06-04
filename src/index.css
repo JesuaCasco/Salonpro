@@ -4,9 +4,36 @@
   --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
+:root {
+  --sp-bg: #21181b;
+  --sp-bg-soft: #2b2024;
+  --sp-panel: #35282d;
+  --sp-panel-strong: #44333a;
+  --sp-panel-muted: #57434b;
+  --sp-border: #725962;
+  --sp-text-muted: #d7c4cb;
+  --sp-text-soft: #f7ecef;
+  --sp-primary: #c96f8d;
+  --sp-primary-hover: #df8fad;
+  --sp-primary-strong: #a95473;
+  --sp-primary-soft: rgba(201, 111, 141, 0.2);
+  --sp-primary-border: #f0bac9;
+  --sp-sage: #91a28f;
+  --sp-sage-hover: #aab8a7;
+  --sp-sage-soft: rgba(145, 162, 143, 0.18);
+  --sp-champagne: #cfb877;
+  --sp-champagne-hover: #dec990;
+  --sp-champagne-soft: rgba(207, 184, 119, 0.18);
+  --sp-pearl: #fbf4f1;
+  --sp-danger: #cf6a82;
+}
+
 @layer base {
   body {
-    background-color: black;
+    background:
+      radial-gradient(circle at 14% 0%, rgba(240, 186, 201, 0.18), transparent 26rem),
+      radial-gradient(circle at 88% 8%, rgba(207, 184, 119, 0.13), transparent 24rem),
+      linear-gradient(135deg, #241a1d 0%, #302329 48%, #21181b 100%);
     color: white;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -14,7 +41,291 @@
   }
 }
 
-/* Scrollbar premium para BarberPro */
+/* Paleta SalonPro: blush, champagne, salvia y carbón cálido. */
+.bg-black { background-color: var(--sp-bg) !important; }
+.bg-slate-950 { background-color: var(--sp-bg-soft) !important; }
+.bg-slate-900 { background-color: var(--sp-panel) !important; }
+.bg-slate-800 { background-color: var(--sp-panel-strong) !important; }
+.bg-slate-700 { background-color: var(--sp-panel-muted) !important; }
+.bg-slate-600 { background-color: #69515b !important; }
+.bg-slate-50 { background-color: #fbf7f4 !important; }
+.bg-slate-100 { background-color: #f4ebe7 !important; }
+.text-slate-900 { color: #2b2024 !important; }
+.text-slate-800 { color: #3d2d34 !important; }
+.text-slate-700 { color: #5a444d !important; }
+.text-slate-600 { color: #8a707a !important; }
+.text-slate-500 { color: #b59aa4 !important; }
+.text-slate-400 { color: var(--sp-text-muted) !important; }
+.text-slate-300 { color: var(--sp-text-soft) !important; }
+.text-slate-200 { color: #f1e6ea !important; }
+.border-slate-900 { border-color: #493741 !important; }
+.border-slate-800 { border-color: var(--sp-border) !important; }
+.border-slate-700 { border-color: #80636f !important; }
+.placeholder\:text-slate-400::placeholder { color: #aa97a0 !important; }
+
+.bg-indigo-700 { background-color: var(--sp-primary-strong) !important; }
+.bg-indigo-600,
+.bg-fuchsia-600,
+.bg-violet-600,
+.bg-purple-600 { background-color: var(--sp-primary) !important; }
+.bg-indigo-500,
+.bg-fuchsia-500,
+.bg-violet-500,
+.bg-purple-500 { background-color: var(--sp-primary-hover) !important; }
+.hover\:bg-indigo-700:hover { background-color: var(--sp-primary-strong) !important; }
+.hover\:bg-indigo-600:hover,
+.hover\:bg-fuchsia-600:hover,
+.hover\:bg-violet-600:hover { background-color: var(--sp-primary) !important; }
+.hover\:bg-indigo-500:hover,
+.hover\:bg-fuchsia-500:hover,
+.hover\:bg-violet-500:hover { background-color: var(--sp-primary-hover) !important; }
+.bg-indigo-600\/5,
+.bg-indigo-500\/5,
+.bg-fuchsia-600\/5,
+.bg-violet-600\/5 { background-color: rgba(201, 111, 141, 0.08) !important; }
+.bg-indigo-600\/10,
+.bg-indigo-500\/10,
+.bg-fuchsia-500\/10,
+.bg-violet-500\/10 { background-color: rgba(201, 111, 141, 0.11) !important; }
+.bg-indigo-600\/20,
+.bg-indigo-500\/20,
+.bg-fuchsia-500\/20,
+.bg-violet-500\/20 { background-color: var(--sp-primary-soft) !important; }
+.border-indigo-600,
+.border-indigo-500,
+.border-fuchsia-500,
+.border-violet-500,
+.border-purple-500 { border-color: var(--sp-primary-border) !important; }
+.border-indigo-500\/20,
+.border-fuchsia-500\/20,
+.border-violet-500\/20 { border-color: rgba(226, 167, 185, 0.24) !important; }
+.border-indigo-500\/30,
+.border-fuchsia-500\/30,
+.border-violet-500\/30 { border-color: rgba(226, 167, 185, 0.34) !important; }
+.border-indigo-500\/50,
+.border-fuchsia-500\/50,
+.border-violet-500\/50 { border-color: rgba(226, 167, 185, 0.52) !important; }
+.text-indigo-500,
+.text-indigo-400,
+.text-fuchsia-400,
+.text-violet-400,
+.text-purple-400 { color: #efa8bd !important; }
+.text-indigo-300,
+.text-fuchsia-300,
+.text-violet-300,
+.text-purple-300 { color: #f5cbd5 !important; }
+.hover\:text-indigo-300:hover,
+.hover\:text-indigo-400:hover { color: #f3c5d1 !important; }
+.focus\:border-indigo-600:focus,
+.focus\:border-indigo-500:focus { border-color: var(--sp-primary-border) !important; }
+
+.bg-cyan-600,
+.bg-teal-600,
+.bg-emerald-600 { background-color: var(--sp-sage) !important; }
+.bg-cyan-500,
+.bg-teal-500,
+.bg-emerald-500 { background-color: var(--sp-sage-hover) !important; }
+.bg-cyan-500\/10,
+.bg-emerald-500\/10,
+.bg-teal-500\/10 { background-color: var(--sp-sage-soft) !important; }
+.bg-cyan-400\/15,
+.bg-emerald-400\/15 { background-color: rgba(127, 169, 149, 0.18) !important; }
+.border-cyan-400,
+.border-cyan-300,
+.border-teal-500,
+.border-emerald-500 { border-color: #a8c9b7 !important; }
+.border-cyan-400\/10,
+.border-cyan-300\/70,
+.border-emerald-500\/20,
+.border-emerald-500\/30 { border-color: rgba(168, 201, 183, 0.38) !important; }
+.text-cyan-400,
+.text-cyan-300,
+.text-emerald-500,
+.text-emerald-400,
+.text-teal-400 { color: #bdd0ba !important; }
+.text-cyan-200,
+.text-cyan-200\/85,
+.text-cyan-200\/90,
+.text-emerald-300 { color: #d9e3d5 !important; }
+.hover\:text-cyan-300:hover,
+.hover\:text-emerald-400:hover { color: #d9eadf !important; }
+.focus\:border-cyan-200:focus,
+.focus\:border-emerald-500:focus { border-color: #cbe0d4 !important; }
+
+.bg-amber-600,
+.bg-orange-600 { background-color: var(--sp-champagne) !important; }
+.bg-amber-500,
+.bg-orange-500 { background-color: var(--sp-champagne-hover) !important; }
+.bg-amber-500\/10,
+.bg-amber-400\/15 { background-color: var(--sp-champagne-soft) !important; }
+.border-amber-500,
+.border-amber-500\/25,
+.border-amber-200 { border-color: rgba(229, 201, 131, 0.56) !important; }
+.text-amber-500,
+.text-amber-400,
+.text-amber-300,
+.text-amber-100 { color: #ead9aa !important; }
+.text-amber-950 { color: #2c2110 !important; }
+
+.bg-rose-600,
+.bg-rose-500 { background-color: var(--sp-danger) !important; }
+.bg-rose-500\/10 { background-color: rgba(217, 95, 119, 0.12) !important; }
+.bg-rose-500\/20 { background-color: rgba(217, 95, 119, 0.2) !important; }
+.border-rose-500,
+.border-rose-400,
+.border-rose-500\/30,
+.border-rose-400\/30 { border-color: rgba(231, 139, 157, 0.42) !important; }
+.text-rose-500,
+.text-rose-400,
+.text-rose-300,
+.text-rose-200 { color: #ef9aae !important; }
+.hover\:text-rose-400:hover { color: #f4b7c4 !important; }
+.hover\:bg-rose-500\/20:hover { background-color: rgba(217, 95, 119, 0.22) !important; }
+
+.from-fuchsia-600,
+.from-fuchsia-500,
+.from-indigo-600,
+.from-indigo-500,
+.from-violet-600,
+.from-purple-600 {
+  --tw-gradient-from: #b96380 var(--tw-gradient-from-position) !important;
+  --tw-gradient-to: rgb(185 99 128 / 0) var(--tw-gradient-to-position) !important;
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
+}
+.via-violet-600,
+.via-violet-500,
+.via-indigo-600,
+.via-purple-600 {
+  --tw-gradient-to: rgb(201 111 141 / 0) var(--tw-gradient-to-position) !important;
+  --tw-gradient-stops: var(--tw-gradient-from), #c96f8d var(--tw-gradient-via-position), var(--tw-gradient-to) !important;
+}
+.to-indigo-500,
+.to-indigo-400,
+.to-violet-500,
+.to-purple-500 {
+  --tw-gradient-to: #d8a0b4 var(--tw-gradient-to-position) !important;
+}
+
+.shadow-indigo-500\/50,
+.shadow-fuchsia-500\/50,
+.shadow-violet-500\/50 { --tw-shadow-color: rgba(201, 111, 141, 0.38) !important; }
+.shadow-cyan-500\/50,
+.shadow-emerald-500\/50,
+.shadow-teal-500\/50 { --tw-shadow-color: rgba(127, 169, 149, 0.38) !important; }
+.shadow-amber-500\/50,
+.shadow-orange-500\/50 { --tw-shadow-color: rgba(216, 182, 109, 0.38) !important; }
+
+.bg-lime-600 { background-color: #9aa871 !important; }
+.bg-lime-500 { background-color: #adb985 !important; }
+.border-lime-500 { border-color: #c4c99a !important; }
+.text-lime-500,
+.text-lime-400 { color: #c4c99a !important; }
+.shadow-lime-500\/50 { --tw-shadow-color: rgba(154, 168, 113, 0.38) !important; }
+.bg-sky-600 { background-color: #7f9aa9 !important; }
+.border-sky-500 { border-color: #a9bdc7 !important; }
+.shadow-sky-500\/50 { --tw-shadow-color: rgba(127, 154, 169, 0.38) !important; }
+.bg-stone-600 { background-color: #7a6d68 !important; }
+.border-stone-500 { border-color: #a89a95 !important; }
+.shadow-stone-500\/50 { --tw-shadow-color: rgba(122, 109, 104, 0.38) !important; }
+
+.salon-app-shell {
+  background:
+    radial-gradient(circle at 12% 6%, rgba(240, 186, 201, 0.2), transparent 24rem),
+    radial-gradient(circle at 84% 0%, rgba(207, 184, 119, 0.14), transparent 25rem),
+    linear-gradient(145deg, #241a1d 0%, #302329 48%, #21181b 100%);
+}
+
+.salon-main-stage {
+  position: relative;
+  background:
+    linear-gradient(180deg, rgba(251, 244, 241, 0.055), transparent 18rem),
+    radial-gradient(circle at 85% 8%, rgba(240, 186, 201, 0.16), transparent 24rem),
+    radial-gradient(circle at 5% 95%, rgba(207, 184, 119, 0.1), transparent 22rem),
+    #2a1f23;
+}
+
+.salon-main-stage::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.22;
+  background-image:
+    linear-gradient(90deg, rgba(251, 245, 239, 0.05) 1px, transparent 1px),
+    linear-gradient(rgba(251, 245, 239, 0.04) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.7), transparent 70%);
+}
+
+.salon-sidebar {
+  background:
+    linear-gradient(180deg, rgba(251, 244, 241, 0.06), rgba(251, 244, 241, 0.02)),
+    radial-gradient(circle at top left, rgba(240, 186, 201, 0.2), transparent 18rem),
+    #2b2024 !important;
+  box-shadow: inset -1px 0 0 rgba(240, 186, 201, 0.12);
+}
+
+.salon-topbar {
+  background: rgba(36, 26, 29, 0.9) !important;
+  backdrop-filter: blur(18px);
+  box-shadow: 0 18px 40px rgba(10, 6, 8, 0.22);
+}
+
+.salon-card,
+.dashboard-view > div[class*="grid"] > div,
+.reports-view > div,
+.pos-view > div,
+.appointment-modal,
+.mobile-sidebar-tenant-panel {
+  background-image:
+    linear-gradient(145deg, rgba(251, 244, 241, 0.07), rgba(255, 255, 255, 0)),
+    radial-gradient(circle at top right, rgba(240, 186, 201, 0.12), transparent 16rem) !important;
+  box-shadow:
+    0 18px 50px rgba(10, 6, 8, 0.26),
+    inset 0 1px 0 rgba(255, 255, 255, 0.045);
+}
+
+.dashboard-view h3,
+.pos-view h3,
+.reports-view h3 {
+  text-shadow: 0 10px 28px rgba(209, 111, 146, 0.24);
+}
+
+button.bg-indigo-600,
+button.bg-emerald-600,
+button.bg-amber-600 {
+  box-shadow:
+    0 12px 28px rgba(10, 6, 8, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+[class~="bg-[#4ade80]"],
+[class~="hover:bg-[#34d399]"]:hover {
+  background-color: #d8a0b4 !important;
+  color: #3b2730 !important;
+}
+
+[class~="bg-[#ff6a00]"],
+[class~="bg-[#ff4d00]"] {
+  background-color: #cfb877 !important;
+  color: #352616 !important;
+}
+
+[class~="bg-[#c96f8d]"] {
+  background-color: var(--sp-primary) !important;
+}
+
+[class~="hover:bg-[#a94f70]"]:hover {
+  background-color: var(--sp-primary-strong) !important;
+}
+
+[class*="shadow-[0_0_30px_rgba(74,222,128"],
+[class*="shadow-[0_0_20px_rgba(147,51,234"],
+[class*="shadow-[0_0_38px_rgba(147,51,234"] {
+  box-shadow: 0 18px 42px rgba(201, 111, 141, 0.24) !important;
+}
+
+/* Scrollbar premium para SalonPro */
 .custom-scrollbar::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -25,10 +336,10 @@
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #1e293b; /* slate-800 */
+  background: var(--sp-border);
   border-radius: 9999px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #334155; /* slate-700 */
+  background: #8a6875;
 }
