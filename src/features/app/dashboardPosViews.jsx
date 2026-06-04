@@ -1,4 +1,4 @@
-import React, { memo, useDeferredValue, useMemo, useState } from 'react';
+﻿import React, { memo, useDeferredValue, useMemo, useState } from 'react';
 import {
   Activity,
   Check,
@@ -29,28 +29,42 @@ const ProductCard = memo(function ProductCard({ service, onAdd }) {
   const categoryTheme = {
     Producto: {
       border: 'border-cyan-400/25 hover:border-cyan-300/70',
-      bg: 'from-cyan-500/18 via-slate-900 to-slate-950',
+      bg: 'from-cyan-500/10 via-white to-rose-50',
       accent: 'text-cyan-300',
       chip: 'bg-cyan-400/12 border-cyan-300/25 text-cyan-200',
       button: 'bg-cyan-500 text-white shadow-cyan-500/25 group-hover:bg-cyan-400',
     },
-    Cortes: {
+    Cabello: {
       border: 'border-indigo-400/25 hover:border-indigo-300/70',
-      bg: 'from-indigo-500/18 via-slate-900 to-slate-950',
+      bg: 'from-indigo-500/10 via-white to-rose-50',
       accent: 'text-indigo-300',
       chip: 'bg-indigo-400/12 border-indigo-300/25 text-indigo-200',
       button: 'bg-indigo-600 text-white shadow-indigo-500/25 group-hover:bg-indigo-500',
     },
-    Barba: {
+    Color: {
+      border: 'border-fuchsia-400/25 hover:border-fuchsia-300/70',
+      bg: 'from-fuchsia-500/10 via-white to-rose-50',
+      accent: 'text-fuchsia-300',
+      chip: 'bg-fuchsia-400/12 border-fuchsia-300/25 text-fuchsia-200',
+      button: 'bg-fuchsia-600 text-white shadow-fuchsia-500/25 group-hover:bg-fuchsia-500',
+    },
+    Uñas: {
       border: 'border-amber-400/25 hover:border-amber-300/70',
-      bg: 'from-amber-500/18 via-slate-900 to-slate-950',
+      bg: 'from-amber-500/10 via-white to-rose-50',
       accent: 'text-amber-300',
       chip: 'bg-amber-400/12 border-amber-300/25 text-amber-200',
       button: 'bg-amber-500 text-white shadow-amber-500/25 group-hover:bg-amber-400',
     },
+    Tratamiento: {
+      border: 'border-emerald-400/25 hover:border-emerald-300/70',
+      bg: 'from-emerald-500/10 via-white to-rose-50',
+      accent: 'text-emerald-300',
+      chip: 'bg-emerald-400/12 border-emerald-300/25 text-emerald-200',
+      button: 'bg-emerald-600 text-white shadow-emerald-500/25 group-hover:bg-emerald-500',
+    },
     Combo: {
       border: 'border-fuchsia-400/25 hover:border-fuchsia-300/70',
-      bg: 'from-fuchsia-500/18 via-slate-900 to-slate-950',
+      bg: 'from-fuchsia-500/10 via-white to-rose-50',
       accent: 'text-fuchsia-300',
       chip: 'bg-fuchsia-400/12 border-fuchsia-300/25 text-fuchsia-200',
       button: 'bg-fuchsia-600 text-white shadow-fuchsia-500/25 group-hover:bg-fuchsia-500',
@@ -107,8 +121,8 @@ const CartLine = memo(function CartLine({ item, onRemove }) {
   );
 });
 
-export function DashboardView({ appointments, clients, onUpdate, onOpenAppointment, barbers, onNewWalkin, posSales = [] }) {
-  const [activeBarber, setActiveBarber] = useState('Global');
+export function DashboardView({ appointments, clients, onUpdate, onOpenAppointment, stylists, onNewWalkin, posSales = [] }) {
+  const [activeStylist, setActiveStylist] = useState('Global');
   const today = getTodayString();
 
   const normalizeApt = (appointment) => ({
@@ -137,8 +151,8 @@ export function DashboardView({ appointments, clients, onUpdate, onOpenAppointme
   const todayProductRevenue = (posSales || [])
     .filter((sale) => standardizeDate(sale.createdAt) === today)
     .reduce((sum, sale) => sum + (Number(sale.productTotal) || 0), 0);
-  const busyBarbers = new Set(todayApts.filter((appointment) => appointment.status === 'En Corte').map((appointment) => String(appointment.barberId))).size;
-  const totalBarbers = (barbers || []).length;
+  const busyStylists = new Set(todayApts.filter((appointment) => appointment.status === 'En Servicio').map((appointment) => String(appointment.stylistId))).size;
+  const totalStylists = (stylists || []).length;
 
   const toMinutes = (time = '00:00') => {
     if (!time || typeof time !== 'string') return 0;
@@ -147,26 +161,26 @@ export function DashboardView({ appointments, clients, onUpdate, onOpenAppointme
   };
 
   const sortedDisplayApts = useMemo(() => {
-    const base = activeBarber === 'Global'
+    const base = activeStylist === 'Global'
       ? pendingApts
-      : pendingApts.filter((appointment) => String(appointment.barberId) === String(activeBarber));
+      : pendingApts.filter((appointment) => String(appointment.stylistId) === String(activeStylist));
 
     return [...base].sort((left, right) => {
-      if (left.status === 'En Corte' && right.status !== 'En Corte') return -1;
-      if (left.status !== 'En Corte' && right.status === 'En Corte') return 1;
+      if (left.status === 'En Servicio' && right.status !== 'En Servicio') return -1;
+      if (left.status !== 'En Servicio' && right.status === 'En Servicio') return 1;
       return (toMinutes(left.time) || 0) - (toMinutes(right.time) || 0);
     });
-  }, [activeBarber, pendingApts]);
+  }, [activeStylist, pendingApts]);
 
   const getTypeLabel = (appointment) => {
-    if (appointment.status === 'En Corte') return 'En servicio';
+    if (appointment.status === 'En Servicio') return 'En servicio';
     if (appointment.status === 'En Espera') return 'En sala';
     if (appointment.type === 'walkin') return 'Sin reserva';
     return 'Reserva';
   };
 
   const getTypeColor = (appointment) => {
-    if (appointment.status === 'En Corte') return 'bg-emerald-600 border-emerald-400';
+    if (appointment.status === 'En Servicio') return 'bg-emerald-600 border-emerald-400';
     if (appointment.status === 'En Espera') return 'bg-indigo-500 border-indigo-400';
     if (appointment.type === 'walkin') return 'bg-amber-500 border-amber-400';
     return 'bg-slate-700 border-slate-500';
@@ -176,44 +190,44 @@ export function DashboardView({ appointments, clients, onUpdate, onOpenAppointme
     <div className="dashboard-view p-4 md:p-8 space-y-6 md:space-y-10 animate-in fade-in pb-20 no-print">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
         <div>
-          <h3 className="text-2xl md:text-4xl font-black italic uppercase tracking-tighter text-white leading-none">Tablero de Control</h3>
-          <p className="mobile-simplify-subtitle text-[10px] text-slate-500 font-black uppercase tracking-widest mt-2 italic flex items-center gap-2">
-            <Sparkles size={12} className="text-indigo-400" /> Resumen Operativo - {new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
+          <h3 className="text-2xl md:text-4xl font-black italic uppercase tracking-tighter text-[#34242b] leading-none">Tablero de Control</h3>
+          <p className="mobile-simplify-subtitle text-[10px] text-[#bd2f68] font-black uppercase tracking-widest mt-2 italic flex items-center gap-2">
+            <Sparkles size={12} className="text-[#e14f8a]" /> Resumen Operativo - {new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
           </p>
         </div>
-        <div className="flex w-full md:w-auto items-center gap-3 bg-slate-900 border border-slate-800 p-2.5 rounded-2xl">
-          <div className="px-3 border-r border-slate-800">
-            <p className="text-[9px] font-black text-slate-500 uppercase leading-none mb-1">Barberos</p>
-            <p className="text-[11px] font-black uppercase text-emerald-400 italic leading-none">{busyBarbers} Ocupados / {totalBarbers || 0}</p>
+        <div className="flex w-full md:w-auto items-center gap-3 bg-white border border-[#ff9fc1] p-2.5 rounded-2xl shadow-[0_12px_26px_rgba(225,79,138,0.10)]">
+          <div className="px-3 border-r border-[#f5a8c5]">
+            <p className="text-[9px] font-black text-[#9b6076] uppercase leading-none mb-1">Estilistas</p>
+            <p className="text-[11px] font-black uppercase text-[#bd2f68] italic leading-none">{busyStylists} Ocupados / {totalStylists || 0}</p>
           </div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-6 gap-4 md:gap-6">
-        <div className="bg-slate-900 neon-border-indigo p-6 rounded-[2rem] text-white flex flex-col justify-center">
-          <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest italic leading-none mb-3">Reservaciones</p>
-          <h4 className="text-4xl font-black italic tracking-tighter text-indigo-400">{plannedCount}</h4>
+        <div className="bg-white border border-[#ff9fc1] p-6 rounded-[2rem] flex flex-col justify-center shadow-[0_14px_30px_rgba(225,79,138,0.10)] hover:border-[#e14f8a] hover:bg-[#fff7fb] hover:shadow-[0_18px_38px_rgba(225,79,138,0.22)] transition-all">
+          <p className="text-[9px] font-black uppercase text-[#9b6076] tracking-widest italic leading-none mb-3">Reservaciones</p>
+          <h4 className="text-4xl font-black italic tracking-tighter text-[#e14f8a]">{plannedCount}</h4>
         </div>
-        <div className="bg-slate-900 neon-border-amber p-6 rounded-[2rem] text-white flex flex-col justify-center">
-          <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest italic leading-none mb-3">En Espera</p>
-          <h4 className="text-4xl font-black italic tracking-tighter text-amber-400">{waitCount}</h4>
+        <div className="bg-white border border-[#f5a8c5] p-6 rounded-[2rem] flex flex-col justify-center shadow-[0_14px_30px_rgba(225,79,138,0.10)] hover:border-[#e14f8a] hover:bg-[#fff7fb] hover:shadow-[0_18px_38px_rgba(225,79,138,0.22)] transition-all">
+          <p className="text-[9px] font-black uppercase text-[#9b6076] tracking-widest italic leading-none mb-3">En Espera</p>
+          <h4 className="text-4xl font-black italic tracking-tighter text-[#bd2f68]">{waitCount}</h4>
         </div>
-        <div className="bg-slate-900 neon-border-emerald p-6 rounded-[2rem] text-white flex flex-col justify-center">
-          <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest italic leading-none mb-3">Finalizadas</p>
-          <h4 className="text-4xl font-black italic tracking-tighter text-emerald-400">{finishedCount}</h4>
+        <div className="bg-white border border-[#f5a8c5] p-6 rounded-[2rem] flex flex-col justify-center shadow-[0_14px_30px_rgba(225,79,138,0.10)] hover:border-[#e14f8a] hover:bg-[#fff7fb] hover:shadow-[0_18px_38px_rgba(225,79,138,0.22)] transition-all">
+          <p className="text-[9px] font-black uppercase text-[#9b6076] tracking-widest italic leading-none mb-3">Finalizadas</p>
+          <h4 className="text-4xl font-black italic tracking-tighter text-[#d75f91]">{finishedCount}</h4>
         </div>
-        <div className="bg-slate-900 border border-slate-800 p-6 rounded-[2rem] text-white flex flex-col justify-center">
-          <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest italic leading-none mb-3">Total Turnos</p>
-          <h4 className="text-4xl font-black italic tracking-tighter text-slate-200">{totalTodayCount}</h4>
+        <div className="bg-white border border-[#ff9fc1] p-6 rounded-[2rem] flex flex-col justify-center shadow-[0_14px_30px_rgba(225,79,138,0.10)] hover:border-[#e14f8a] hover:bg-[#fff7fb] hover:shadow-[0_18px_38px_rgba(225,79,138,0.22)] transition-all">
+          <p className="text-[9px] font-black uppercase text-[#9b6076] tracking-widest italic leading-none mb-3">Total Turnos</p>
+          <h4 className="text-4xl font-black italic tracking-tighter text-[#5a3442]">{totalTodayCount}</h4>
         </div>
-        <div className="bg-indigo-600 p-6 rounded-[2rem] shadow-xl relative overflow-hidden group hover:scale-[1.02] transition-all duration-500 text-white flex flex-col justify-center">
-          <DollarSign className="absolute -right-2 -bottom-2 w-20 h-20 text-white/10 rotate-12" />
-          <p className="text-[9px] font-black uppercase text-indigo-100 tracking-widest italic leading-none mb-3 relative z-10">Ingresos Cortes Hoy</p>
+        <div className="bg-[#e14f8a] p-6 rounded-[2rem] shadow-[0_18px_36px_rgba(225,79,138,0.28)] relative overflow-hidden group hover:bg-[#bd2f68] hover:shadow-[0_22px_46px_rgba(225,79,138,0.34)] transition-all duration-500 text-white flex flex-col justify-center">
+          <DollarSign className="absolute -right-2 -bottom-2 w-20 h-20 text-white/16 rotate-12" />
+          <p className="text-[9px] font-black uppercase text-white tracking-widest italic leading-none mb-3 relative z-10">Ingresos Servicios Hoy</p>
           <h4 className="text-3xl font-black italic tracking-tighter relative z-10">C$ {(Number(todayRevenue) || 0).toLocaleString()}</h4>
         </div>
-        <div className="bg-emerald-600 p-6 rounded-[2rem] shadow-xl relative overflow-hidden group hover:scale-[1.02] transition-all duration-500 text-white flex flex-col justify-center">
-          <ShoppingBag className="absolute -right-2 -bottom-2 w-20 h-20 text-white/10 rotate-12" />
-          <p className="text-[9px] font-black uppercase text-emerald-100 tracking-widest italic leading-none mb-3 relative z-10">Ventas Productos Hoy</p>
+        <div className="bg-[#d75f91] p-6 rounded-[2rem] shadow-[0_18px_36px_rgba(215,95,145,0.26)] relative overflow-hidden group hover:bg-[#bd2f68] hover:shadow-[0_22px_46px_rgba(225,79,138,0.34)] transition-all duration-500 text-white flex flex-col justify-center">
+          <ShoppingBag className="absolute -right-2 -bottom-2 w-20 h-20 text-white/16 rotate-12" />
+          <p className="text-[9px] font-black uppercase text-white tracking-widest italic leading-none mb-3 relative z-10">Ventas Productos Hoy</p>
           <h4 className="text-3xl font-black italic tracking-tighter relative z-10">C$ {(Number(todayProductRevenue) || 0).toLocaleString()}</h4>
         </div>
       </div>
@@ -223,21 +237,21 @@ export function DashboardView({ appointments, clients, onUpdate, onOpenAppointme
           <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 blur-[120px] pointer-events-none"></div>
           <div className="flex flex-col md:flex-row items-center justify-between gap-6 relative z-10">
             <h3 className="text-2xl md:text-4xl font-black uppercase italic tracking-tighter text-white">Turnos del día</h3>
-            <button onClick={() => onNewWalkin(activeBarber !== 'Global' ? activeBarber : (barbers[0]?.id || ''))} className="w-full md:w-auto bg-emerald-600 hover:bg-emerald-500 text-white px-8 py-4 rounded-2xl font-black uppercase text-[10px] md:text-xs tracking-[0.2em] transition-all shadow-lg active:scale-95 flex items-center justify-center gap-3">
+            <button onClick={() => onNewWalkin(activeStylist !== 'Global' ? activeStylist : (stylists[0]?.id || ''))} className="w-full md:w-auto bg-emerald-600 hover:bg-emerald-500 text-white px-8 py-4 rounded-2xl font-black uppercase text-[10px] md:text-xs tracking-[0.2em] transition-all shadow-lg active:scale-95 flex items-center justify-center gap-3">
               <UserPlus size={18} /> Nuevo turno sin cita
             </button>
           </div>
 
           <div className="flex flex-wrap justify-center gap-3 p-3 md:p-4 bg-black/40 border border-white/5 rounded-[2.5rem] w-full max-w-5xl mx-auto shadow-inner">
-            <button onClick={() => setActiveBarber('Global')} className={`px-6 py-3 md:px-8 md:py-4 rounded-[1.5rem] text-[10px] font-black uppercase tracking-[0.22em] italic transition-all duration-300 ${activeBarber === 'Global' ? 'bg-indigo-600 text-white shadow-[0_0_20px_rgba(99,102,241,0.5)] scale-105' : 'text-slate-500 hover:text-white hover:bg-slate-800'}`}>Vista Global</button>
-            {(barbers || []).map((barber) => {
-              const isActive = String(activeBarber) === String(barber.id);
-              const barberActiveBg = barber.bg || 'bg-indigo-600';
-              const barberBorder = barber.color || 'border-indigo-500';
+            <button onClick={() => setActiveStylist('Global')} className={`px-6 py-3 md:px-8 md:py-4 rounded-[1.5rem] text-[10px] font-black uppercase tracking-[0.22em] italic transition-all duration-300 ${activeStylist === 'Global' ? 'bg-indigo-600 text-white shadow-[0_0_20px_rgba(201,111,141,0.38)] scale-105' : 'text-slate-500 hover:text-white hover:bg-slate-800'}`}>Vista Global</button>
+            {(stylists || []).map((stylist) => {
+              const isActive = String(activeStylist) === String(stylist.id);
+              const stylistActiveBg = stylist.bg || 'bg-indigo-600';
+              const stylistBorder = stylist.color || 'border-indigo-500';
               return (
-                <button key={barber.id} onClick={() => setActiveBarber(String(barber.id))} className={`group px-5 py-3 md:px-6 md:py-4 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest italic transition-all duration-500 flex items-center gap-3 border ${isActive ? `${barberActiveBg} text-white shadow-[0_0_25px] scale-105 ${barberBorder}` : 'bg-slate-900/50 text-slate-500 border-white/5 hover:text-white hover:scale-105'}`}>
-                  <div className={`w-6 h-6 rounded-lg ${isActive ? 'bg-white/20' : barber.bg} flex items-center justify-center text-[8px] text-white shadow-inner`}>{barber.avatar}</div>
-                  {barber.name}
+                <button key={stylist.id} onClick={() => setActiveStylist(String(stylist.id))} className={`group px-5 py-3 md:px-6 md:py-4 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest italic transition-all duration-500 flex items-center gap-3 border ${isActive ? `${stylistActiveBg} text-white shadow-[0_0_25px] scale-105 ${stylistBorder}` : 'bg-slate-900/50 text-slate-500 border-white/5 hover:text-white hover:scale-105'}`}>
+                  <div className={`w-6 h-6 rounded-lg ${isActive ? 'bg-white/20' : stylist.bg} flex items-center justify-center text-[8px] text-white shadow-inner`}>{stylist.avatar}</div>
+                  {stylist.name}
                 </button>
               );
             })}
@@ -253,8 +267,8 @@ export function DashboardView({ appointments, clients, onUpdate, onOpenAppointme
               <div className="grid grid-cols-1 gap-4 max-w-5xl mx-auto">
                 {sortedDisplayApts.map((appointment, index) => {
                   const client = clients.find((item) => item.id === appointment.clientId);
-                  const barber = (barbers || []).find((item) => String(item.id) === String(appointment.barberId));
-                  const inService = appointment.status === 'En Corte';
+                  const stylist = (stylists || []).find((item) => String(item.id) === String(appointment.stylistId));
+                  const inService = appointment.status === 'En Servicio';
                   const hasArrived = !!appointment.checkInAt;
                   const isWalkin = appointment.type === 'walkin';
 
@@ -262,7 +276,7 @@ export function DashboardView({ appointments, clients, onUpdate, onOpenAppointme
                     <div key={appointment.id} onClick={() => onOpenAppointment?.(appointment)} className={`bg-slate-950 border ${inService ? 'border-emerald-500 shadow-[0_0_30px_rgba(16,185,129,0.2)] scale-[1.01] z-10' : (appointment.status === 'En Espera' ? 'border-indigo-500/50' : 'border-slate-800')} rounded-[2.5rem] p-4 md:p-6 flex flex-col md:flex-row justify-between items-stretch md:items-center gap-4 md:gap-6 transition-all group relative overflow-hidden cursor-pointer hover:border-indigo-500/40`}>
                       <div className="flex items-center gap-4 md:gap-6 min-w-0">
                         <div className="relative">
-                          <div className={`w-16 h-16 rounded-[1.5rem] ${barber?.bg || 'bg-slate-800'} flex items-center justify-center font-black italic text-xl text-white shadow-2xl relative z-10 border-2 border-white/10 group-hover:scale-110 transition-transform`}>{barber?.avatar || '?'}</div>
+                          <div className={`w-16 h-16 rounded-[1.5rem] ${stylist?.bg || 'bg-slate-800'} flex items-center justify-center font-black italic text-xl text-white shadow-2xl relative z-10 border-2 border-white/10 group-hover:scale-110 transition-transform`}>{stylist?.avatar || '?'}</div>
                           {inService && <div className="absolute -top-2 -right-2 w-6 h-6 bg-emerald-500 rounded-full border-4 border-slate-950 animate-ping z-20"></div>}
                         </div>
                         <div className="flex flex-col min-w-0">
@@ -274,7 +288,7 @@ export function DashboardView({ appointments, clients, onUpdate, onOpenAppointme
                           </div>
                           <div className="flex items-center gap-2 mt-2 min-w-0">
                             <span className={`px-3 py-1 text-[9px] font-black uppercase tracking-widest rounded-full border ${getTypeColor(appointment)} text-white`}>{getTypeLabel(appointment)}</span>
-                            <span className="text-[10px] text-slate-600 font-black uppercase italic tracking-widest leading-none truncate">- {barber?.name}</span>
+                            <span className="text-[10px] text-slate-600 font-black uppercase italic tracking-widest leading-none truncate">- {stylist?.name}</span>
                           </div>
                         </div>
                       </div>
@@ -292,7 +306,7 @@ export function DashboardView({ appointments, clients, onUpdate, onOpenAppointme
                         <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto md:justify-end">
                           {appointment.type === 'reserva' && !hasArrived && <button onClick={(event) => { event.stopPropagation(); onUpdate(appointment.id, 'En Espera'); }} className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-500 text-white px-4 md:px-6 py-3 md:py-5 rounded-2xl font-black uppercase italic text-[10px] tracking-widest shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2"><UserCheck size={16} /> Llegó</button>}
                           {(hasArrived || isWalkin) && (
-                            <button onClick={(event) => { event.stopPropagation(); onUpdate(appointment.id, inService ? 'Finalizada' : 'En Corte'); }} className={`w-full sm:w-auto px-4 md:px-8 py-3 md:py-5 rounded-2xl text-[10px] font-black uppercase italic tracking-[0.2em] transition-all shadow-xl active:scale-95 flex items-center justify-center gap-3 ${inService ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-rose-900/20' : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-900/20'}`}>
+                            <button onClick={(event) => { event.stopPropagation(); onUpdate(appointment.id, inService ? 'Finalizada' : 'En Servicio'); }} className={`w-full sm:w-auto px-4 md:px-8 py-3 md:py-5 rounded-2xl text-[10px] font-black uppercase italic tracking-[0.2em] transition-all shadow-xl active:scale-95 flex items-center justify-center gap-3 ${inService ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-rose-900/20' : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-900/20'}`}>
                               {inService ? <CheckCircle2 size={16} strokeWidth={3} /> : <Zap size={16} fill="white" />}
                               {inService ? 'Finalizar' : 'Iniciar'}
                             </button>
@@ -316,7 +330,7 @@ export function DashboardView({ appointments, clients, onUpdate, onOpenAppointme
               const activityClient = clients.find((item) => item.id === activity.clientId);
               return (
                 <div key={activity.id} className="bg-black/50 border border-white/5 p-4 rounded-2xl flex items-center gap-4 group text-white">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xs font-black italic border border-white/10 ${activity.status === 'Finalizada' ? 'bg-emerald-500/20 text-emerald-400' : (activity.status === 'En Corte' ? 'bg-indigo-500/20 text-indigo-400' : 'bg-slate-800 text-slate-400')}`}>{activityClient?.name?.[0] || '?'}</div>
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xs font-black italic border border-white/10 ${activity.status === 'Finalizada' ? 'bg-emerald-500/20 text-emerald-400' : (activity.status === 'En Servicio' ? 'bg-indigo-500/20 text-indigo-400' : 'bg-slate-800 text-slate-400')}`}>{activityClient?.name?.[0] || '?'}</div>
                   <div className="flex-1 overflow-hidden">
                     <p className="text-[10px] font-black uppercase text-white truncate leading-none">{activityClient?.name || 'Desconocido'}</p>
                     <p className="text-[8px] font-bold text-slate-500 uppercase mt-1 leading-none">{activity.status} - {activity.service || 'Servicio'}</p>
@@ -417,8 +431,8 @@ export function POSView({ services, onSale }) {
       <div className="flex-1 flex flex-col min-w-0 text-white">
         <div className="p-4 md:p-8 space-y-4 md:space-y-6 border-b border-slate-900 bg-black text-white">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 text-white">
-            <div className="relative overflow-hidden rounded-[2rem] border border-emerald-400/20 bg-gradient-to-r from-emerald-500/15 via-slate-900 to-indigo-500/15 px-5 py-4 shadow-xl">
-              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-300/60 to-transparent" />
+            <div className="relative overflow-hidden rounded-[1.7rem] border border-rose-200 bg-white px-5 py-4 shadow-[0_12px_28px_rgba(120,78,93,0.08)]">
+              <div className="absolute inset-x-0 top-0 h-px bg-rose-100" />
               <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-500 text-white shadow-lg shadow-emerald-500/25">
                 <ShoppingBag size={18} />
               </div>
@@ -555,7 +569,7 @@ export function POSView({ services, onSale }) {
                 <div className="space-y-3 mb-8 text-white">
                   <div className="flex justify-between items-center text-white"><span className="text-slate-500 text-[10px] font-black uppercase tracking-widest leading-none">Subtotal</span><span className="text-base font-black italic text-white">C$ {subtotal.toLocaleString('es-NI')}</span></div>
                   {selectedPromotion ? <div className="flex justify-between items-center text-white"><span className="text-emerald-300 text-[10px] font-black uppercase tracking-widest leading-none">{selectedPromotion.name}</span><span className="text-base font-black italic text-emerald-300">- C$ {promotionDiscount.toLocaleString('es-NI')}</span></div> : null}
-                  <div className="flex justify-between items-center text-white"><span className="text-slate-500 text-[10px] font-black uppercase tracking-widest leading-none">Monto Total</span><span className="text-4xl font-black italic tracking-tighter leading-none text-white shadow-[0_0_15px_rgba(99,102,241,0.2)]">C$ {totalToCharge.toLocaleString('es-NI')}</span></div>
+                  <div className="flex justify-between items-center text-white"><span className="text-slate-500 text-[10px] font-black uppercase tracking-widest leading-none">Monto Total</span><span className="text-4xl font-black italic tracking-tighter leading-none text-white shadow-[0_0_15px_rgba(201,111,141,0.16)]">C$ {totalToCharge.toLocaleString('es-NI')}</span></div>
                 </div>
 
                 <button disabled={cart.length === 0} onClick={handleCompleteSale} className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-30 py-6 rounded-[2rem] font-black uppercase italic text-xs shadow-xl active:scale-95 transition-all text-white flex items-center justify-center gap-3"><Check size={18} strokeWidth={3} /> COMPLETAR VENTA</button>

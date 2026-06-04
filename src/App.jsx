@@ -2,27 +2,27 @@
 import {
   createManagedUser,
   createPosSale,
-  assignProfileBarbershop,
-  deleteBarberRecord,
+  assignProfileSalon,
+  deleteStylistRecord,
   deleteClientRecord,
   deletePosSaleRecord,
   deleteServiceRecord,
   fetchAccessControlSnapshot,
-  fetchBarbershopSnapshot,
+  fetchSalonSnapshot,
   fetchClientDirectorySnapshot,
-  fetchScopedBarbers,
+  fetchScopedStylists,
   fetchScopedClients,
   resetManagedUserPassword,
   replaceUserRoles,
   syncServiceComboItems,
   upsertBranch,
-  upsertBarbershop,
+  upsertSalon,
   upsertAppointments,
-  upsertBarbers,
+  upsertStylists,
   upsertClients,
   upsertServices,
   updateManagedUserProfile,
-} from './lib/barbershopApi';
+} from './lib/salonApi';
 import {
   hasSupabaseConfig,
   isLocalDevModeEnabled,
@@ -91,23 +91,23 @@ import {
 
 import {
   CATEGORY_LABELS,
-  BARBER_THEME_PALETTE,
-  BARBER_PAYMENT_MODE_OPTIONS,
+  STYLIST_THEME_PALETTE,
+  STYLIST_PAYMENT_MODE_OPTIONS,
   BUSINESS_PLANS,
   CATEGORIES,
   HOURS,
-  MOCK_BARBERS,
+  MOCK_STYLISTS,
   LOYALTY_REWARD_VISITS,
   PASSWORD_MIN_LENGTH,
   ROLE_META,
-  ensureBarberTheme,
+  ensureStylistTheme,
   findClientByPhone,
-  barberHasBasePay,
-  barberHasCommissionPay,
+  stylistHasBasePay,
+  stylistHasCommissionPay,
   formatPhoneNumber,
   formatLocalDateYmd,
-  getBarberNominaData,
-  getBarberPaymentModeLabel,
+  getStylistNominaData,
+  getStylistPaymentModeLabel,
   getCurrentTimeHHmm,
   getPhoneDigits,
   getPrimaryRole,
@@ -124,7 +124,6 @@ import {
   styleTag,
 } from './features/app/shared';
 import {
-  BeardIcon,
   DelayTimer,
   ServiceTimer,
   WaitTimer,
@@ -152,7 +151,7 @@ const UiFeedbackContext = createContext({
 });
 
 const useUiFeedback = () => useContext(UiFeedbackContext);
-const AUTH_RUNTIME_CACHE_KEY = 'bp_auth_runtime_cache_v1';
+const AUTH_RUNTIME_CACHE_KEY = 'sp_auth_runtime_cache_v1';
 
 const NETWORK_ERROR_PATTERNS = [
   'failed to fetch',
@@ -215,8 +214,8 @@ const getFriendlySupabaseErrorMessage = (error, context = 'general') => {
   return 'No se pudo conectar con Supabase desde esta red m\u00f3vil. Intenta nuevamente cuando la conexi\u00f3n est\u00e9 estable.';
 };
 
-const resolveWalkinQueueTime = ({ appointments = [], barberId, date = getTodayString() }) => {
-  if (!barberId || !date) return getCurrentTimeHHmm();
+const resolveWalkinQueueTime = ({ appointments = [], stylistId, date = getTodayString() }) => {
+  if (!stylistId || !date) return getCurrentTimeHHmm();
 
   const toMinutes = (time = '00:00') => {
     if (!time || typeof time !== 'string') return 0;
@@ -231,14 +230,14 @@ const resolveWalkinQueueTime = ({ appointments = [], barberId, date = getTodaySt
     return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
   };
 
-  const activeStatuses = new Set(['Confirmada', 'En Espera', 'En Corte']);
-  const sameBarberDay = (appointments || []).filter((appointment) => (
+  const activeStatuses = new Set(['Confirmada', 'En Espera', 'En Servicio']);
+  const sameStylistDay = (appointments || []).filter((appointment) => (
     standardizeDate(appointment.date) === standardizeDate(date)
-    && String(appointment.barberId) === String(barberId)
+    && String(appointment.stylistId) === String(stylistId)
     && activeStatuses.has(appointment.status || 'Confirmada')
   ));
 
-  const latestEnd = sameBarberDay.reduce((latest, appointment) => {
+  const latestEnd = sameStylistDay.reduce((latest, appointment) => {
     const start = toMinutes(appointment.time);
     const duration = Number(appointment.durationMinutes) > 0 ? Number(appointment.durationMinutes) : 30;
     return Math.max(latest, start + duration);
@@ -260,10 +259,10 @@ const appointmentTimeToMinutes = (time = '00:00') => {
   return (Number(hours) || 0) * 60 + (Number(minutes) || 0);
 };
 
-const hasAppointmentBarberConflict = ({ appointments = [], appointment, targetBarberId, targetDate, targetTime }) => {
-  if (!appointment || !targetBarberId) return false;
+const hasAppointmentStylistConflict = ({ appointments = [], appointment, targetStylistId, targetDate, targetTime }) => {
+  if (!appointment || !targetStylistId) return false;
 
-  const activeStatuses = new Set(['Confirmada', 'En Espera', 'En Corte']);
+  const activeStatuses = new Set(['Confirmada', 'En Espera', 'En Servicio']);
   const normalizedTargetDate = standardizeDate(targetDate || appointment.date);
   const start = appointmentTimeToMinutes(targetTime || appointment.time);
   const duration = Number(appointment.durationMinutes) > 0 ? Number(appointment.durationMinutes) : 30;
@@ -272,7 +271,7 @@ const hasAppointmentBarberConflict = ({ appointments = [], appointment, targetBa
   return (appointments || []).some((candidate) => {
     if (String(candidate.id) === String(appointment.id)) return false;
     if (standardizeDate(candidate.date) !== normalizedTargetDate) return false;
-    if (String(candidate.barberId) !== String(targetBarberId)) return false;
+    if (String(candidate.stylistId) !== String(targetStylistId)) return false;
     if (!activeStatuses.has(candidate.status || 'Confirmada')) return false;
 
     const candidateStart = appointmentTimeToMinutes(candidate.time);
@@ -292,7 +291,7 @@ function SystemView({
   onCreateSystemUser,
   onResetUserPassword,
   onUpdateUserProfile,
-  onCreateBarbershop,
+  onCreateSalon,
   onCreateBranch,
   isAdmin,
   isSuperAdmin,
@@ -300,87 +299,87 @@ function SystemView({
   const { notify } = useUiFeedback();
   const [search, setSearch] = useState('');
   const [activeSystemPanel, setActiveSystemPanel] = useState('users');
-  const [showCreateBarbershop, setShowCreateBarbershop] = useState(false);
+  const [showCreateSalon, setShowCreateSalon] = useState(false);
   const [showBranchForm, setShowBranchForm] = useState(false);
   const [showCreateUser, setShowCreateUser] = useState(false);
   const [resetPasswordTarget, setResetPasswordTarget] = useState(null);
   const [editingUser, setEditingUser] = useState(null);
-  const [selectedBranchesBarbershopId, setSelectedBranchesBarbershopId] = useState('all');
-  const [selectedUsersBarbershopId, setSelectedUsersBarbershopId] = useState('all');
+  const [selectedBranchesSalonId, setSelectedBranchesSalonId] = useState('all');
+  const [selectedUsersSalonId, setSelectedUsersSalonId] = useState('all');
   const [selectedUsersBranchId, setSelectedUsersBranchId] = useState('all');
   const [onboarding, setOnboarding] = useState({ name: '', ownerEmail: '', phone: '', city: '', plan: BUSINESS_PLANS[0], adminUserId: '' });
-  const [branchForm, setBranchForm] = useState({ id: '', name: '', code: '', city: '', address: '', barbershopId: '' });
-  const [newUser, setNewUser] = useState({ fullName: '', email: '', password: '', roleName: 'admin', barbershopId: '', branchId: '' });
+  const [branchForm, setBranchForm] = useState({ id: '', name: '', code: '', city: '', address: '', salonId: '' });
+  const [newUser, setNewUser] = useState({ fullName: '', email: '', password: '', roleName: 'admin', salonId: '', branchId: '' });
 
   const roleCatalog = accessControl.roles.length
     ? accessControl.roles.filter((role) => ['super_admin', 'admin', 'cashier'].includes(role.roleName))
     : [
         { roleName: 'super_admin', description: 'Control total de la plataforma SaaS' },
-  { roleName: 'admin', description: 'Administra la barbería y su configuración' },
-  { roleName: 'cashier', description: 'Caja / recepción' },
+        { roleName: 'admin', description: 'Administra el salón y su configuración' },
+        { roleName: 'cashier', description: 'Caja / recepción' },
       ];
   const editableRoleCatalog = roleCatalog.filter((role) => isSuperAdmin || role.roleName !== 'super_admin');
-  const barbershops = useMemo(() => accessControl.barbershops || [], [accessControl.barbershops]);
+  const salons = useMemo(() => accessControl.salons || [], [accessControl.salons]);
   const branches = useMemo(() => accessControl.branches || [], [accessControl.branches]);
-  const currentBarbershop = barbershops.find((shop) => String(shop.id) === String(accessControl.currentBarbershopId || ''))
-    || (!isSuperAdmin ? barbershops[0] || null : null);
-  const effectiveCurrentBarbershopId = accessControl.currentBarbershopId || currentBarbershop?.id || barbershops[0]?.id || '';
+  const currentSalon = salons.find((shop) => String(shop.id) === String(accessControl.currentSalonId || ''))
+    || (!isSuperAdmin ? salons[0] || null : null);
+  const effectiveCurrentSalonId = accessControl.currentSalonId || currentSalon?.id || salons[0]?.id || '';
   const currentBranch = branches.find((branch) => String(branch.id) === String(accessControl.currentBranchId || '')) || null;
-  const defaultBarbershopId = effectiveCurrentBarbershopId;
-  const branchesForCurrentBarbershop = branches.filter((branch) => String(branch.barbershopId || '') === String(effectiveCurrentBarbershopId));
-  const effectiveUsersBarbershopId = !isSuperAdmin
-    ? (defaultBarbershopId || 'all')
+  const defaultSalonId = effectiveCurrentSalonId;
+  const branchesForCurrentSalon = branches.filter((branch) => String(branch.salonId || '') === String(effectiveCurrentSalonId));
+  const effectiveUsersSalonId = !isSuperAdmin
+    ? (defaultSalonId || 'all')
     : (
-        selectedUsersBarbershopId === 'all'
+        selectedUsersSalonId === 'all'
           ? 'all'
-          : (barbershops.some((shop) => String(shop.id) === String(selectedUsersBarbershopId)) ? selectedUsersBarbershopId : 'all')
+          : (salons.some((shop) => String(shop.id) === String(selectedUsersSalonId)) ? selectedUsersSalonId : 'all')
       );
-  const branchesForSelectedUsersBarbershop = effectiveUsersBarbershopId === 'all'
+  const branchesForSelectedUsersSalon = effectiveUsersSalonId === 'all'
     ? []
-    : branches.filter((branch) => String(branch.barbershopId || '') === String(effectiveUsersBarbershopId));
-  const effectiveBranchesBarbershopId = !isSuperAdmin
-    ? (defaultBarbershopId || 'all')
+    : branches.filter((branch) => String(branch.salonId || '') === String(effectiveUsersSalonId));
+  const effectiveBranchesSalonId = !isSuperAdmin
+    ? (defaultSalonId || 'all')
     : (
-        selectedBranchesBarbershopId === 'all'
+        selectedBranchesSalonId === 'all'
           ? 'all'
-          : (barbershops.some((shop) => String(shop.id) === String(selectedBranchesBarbershopId)) ? selectedBranchesBarbershopId : 'all')
+          : (salons.some((shop) => String(shop.id) === String(selectedBranchesSalonId)) ? selectedBranchesSalonId : 'all')
       );
-  const effectiveUsersBranchId = effectiveUsersBarbershopId === 'all'
+  const effectiveUsersBranchId = effectiveUsersSalonId === 'all'
     ? 'all'
     : (
-        selectedUsersBranchId !== 'all' && branchesForSelectedUsersBarbershop.some((branch) => String(branch.id) === String(selectedUsersBranchId))
+        selectedUsersBranchId !== 'all' && branchesForSelectedUsersSalon.some((branch) => String(branch.id) === String(selectedUsersBranchId))
           ? selectedUsersBranchId
           : 'all'
       );
-  const effectiveBranchFormBarbershopId = isSuperAdmin
-    ? (branchForm.barbershopId || defaultBarbershopId)
-    : (defaultBarbershopId || accessControl.currentBarbershopId || '');
+  const effectiveBranchFormSalonId = isSuperAdmin
+    ? (branchForm.salonId || defaultSalonId)
+    : (defaultSalonId || accessControl.currentSalonId || '');
   const effectiveNewUserRole = isSuperAdmin ? newUser.roleName : 'cashier';
-  const effectiveNewUserBarbershopId = isSuperAdmin
-    ? (newUser.barbershopId || defaultBarbershopId)
-    : (defaultBarbershopId || accessControl.currentBarbershopId || '');
+  const effectiveNewUserSalonId = isSuperAdmin
+    ? (newUser.salonId || defaultSalonId)
+    : (defaultSalonId || accessControl.currentSalonId || '');
   const filteredBranches = useMemo(() => {
     if (!isSuperAdmin) {
-      return branchesForCurrentBarbershop;
+      return branchesForCurrentSalon;
     }
 
-    if (effectiveBranchesBarbershopId === 'all') {
+    if (effectiveBranchesSalonId === 'all') {
       return branches;
     }
 
-    return branches.filter((branch) => String(branch.barbershopId || '') === String(effectiveBranchesBarbershopId));
-  }, [isSuperAdmin, branches, branchesForCurrentBarbershop, effectiveBranchesBarbershopId]);
-  const branchCountByBarbershopId = useMemo(
+    return branches.filter((branch) => String(branch.salonId || '') === String(effectiveBranchesSalonId));
+  }, [isSuperAdmin, branches, branchesForCurrentSalon, effectiveBranchesSalonId]);
+  const branchCountBySalonId = useMemo(
     () => branches.reduce((accumulator, branch) => {
-      const key = String(branch.barbershopId || '');
+      const key = String(branch.salonId || '');
       accumulator[key] = (accumulator[key] || 0) + 1;
       return accumulator;
     }, {}),
     [branches],
   );
   const availableBranchOptionsForNewUser = isSuperAdmin
-    ? branches.filter((branch) => String(branch.barbershopId || '') === String(effectiveNewUserBarbershopId))
-    : branchesForCurrentBarbershop;
+    ? branches.filter((branch) => String(branch.salonId || '') === String(effectiveNewUserSalonId))
+    : branchesForCurrentSalon;
   const effectiveNewUserBranchId = !newUser.branchId
     ? (!isSuperAdmin ? (currentBranch?.id || '') : '')
     : (availableBranchOptionsForNewUser.some((branch) => String(branch.id) === String(newUser.branchId)) ? newUser.branchId : '');
@@ -398,7 +397,7 @@ function SystemView({
       code: '',
       city: '',
       address: '',
-      barbershopId: '',
+      salonId: '',
     });
   };
 
@@ -411,7 +410,7 @@ function SystemView({
       code: branch.code || '',
       city: branch.city || '',
       address: branch.address || '',
-      barbershopId: branch.barbershopId || currentBarbershop?.id || '',
+      salonId: branch.salonId || currentSalon?.id || '',
     });
   };
 
@@ -419,8 +418,8 @@ function SystemView({
     const normalized = search.trim().toLowerCase();
     const base = (accessControl.users || []).filter((user) => {
       if (!isSuperAdmin) return true;
-      if (effectiveUsersBarbershopId === 'all') return true;
-      if (String(user.barbershopId || '') !== String(effectiveUsersBarbershopId)) return false;
+      if (effectiveUsersSalonId === 'all') return true;
+      if (String(user.salonId || '') !== String(effectiveUsersSalonId)) return false;
       if (effectiveUsersBranchId === 'all') return true;
       return String(user.branchId || '') === String(effectiveUsersBranchId);
     });
@@ -429,10 +428,10 @@ function SystemView({
     return base.filter((user) =>
       (user.fullName || '').toLowerCase().includes(normalized) ||
       (user.email || '').toLowerCase().includes(normalized) ||
-      (user.barbershopName || '').toLowerCase().includes(normalized) ||
+      (user.salonName || '').toLowerCase().includes(normalized) ||
       (user.roles || []).some((role) => role.toLowerCase().includes(normalized)),
     );
-  }, [accessControl.users, isSuperAdmin, search, effectiveUsersBarbershopId, effectiveUsersBranchId]);
+  }, [accessControl.users, isSuperAdmin, search, effectiveUsersSalonId, effectiveUsersBranchId]);
 
   const formatUserCreatedAt = (value) => {
     if (!value) return 'Sin fecha';
@@ -452,7 +451,7 @@ function SystemView({
     const primaryRole = getPrimaryRole(user);
     if (primaryRole === 'super_admin') return false;
     if (isSuperAdmin) return true;
-    return String(user.barbershopId || '') === String(effectiveCurrentBarbershopId || '') && primaryRole === 'cashier';
+    return String(user.salonId || '') === String(effectiveCurrentSalonId || '') && primaryRole === 'cashier';
   };
   const getEditableRoleOptionsForUser = (user) => {
     if (!user) return [];
@@ -465,16 +464,16 @@ function SystemView({
   const handleSubmitOnboarding = async (event) => {
     event.preventDefault();
     if (!onboarding.name.trim()) {
-      notify('Ingresa el nombre de la barbería para completar el onboarding.', 'warning');
+      notify('Ingresa el nombre del salón para completar el onboarding.', 'warning');
       return;
     }
-    const created = await onCreateBarbershop({
+    const created = await onCreateSalon({
       ...onboarding,
       adminUserId: effectiveOnboardingAdminUserId || '',
     });
     if (created) {
       setOnboarding({ name: '', ownerEmail: '', phone: '', city: '', plan: BUSINESS_PLANS[0], adminUserId: '' });
-      setShowCreateBarbershop(false);
+      setShowCreateSalon(false);
     }
   };
 
@@ -491,19 +490,19 @@ function SystemView({
       return;
     }
 
-    const resolvedBarbershopId = isSuperAdmin
-      ? effectiveNewUserBarbershopId
-      : (defaultBarbershopId || accessControl.currentBarbershopId || '');
+    const resolvedSalonId = isSuperAdmin
+      ? effectiveNewUserSalonId
+      : (defaultSalonId || accessControl.currentSalonId || '');
     const resolvedBranchId = isSuperAdmin
       ? (effectiveNewUserBranchId || null)
       : (effectiveNewUserBranchId || currentBranch?.id || null);
     const resolvedPassword = newUser.password.trim();
 
-    if (!resolvedBarbershopId) {
+    if (!resolvedSalonId) {
       notify(
         isSuperAdmin
-          ? 'Selecciona la barbería a la que pertenecerá este usuario.'
-          : 'Tu cuenta de administrador todavía no está vinculada a una barbería.',
+          ? 'Selecciona el salón al que pertenecerá este usuario.'
+          : 'Tu cuenta de administrador todavía no está vinculada a un salón.',
         'warning',
       );
       return;
@@ -514,7 +513,7 @@ function SystemView({
       email: newUser.email.trim().toLowerCase(),
       password: resolvedPassword,
       roleName: effectiveNewUserRole,
-      barbershopId: resolvedBarbershopId,
+      salonId: resolvedSalonId,
       branchId: resolvedBranchId,
     });
 
@@ -525,7 +524,7 @@ function SystemView({
         email: '',
         password: '',
         roleName: isSuperAdmin ? 'admin' : 'cashier',
-        barbershopId: '',
+        salonId: '',
         branchId: '',
       });
       setShowCreateUser(false);
@@ -535,12 +534,12 @@ function SystemView({
   const handleSubmitBranch = async (event) => {
     event.preventDefault();
 
-    const resolvedBarbershopId = isSuperAdmin
-      ? effectiveBranchFormBarbershopId
-      : (defaultBarbershopId || accessControl.currentBarbershopId || '');
+    const resolvedSalonId = isSuperAdmin
+      ? effectiveBranchFormSalonId
+      : (defaultSalonId || accessControl.currentSalonId || '');
 
-    if (!resolvedBarbershopId || !branchForm.name.trim()) {
-      notify('Completa el nombre de la sucursal y la barbería correspondiente.', 'warning');
+    if (!resolvedSalonId || !branchForm.name.trim()) {
+      notify('Completa el nombre de la sucursal y el salón correspondiente.', 'warning');
       return;
     }
 
@@ -550,7 +549,7 @@ function SystemView({
       code: branchForm.code.trim(),
       city: branchForm.city.trim(),
       address: branchForm.address.trim(),
-      barbershopId: resolvedBarbershopId,
+      salonId: resolvedSalonId,
     });
 
     if (created) {
@@ -561,16 +560,16 @@ function SystemView({
 
   const handleSubmitEditUser = async (payload) => {
     if (!editingUser) return false;
-    const targetBarbershopId = isSuperAdmin
-      ? (payload.barbershopId || null)
-      : (currentBarbershop?.id || accessControl.currentBarbershopId || null);
+    const targetSalonId = isSuperAdmin
+      ? (payload.salonId || null)
+      : (currentSalon?.id || accessControl.currentSalonId || null);
     const targetBranchId = payload.branchId || null;
     const nextRoleName = isSuperAdmin ? payload.roleName : 'cashier';
 
     await onUpdateUserProfile(editingUser, {
       fullName: payload.fullName,
       roleName: nextRoleName,
-      barbershopId: targetBarbershopId,
+      salonId: targetSalonId,
       branchId: targetBranchId,
     });
     setEditingUser(null);
@@ -581,13 +580,13 @@ function SystemView({
     <div className="p-4 md:p-10 space-y-6 md:space-y-8 animate-in fade-in text-white no-print">
       {isSuperAdmin && (
         <section className="flex flex-wrap gap-3">
-          {[{ id: 'barbershops', label: 'Barberías' }, { id: 'branches', label: 'Sucursales' }, { id: 'users', label: 'Usuarios' }].map((item) => (
+          {[{ id: 'salons', label: 'Salones' }, { id: 'branches', label: 'Sucursales' }, { id: 'users', label: 'Usuarios' }].map((item) => (
             <button
               key={item.id}
               onClick={() => setActiveSystemPanel(item.id)}
               className={`w-full sm:w-auto px-6 py-3 rounded-[1.4rem] text-[10px] font-black uppercase tracking-[0.22em] transition-all border ${
                 activeSystemPanel === item.id
-                  ? 'bg-indigo-600 text-white border-indigo-500 shadow-[0_0_20px_rgba(79,70,229,0.25)]'
+                  ? 'bg-indigo-600 text-white border-indigo-500 shadow-[0_0_20px_rgba(201,111,141,0.24)]'
                   : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-white hover:border-slate-700'
               }`}
             >
@@ -597,12 +596,12 @@ function SystemView({
         </section>
       )}
 
-      {isSuperAdmin && showCreateBarbershop && (
+      {isSuperAdmin && showCreateSalon && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 p-4 backdrop-blur-md animate-in fade-in duration-300">
           <div className="w-full max-w-5xl bg-slate-950 border border-white/10 rounded-[3rem] overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.8)] animate-in zoom-in-95 duration-300 relative text-white max-h-[88vh] overflow-y-auto custom-scrollbar">
             <button
               type="button"
-              onClick={() => setShowCreateBarbershop(false)}
+              onClick={() => setShowCreateSalon(false)}
               className="absolute top-6 right-6 p-3 rounded-2xl bg-white/5 hover:bg-rose-500/20 text-white/40 hover:text-rose-400 transition-all z-20"
             >
               <X size={20} />
@@ -613,7 +612,7 @@ function SystemView({
                 <div className="min-w-0">
                   <p className="text-[10px] font-black uppercase tracking-[0.22em] text-indigo-300">Configuración comercial</p>
                   <h3 className="mt-3 text-[2rem] font-black uppercase italic tracking-tighter text-white leading-none">
-                    Nueva barbería
+                    Nuevo salón
                   </h3>
                 </div>
               </div>
@@ -624,7 +623,7 @@ function SystemView({
                   <input
                     value={onboarding.name}
                     onChange={(e) => setOnboarding((prev) => ({ ...prev, name: e.target.value }))}
-                    placeholder="Ej. Barbería Central"
+                    placeholder="Ej. Salón Central"
                     className="w-full bg-black border border-slate-800 rounded-[1.4rem] px-6 py-4 text-sm font-bold text-white outline-none focus:border-indigo-500 italic"
                   />
                 </div>
@@ -633,7 +632,7 @@ function SystemView({
                   <input
                     value={onboarding.ownerEmail}
                     onChange={(e) => setOnboarding((prev) => ({ ...prev, ownerEmail: e.target.value }))}
-                    placeholder="dueno@barberia.com"
+                    placeholder="dueño@salonpro.com"
                     className="w-full bg-black border border-slate-800 rounded-[1.4rem] px-6 py-4 text-sm font-bold text-white outline-none focus:border-indigo-500 italic"
                   />
                 </div>
@@ -688,14 +687,14 @@ function SystemView({
                 <button
                   type="submit"
                   disabled={onboardingBusy}
-                  className="flex-1 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 text-white py-4.5 rounded-[1.6rem] font-black uppercase italic text-[11px] tracking-[0.22em] transition-all flex items-center justify-center gap-3 shadow-[0_12px_30px_rgba(99,102,241,0.24)]"
+                  className="flex-1 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 text-white py-4.5 rounded-[1.6rem] font-black uppercase italic text-[11px] tracking-[0.22em] transition-all flex items-center justify-center gap-3 shadow-[0_12px_30px_rgba(201,111,141,0.24)]"
                 >
                   {onboardingBusy ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
-                  Crear barbería
+                  Crear salón
                 </button>
                 <button
                   type="button"
-                  onClick={() => setShowCreateBarbershop(false)}
+                  onClick={() => setShowCreateSalon(false)}
                   className="sm:w-56 bg-white/5 hover:bg-white/10 text-white py-4.5 rounded-[1.6rem] font-black uppercase italic text-[11px] tracking-[0.22em] transition-all"
                 >
                   Cancelar
@@ -733,14 +732,14 @@ function SystemView({
               <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-6">
                 {isSuperAdmin && (
                   <div className="space-y-3 md:col-span-2">
-                    <label className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500">Barbería</label>
+                    <label className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500">Salón</label>
                     <select
-                      value={effectiveBranchFormBarbershopId}
-                      onChange={(e) => setBranchForm((prev) => ({ ...prev, barbershopId: e.target.value }))}
+                      value={effectiveBranchFormSalonId}
+                      onChange={(e) => setBranchForm((prev) => ({ ...prev, salonId: e.target.value }))}
                       className="w-full bg-black border border-slate-800 rounded-[1.4rem] px-6 py-4 text-sm font-bold text-white outline-none focus:border-indigo-500 italic"
                     >
-                      <option value="">Selecciona una barbería</option>
-                      {barbershops.map((shop) => (
+                      <option value="">Selecciona un salón</option>
+                      {salons.map((shop) => (
                         <option key={shop.id} value={shop.id}>{shop.name}</option>
                       ))}
                     </select>
@@ -789,7 +788,7 @@ function SystemView({
                 <button
                   type="submit"
                   disabled={onboardingBusy}
-                  className="flex-1 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 text-white py-4.5 rounded-[1.6rem] font-black uppercase italic text-[11px] tracking-[0.22em] transition-all flex items-center justify-center gap-3 shadow-[0_12px_30px_rgba(99,102,241,0.24)]"
+                  className="flex-1 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 text-white py-4.5 rounded-[1.6rem] font-black uppercase italic text-[11px] tracking-[0.22em] transition-all flex items-center justify-center gap-3 shadow-[0_12px_30px_rgba(201,111,141,0.24)]"
                 >
                   {onboardingBusy ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
                   {branchForm.id ? 'Guardar cambios' : 'Crear sucursal'}
@@ -818,7 +817,7 @@ function SystemView({
               onClick={() => setActiveSystemPanel(item.id)}
               className={`w-full sm:w-auto px-6 py-3 rounded-[1.4rem] text-[10px] font-black uppercase tracking-[0.22em] transition-all border ${
                 activeSystemPanel === item.id
-                  ? 'bg-indigo-600 text-white border-indigo-500 shadow-[0_0_20px_rgba(79,70,229,0.25)]'
+                  ? 'bg-indigo-600 text-white border-indigo-500 shadow-[0_0_20px_rgba(201,111,141,0.24)]'
                   : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-white hover:border-slate-700'
               }`}
             >
@@ -828,36 +827,36 @@ function SystemView({
         </section>
       )}
 
-      {activeSystemPanel === 'barbershops' && (
+      {activeSystemPanel === 'salons' && (
         <section className="rounded-[3rem] border border-slate-800 bg-slate-900 shadow-2xl overflow-hidden">
           <div className="px-5 md:px-8 py-6 md:py-7 border-b border-slate-800 bg-black/40">
             <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-5">
               <div>
                 <p className="text-[9px] font-black uppercase tracking-[0.22em] text-slate-500">Negocios activos</p>
-                <h4 className="mt-3 text-2xl md:text-3xl font-black uppercase italic tracking-tighter text-white">Barberías registradas</h4>
+                <h4 className="mt-3 text-2xl md:text-3xl font-black uppercase italic tracking-tighter text-white">Salones registrados</h4>
               </div>
 
               <div className="w-full xl:w-auto flex flex-col sm:flex-row gap-3">
                 <div className="rounded-[1.6rem] border border-white/5 bg-slate-950 px-5 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
-                  {barbershops.length} barberías
+                  {salons.length} salones
                 </div>
                 <button
                   type="button"
-                  onClick={() => setShowCreateBarbershop(true)}
+                  onClick={() => setShowCreateSalon(true)}
                   className="px-5 py-4 rounded-[1.6rem] bg-indigo-600 hover:bg-indigo-500 text-white font-black uppercase italic text-[10px] tracking-[0.2em] transition-all flex items-center justify-center gap-2"
                 >
                   <Plus size={16} />
-                  Nueva barbería
+                  Nuevo salón
                 </button>
               </div>
             </div>
           </div>
 
           <div className="p-4 md:p-8">
-            {barbershops.length > 0 ? (
+            {salons.length > 0 ? (
               <>
                 <div className="grid gap-4 md:hidden">
-                  {barbershops.map((shop) => (
+                  {salons.map((shop) => (
                     <div key={shop.id} className="rounded-[2rem] border border-white/5 bg-black/25 p-5">
                       <p className="text-lg font-black uppercase italic tracking-tighter text-white break-words">{shop.name || 'Sin nombre'}</p>
                       <div className="mt-4 grid grid-cols-1 gap-3 text-sm">
@@ -873,7 +872,7 @@ function SystemView({
                           <span className="inline-flex px-3 py-2 rounded-xl border border-white/10 bg-slate-950 text-[10px] font-black uppercase tracking-[0.2em] text-slate-200">
                             {shop.plan || 'Sin plan'}
                           </span>
-                          <span className="text-sm font-black text-white">{branchCountByBarbershopId[String(shop.id)] || 0} suc.</span>
+                          <span className="text-sm font-black text-white">{branchCountBySalonId[String(shop.id)] || 0} suc.</span>
                         </div>
                       </div>
                     </div>
@@ -882,7 +881,7 @@ function SystemView({
                 <div className="hidden md:block rounded-[2.4rem] border border-white/5 bg-black/35 overflow-x-auto">
                 <div className="min-w-[980px]">
                   <div className="grid grid-cols-[minmax(220px,1.2fr)_160px_minmax(260px,1.2fr)_140px_140px] gap-4 px-6 py-5 border-b border-white/5 text-[9px] font-black uppercase tracking-[0.24em] text-slate-500">
-                    <span>Barbería</span>
+                    <span>Salón</span>
                     <span>Ciudad</span>
                     <span>Propietario</span>
                     <span>Plan</span>
@@ -890,7 +889,7 @@ function SystemView({
                   </div>
 
                   <div className="divide-y divide-white/5">
-                    {barbershops.map((shop) => (
+                    {salons.map((shop) => (
                       <div
                         key={shop.id}
                         className="grid grid-cols-[minmax(220px,1.2fr)_160px_minmax(260px,1.2fr)_140px_140px] gap-4 px-6 py-5 items-center"
@@ -922,7 +921,7 @@ function SystemView({
                         </div>
                         <div>
                           <span className="text-sm font-black text-white">
-                            {branchCountByBarbershopId[String(shop.id)] || 0}
+                            {branchCountBySalonId[String(shop.id)] || 0}
                           </span>
                         </div>
                       </div>
@@ -933,7 +932,7 @@ function SystemView({
               </>
             ) : (
               <div className="rounded-[2.4rem] border border-white/5 bg-black/20 px-6 py-16 text-center">
-                <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-500">Todavía no hay barberías registradas</p>
+                <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-500">Todavía no hay salones registrados</p>
               </div>
             )}
           </div>
@@ -953,12 +952,12 @@ function SystemView({
                 {isSuperAdmin && (
                   <div className="w-full sm:w-[260px]">
                     <select
-                      value={effectiveBranchesBarbershopId}
-                      onChange={(e) => setSelectedBranchesBarbershopId(e.target.value)}
+                      value={effectiveBranchesSalonId}
+                      onChange={(e) => setSelectedBranchesSalonId(e.target.value)}
                       className="w-full bg-slate-950 border border-slate-800 rounded-[1.6rem] px-5 py-4 text-sm font-bold text-white outline-none focus:border-indigo-500 italic"
                     >
-                      <option value="all">Todas las barberías</option>
-                      {barbershops.map((shop) => (
+                      <option value="all">Todos los salones</option>
+                      {salons.map((shop) => (
                         <option key={shop.id} value={shop.id}>{shop.name}</option>
                       ))}
                     </select>
@@ -988,8 +987,8 @@ function SystemView({
                       <p className="text-lg font-black uppercase italic tracking-tighter text-white break-words">{branch.name || 'Sin nombre'}</p>
                       <div className="mt-4 grid grid-cols-1 gap-3 text-sm">
                         <div>
-                          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-500">Barbería</p>
-                          <p className="mt-1 font-bold text-slate-300 break-words">{branch.barbershopName || currentBarbershop?.name || 'Sin barbería'}</p>
+                          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-500">Salón</p>
+                          <p className="mt-1 font-bold text-slate-300 break-words">{branch.salonName || currentSalon?.name || 'Sin salón'}</p>
                         </div>
                         <div className="grid grid-cols-2 gap-3">
                           <div>
@@ -1021,7 +1020,7 @@ function SystemView({
                 <div className="min-w-[1120px]">
                   <div className="grid grid-cols-[minmax(220px,1.1fr)_minmax(220px,1fr)_140px_150px_minmax(260px,1.3fr)_130px] gap-4 px-6 py-5 border-b border-white/5 text-[9px] font-black uppercase tracking-[0.24em] text-slate-500">
                     <span>Sucursal</span>
-                    <span>Barbería</span>
+                    <span>Salón</span>
                     <span>Código</span>
                     <span>Ciudad</span>
                     <span>Dirección</span>
@@ -1041,7 +1040,7 @@ function SystemView({
                         </div>
                         <div className="min-w-0">
                           <p className="text-sm font-bold text-slate-300 break-all">
-                            {branch.barbershopName || currentBarbershop?.name || 'Sin barbería'}
+                            {branch.salonName || currentSalon?.name || 'Sin salón'}
                           </p>
                         </div>
                         <div>
@@ -1105,21 +1104,21 @@ function SystemView({
               {isSuperAdmin && (
                 <div className="w-full sm:w-[260px]">
                   <select
-                    value={effectiveUsersBarbershopId}
+                    value={effectiveUsersSalonId}
                     onChange={(e) => {
-                      setSelectedUsersBarbershopId(e.target.value);
+                      setSelectedUsersSalonId(e.target.value);
                       setSelectedUsersBranchId('all');
                     }}
                     className="w-full bg-slate-950 border border-slate-800 rounded-[1.6rem] px-5 py-4 text-sm font-bold text-white outline-none focus:border-indigo-500 italic"
                   >
-                    <option value="all">Todas las barberías</option>
-                    {barbershops.map((shop) => (
+                    <option value="all">Todos los salones</option>
+                    {salons.map((shop) => (
                       <option key={shop.id} value={shop.id}>{shop.name}</option>
                     ))}
                   </select>
                 </div>
               )}
-              {(isSuperAdmin ? effectiveUsersBarbershopId !== 'all' : branchesForCurrentBarbershop.length > 0) && (
+              {(isSuperAdmin ? effectiveUsersSalonId !== 'all' : branchesForCurrentSalon.length > 0) && (
                 <div className="w-full sm:w-[240px]">
                   <select
                     value={effectiveUsersBranchId}
@@ -1127,7 +1126,7 @@ function SystemView({
                     className="w-full bg-slate-950 border border-slate-800 rounded-[1.6rem] px-5 py-4 text-sm font-bold text-white outline-none focus:border-indigo-500 italic"
                   >
                     <option value="all">Todas las sucursales</option>
-                    {(isSuperAdmin ? branchesForSelectedUsersBarbershop : branchesForCurrentBarbershop).map((branch) => (
+                    {(isSuperAdmin ? branchesForSelectedUsersSalon : branchesForCurrentSalon).map((branch) => (
                       <option key={branch.id} value={branch.id}>{branch.name}</option>
                     ))}
                   </select>
@@ -1139,7 +1138,7 @@ function SystemView({
                   type="text"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Buscar por nombre, correo, rol, barbería o sucursal"
+                  placeholder="Buscar por nombre, correo, rol, salón o sucursal"
                   className="w-full bg-slate-950 border border-slate-800 rounded-[1.6rem] pl-5 pr-12 py-4 text-sm font-bold text-white outline-none focus:border-indigo-500 italic"
                 />
               </div>
@@ -1162,7 +1161,7 @@ function SystemView({
                 <form onSubmit={handleSubmitNewUser}>
                   <div className="px-8 py-7 border-b border-white/5 flex items-center justify-between gap-6">
                     <div className="flex items-center gap-5 min-w-0">
-                      <div className="w-14 h-14 rounded-[1.6rem] bg-indigo-600 flex items-center justify-center text-white shadow-[0_0_30px_rgba(99,102,241,0.35)] shrink-0">
+                      <div className="w-14 h-14 rounded-[1.6rem] bg-indigo-600 flex items-center justify-center text-white shadow-[0_0_30px_rgba(201,111,141,0.32)] shrink-0">
                         <ShieldCheck size={24} />
                       </div>
                       <div className="min-w-0">
@@ -1193,7 +1192,7 @@ function SystemView({
                         type="email"
                         value={newUser.email}
                         onChange={(e) => setNewUser((prev) => ({ ...prev, email: e.target.value }))}
-                        placeholder="Ej. admin@barberia.com"
+                        placeholder="Ej. admin@salonpro.com"
                         className="w-full bg-black border border-slate-800 rounded-[1.4rem] px-6 py-4 text-sm font-bold text-white outline-none focus:border-indigo-500 italic"
                       />
                     </div>
@@ -1232,21 +1231,21 @@ function SystemView({
 
                       {isSuperAdmin && (
                         <div className="space-y-3">
-                          <label className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500">Barbería</label>
+                          <label className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500">Salón</label>
                           <select
-                            value={effectiveNewUserBarbershopId}
-                            onChange={(e) => setNewUser((prev) => ({ ...prev, barbershopId: e.target.value, branchId: '' }))}
+                            value={effectiveNewUserSalonId}
+                            onChange={(e) => setNewUser((prev) => ({ ...prev, salonId: e.target.value, branchId: '' }))}
                             className="w-full bg-black border border-slate-800 rounded-[1.4rem] px-6 py-4 text-sm font-bold text-white outline-none focus:border-indigo-500 italic"
                           >
-                            <option value="">Selecciona una barbería</option>
-                            {barbershops.map((shop) => (
+                            <option value="">Selecciona un salón</option>
+                            {salons.map((shop) => (
                               <option key={shop.id} value={shop.id}>{shop.name}</option>
                             ))}
                           </select>
                         </div>
                       )}
 
-                      {(isSuperAdmin ? availableBranchOptionsForNewUser.length > 0 : branchesForCurrentBarbershop.length > 0) && (
+                      {(isSuperAdmin ? availableBranchOptionsForNewUser.length > 0 : branchesForCurrentSalon.length > 0) && (
                         <div className="space-y-3">
                           <label className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500">Sucursal</label>
                           <select
@@ -1255,7 +1254,7 @@ function SystemView({
                             className="w-full bg-black border border-slate-800 rounded-[1.4rem] px-6 py-4 text-sm font-bold text-white outline-none focus:border-indigo-500 italic"
                           >
                             <option value="">General / sin sucursal</option>
-                            {(isSuperAdmin ? availableBranchOptionsForNewUser : branchesForCurrentBarbershop).map((branch) => (
+                            {(isSuperAdmin ? availableBranchOptionsForNewUser : branchesForCurrentSalon).map((branch) => (
                               <option key={branch.id} value={branch.id}>{branch.name}</option>
                             ))}
                           </select>
@@ -1266,7 +1265,7 @@ function SystemView({
                     <button
                       type="submit"
                       disabled={creatingUser}
-                      className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 text-white py-4.5 rounded-[1.6rem] font-black uppercase italic text-[11px] tracking-[0.22em] transition-all flex items-center justify-center gap-3 shadow-[0_12px_30px_rgba(99,102,241,0.24)]"
+                      className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 text-white py-4.5 rounded-[1.6rem] font-black uppercase italic text-[11px] tracking-[0.22em] transition-all flex items-center justify-center gap-3 shadow-[0_12px_30px_rgba(201,111,141,0.24)]"
                     >
                       {creatingUser ? <Loader2 size={16} className="animate-spin" /> : <ShieldCheck size={16} />}
               Guardar configuración de acceso
@@ -1286,7 +1285,7 @@ function SystemView({
                   : { label: 'Sin rol', badge: 'bg-slate-950 text-slate-400 border-slate-700' };
                 const displayName = user.fullName || user.email || 'Usuario sin nombre';
                 const scopeLabel = isSuperAdmin
-                  ? [user.barbershopName, user.branchName].filter(Boolean).join(' • ')
+                  ? [user.salonName, user.branchName].filter(Boolean).join(' • ')
                   : (user.branchName || '');
                 return (
                   <div key={user.id} className="rounded-[2rem] border border-white/5 bg-black/25 p-5">
@@ -1365,7 +1364,7 @@ function SystemView({
                         </p>
                         {(() => {
                           const scopeLabel = isSuperAdmin
-                            ? [user.barbershopName, user.branchName].filter(Boolean).join(' • ')
+                            ? [user.salonName, user.branchName].filter(Boolean).join(' • ')
                             : (user.branchName || '');
                           return scopeLabel ? (
                             <p className="mt-1 text-[10px] text-slate-500 truncate">
@@ -1460,8 +1459,8 @@ function SystemView({
               key={editingUser.id}
               user={editingUser}
               roleOptions={getEditableRoleOptionsForUser(editingUser)}
-              barbershops={isSuperAdmin ? barbershops : [currentBarbershop].filter(Boolean)}
-              branches={isSuperAdmin ? branches : branchesForCurrentBarbershop}
+              salons={isSuperAdmin ? salons : [currentSalon].filter(Boolean)}
+              branches={isSuperAdmin ? branches : branchesForCurrentSalon}
               isSuperAdmin={isSuperAdmin}
               busy={savingUserId === editingUser.id}
               onClose={() => setEditingUser(null)}
@@ -1489,7 +1488,7 @@ export default function App() {
       const raw = window.localStorage.getItem(AUTH_RUNTIME_CACHE_KEY);
       return raw ? JSON.parse(raw) : null;
     } catch (error) {
-      console.error('No se pudo leer el cache local de BarberPro:', error);
+      console.error('No se pudo leer el cache local de SalonPro:', error);
       return null;
     }
   }, []);
@@ -1502,9 +1501,9 @@ export default function App() {
   const [authError, setAuthError] = useState('');
   const [passwordBusy, setPasswordBusy] = useState(false);
   const [showSelfPasswordModal, setShowSelfPasswordModal] = useState(false);
-  const [accessControl, setAccessControl] = useState({ roles: [], users: [], currentUserRoles: [], currentBarbershopId: null, currentBranchId: null, barbershops: [], branches: [] });
+  const [accessControl, setAccessControl] = useState({ roles: [], users: [], currentUserRoles: [], currentSalonId: null, currentBranchId: null, salons: [], branches: [] });
   const [accessLoading, setAccessLoading] = useState(false);
-  const [clientDirectoryData, setClientDirectoryData] = useState({ clients: [], appointments: [], barbers: [] });
+  const [clientDirectoryData, setClientDirectoryData] = useState({ clients: [], appointments: [], stylists: [] });
   const [clientDirectoryLoaded, setClientDirectoryLoaded] = useState(false);
   const [clientDirectoryWarnings, setClientDirectoryWarnings] = useState([]);
   const [operationalWarnings, setOperationalWarnings] = useState([]);
@@ -1514,7 +1513,7 @@ export default function App() {
   const [creatingUser, setCreatingUser] = useState(false);
   const [resettingPasswordUserId, setResettingPasswordUserId] = useState(null);
   const [onboardingBusy, setOnboardingBusy] = useState(false);
-  const [superAdminViewBarbershopId, setSuperAdminViewBarbershopId] = useState('');
+  const [superAdminViewSalonId, setSuperAdminViewSalonId] = useState('');
   const [feedbackToast, setFeedbackToast] = useState(null);
   const [feedbackToastQueue, setFeedbackToastQueue] = useState([]);
   const [confirmState, setConfirmState] = useState(null);
@@ -1526,7 +1525,7 @@ export default function App() {
   const useBrowserCache = isLocalDevModeEnabled && !hasSupabaseConfig && !shouldBlockWithoutSupabase;
   const localDevStorage = useBrowserCache ? globalThis.sessionStorage : null;
   const [appointments, setAppointments] = useState(() => {
-    const saved = localDevStorage?.getItem('bp_dev_appointments') || null;
+    const saved = localDevStorage?.getItem('sp_dev_appointments') || null;
     const list = saved ? JSON.parse(saved) : [];
     return list.map(a => ({
       ...a,
@@ -1538,17 +1537,19 @@ export default function App() {
   });
   
   const [services, setServices] = useState(() => {
-    const saved = localDevStorage?.getItem('bp_dev_services') || null;
+    const saved = localDevStorage?.getItem('sp_dev_services') || null;
     if (saved) return JSON.parse(saved);
     if (!shouldSeedLocalDevMode) return [];
     return [
-      { id: '1', name: 'Corte Clásico', price: 250, category: 'Cortes' },
-      { id: '2', name: 'Perfilado Barba', price: 150, category: 'Barba' },
-      { id: '3', name: 'Pomada Premium', price: 350, category: 'Producto' },
-      { id: '4', name: 'Combo Master', price: 400, category: 'Combo', items: ['1', '2'] },
+      { id: '1', name: 'Corte y brushing', price: 450, category: 'Cabello' },
+      { id: '2', name: 'Manicure spa', price: 380, category: 'Uñas' },
+      { id: '3', name: 'Tinte global', price: 1200, category: 'Color' },
+      { id: '4', name: 'Tratamiento hidratante', price: 650, category: 'Tratamiento' },
+      { id: '5', name: 'Serum capilar premium', price: 350, category: 'Producto' },
+      { id: '6', name: 'Paquete Belleza Total', price: 1750, category: 'Combo', items: ['1', '2', '4'] },
       {
-        id: '5',
-        name: 'Corte gratis por fidelidad',
+        id: '7',
+        name: 'Servicio gratis por fidelidad',
         price: 0,
         category: 'Promocion',
         appliesTo: 'Servicio',
@@ -1561,22 +1562,22 @@ export default function App() {
   });
   
   const [clients, setClients] = useState(() => {
-    const saved = localDevStorage?.getItem('bp_dev_clients') || null;
+    const saved = localDevStorage?.getItem('sp_dev_clients') || null;
     const list = saved ? JSON.parse(saved) : (
       !shouldSeedLocalDevMode
         ? []
-        : [{ id: 'c1', name: 'Carlos Mendoza', phone: '8888-0001', notes: 'Prefiere corte con tijera arriba.', points: 5, createdAt: new Date().toISOString() }]
+        : [{ id: 'c1', name: 'Carlos Mendoza', phone: '8888-0001', notes: 'Prefiere servicio con tijera arriba.', points: 5, createdAt: new Date().toISOString() }]
     );
     return list.map(client => ({ ...client, phone: formatPhoneNumber(client.phone || '') }));
   });
 
-  const [barbers, setBarbers] = useState(() => {
-    const saved = localDevStorage?.getItem('bp_dev_barbers') || null;
-    const list = saved ? JSON.parse(saved) : (!shouldSeedLocalDevMode ? [] : MOCK_BARBERS.map(b => ({ ...b, salary: 0, phone: '', email: '' })));
-    return list.map((b, idx) => ensureBarberTheme(b, idx));
+  const [stylists, setStylists] = useState(() => {
+    const saved = localDevStorage?.getItem('sp_dev_stylists') || null;
+    const list = saved ? JSON.parse(saved) : (!shouldSeedLocalDevMode ? [] : MOCK_STYLISTS.map(b => ({ ...b, salary: 0, phone: '', email: '' })));
+    return list.map((b, idx) => ensureStylistTheme(b, idx));
   });
   const [posSales, setPosSales] = useState(() => {
-    const saved = localDevStorage?.getItem('bp_dev_pos_sales') || null;
+    const saved = localDevStorage?.getItem('sp_dev_pos_sales') || null;
     return saved ? JSON.parse(saved) : [];
   });
   
@@ -1588,17 +1589,17 @@ export default function App() {
   const lastSessionUserIdRef = useRef(null);
   const currentUserRoles = useMemo(() => accessControl.currentUserRoles || [], [accessControl.currentUserRoles]);
   const isSuperAdmin = currentUserRoles.includes('super_admin');
-  const availableBarbershops = useMemo(() => accessControl.barbershops || [], [accessControl.barbershops]);
+  const availableSalons = useMemo(() => accessControl.salons || [], [accessControl.salons]);
   const availableBranches = useMemo(() => accessControl.branches || [], [accessControl.branches]);
-  const effectiveOperationalBarbershopId = isSuperAdmin
-    ? (superAdminViewBarbershopId || availableBarbershops[0]?.id || null)
-    : (accessControl.currentBarbershopId || null);
+  const effectiveOperationalSalonId = isSuperAdmin
+    ? (superAdminViewSalonId || availableSalons[0]?.id || null)
+    : (accessControl.currentSalonId || null);
   const effectiveOperationalBranchId = isSuperAdmin ? null : (accessControl.currentBranchId || null);
   const superAdminScopeOverride = useMemo(() => (
-    isSuperAdmin && effectiveOperationalBarbershopId
-      ? { currentBarbershopId: effectiveOperationalBarbershopId, currentBranchId: null }
+    isSuperAdmin && effectiveOperationalSalonId
+      ? { currentSalonId: effectiveOperationalSalonId, currentBranchId: null }
       : {}
-  ), [isSuperAdmin, effectiveOperationalBarbershopId]);
+  ), [isSuperAdmin, effectiveOperationalSalonId]);
 
   const dismissFeedbackToast = React.useCallback(() => {
     if (feedbackTimerRef.current) {
@@ -1677,10 +1678,10 @@ export default function App() {
     setAppointments([]);
     setServices([]);
     setClients([]);
-    setBarbers([]);
+    setStylists([]);
     setPosSales([]);
     setOperationalWarnings([]);
-    setClientDirectoryData({ clients: [], appointments: [], barbers: [] });
+    setClientDirectoryData({ clients: [], appointments: [], stylists: [] });
     setClientDirectoryLoaded(false);
     setClientDirectoryWarnings([]);
   };
@@ -1701,18 +1702,18 @@ export default function App() {
         ? cached.clients.map((client) => ({ ...client, phone: formatPhoneNumber(client.phone || '') }))
         : [],
     );
-    setBarbers(
-      Array.isArray(cached.barbers)
-        ? cached.barbers.map((barber, index) => ensureBarberTheme(barber, index))
+    setStylists(
+      Array.isArray(cached.stylists)
+        ? cached.stylists.map((stylist, index) => ensureStylistTheme(stylist, index))
         : [],
     );
     setAppointments(Array.isArray(cached.appointments) ? cached.appointments : []);
     setPosSales(Array.isArray(cached.posSales) ? cached.posSales : []);
     setOperationalWarnings(Array.isArray(cached.operationalWarnings) ? cached.operationalWarnings : []);
-    setClientDirectoryData(cached.clientDirectoryData || { clients: [], appointments: [], barbers: [] });
+    setClientDirectoryData(cached.clientDirectoryData || { clients: [], appointments: [], stylists: [] });
     setClientDirectoryLoaded(Boolean(cached.clientDirectoryLoaded));
     setClientDirectoryWarnings(Array.isArray(cached.clientDirectoryWarnings) ? cached.clientDirectoryWarnings : []);
-    setSuperAdminViewBarbershopId(cached.superAdminViewBarbershopId || '');
+    setSuperAdminViewSalonId(cached.superAdminViewSalonId || '');
 
     hydratedFromCacheRef.current = true;
     cacheRestoreAttemptedRef.current = true;
@@ -1738,27 +1739,27 @@ export default function App() {
 
   useEffect(() => {
     if (!useBrowserCache) return;
-    localDevStorage?.setItem('bp_dev_appointments', JSON.stringify(appointments));
+    localDevStorage?.setItem('sp_dev_appointments', JSON.stringify(appointments));
   }, [appointments, useBrowserCache, localDevStorage]);
   useEffect(() => {
     if (!useBrowserCache) return;
-    localDevStorage?.setItem('bp_dev_services', JSON.stringify(services));
+    localDevStorage?.setItem('sp_dev_services', JSON.stringify(services));
   }, [services, useBrowserCache, localDevStorage]);
   useEffect(() => {
     if (!useBrowserCache) return;
-    localDevStorage?.setItem('bp_dev_clients', JSON.stringify(clients));
+    localDevStorage?.setItem('sp_dev_clients', JSON.stringify(clients));
   }, [clients, useBrowserCache, localDevStorage]);
   useEffect(() => {
     if (!useBrowserCache) return;
-    localDevStorage?.setItem('bp_dev_barbers', JSON.stringify(barbers));
-  }, [barbers, useBrowserCache, localDevStorage]);
+    localDevStorage?.setItem('sp_dev_stylists', JSON.stringify(stylists));
+  }, [stylists, useBrowserCache, localDevStorage]);
   useEffect(() => {
     if (!useBrowserCache) return;
-    localDevStorage?.setItem('bp_dev_pos_sales', JSON.stringify(posSales));
+    localDevStorage?.setItem('sp_dev_pos_sales', JSON.stringify(posSales));
   }, [posSales, useBrowserCache, localDevStorage]);
   useEffect(() => {
     if (!useBrowserCache) return;
-    localDevStorage?.removeItem('bp_dev_revenue');
+    localDevStorage?.removeItem('sp_dev_revenue');
   }, [useBrowserCache, localDevStorage]);
   const [modals, setModals] = useState({ 
     appointment: false, service: false, finalize: false, client: false, clientDetail: false, appointmentActions: false, rescheduleAppointment: false, transferAppointment: false, paymentReceipt: false, staffSettlement: false, posSaleReceipt: false
@@ -1864,18 +1865,18 @@ export default function App() {
 
   useEffect(() => {
     if (!isSuperAdmin) {
-      setSuperAdminViewBarbershopId('');
+      setSuperAdminViewSalonId('');
       return;
     }
 
-    const hasSelectedBarbershop = availableBarbershops.some(
-      (shop) => String(shop.id) === String(superAdminViewBarbershopId || ''),
+    const hasSelectedSalon = availableSalons.some(
+      (shop) => String(shop.id) === String(superAdminViewSalonId || ''),
     );
 
-    if (!hasSelectedBarbershop && availableBarbershops.length) {
-      setSuperAdminViewBarbershopId(String(availableBarbershops[0].id));
+    if (!hasSelectedSalon && availableSalons.length) {
+      setSuperAdminViewSalonId(String(availableSalons[0].id));
     }
-  }, [isSuperAdmin, availableBarbershops, superAdminViewBarbershopId]);
+  }, [isSuperAdmin, availableSalons, superAdminViewSalonId]);
   
   useEffect(() => {
     let ignore = false;
@@ -1891,12 +1892,12 @@ export default function App() {
             return;
           }
           if (!ignore && !bootstrapCompletedRef.current) setLoading(true);
-          const snapshot = await fetchBarbershopSnapshot(session.user.id, superAdminScopeOverride);
+          const snapshot = await fetchSalonSnapshot(session.user.id, superAdminScopeOverride);
           if (ignore) return;
 
           setServices(snapshot.services);
           setClients(snapshot.clients);
-          setBarbers(snapshot.barbers.map((barber, index) => ensureBarberTheme(barber, index)));
+          setStylists(snapshot.stylists.map((stylist, index) => ensureStylistTheme(stylist, index)));
           setAppointments(snapshot.appointments);
           setPosSales(snapshot.posSales || []);
           setOperationalWarnings(snapshot.posSalesLoadError ? [snapshot.posSalesLoadError] : []);
@@ -1932,7 +1933,7 @@ export default function App() {
     return () => {
       ignore = true;
     };
-  }, [session, effectiveOperationalBarbershopId, superAdminScopeOverride, notify]);
+  }, [session, effectiveOperationalSalonId, superAdminScopeOverride, notify]);
 
   useEffect(() => {
     if (!hasSupabaseConfig || !session?.user?.id || typeof window === 'undefined') return undefined;
@@ -1941,21 +1942,21 @@ export default function App() {
       userId: session.user.id,
       services,
       clients,
-      barbers,
+      stylists,
       appointments,
       posSales,
       operationalWarnings,
       clientDirectoryData,
       clientDirectoryLoaded,
       clientDirectoryWarnings,
-      superAdminViewBarbershopId,
+      superAdminViewSalonId,
       savedAt: new Date().toISOString(),
     };
 
     try {
       window.localStorage.setItem(AUTH_RUNTIME_CACHE_KEY, JSON.stringify(runtimeCache));
     } catch (error) {
-      console.error('No se pudo guardar el cache local de BarberPro:', error);
+      console.error('No se pudo guardar el cache local de SalonPro:', error);
     }
 
     return undefined;
@@ -1963,19 +1964,19 @@ export default function App() {
     session,
     services,
     clients,
-    barbers,
+    stylists,
     appointments,
     posSales,
     operationalWarnings,
     clientDirectoryData,
     clientDirectoryLoaded,
     clientDirectoryWarnings,
-    superAdminViewBarbershopId,
+    superAdminViewSalonId,
   ]);
 
   useEffect(() => {
     if (!hasSupabaseConfig || !session?.user?.id) {
-      setAccessControl({ roles: [], users: [], currentUserRoles: [], currentBarbershopId: null, currentBranchId: null, barbershops: [], branches: [] });
+      setAccessControl({ roles: [], users: [], currentUserRoles: [], currentSalonId: null, currentBranchId: null, salons: [], branches: [] });
       return undefined;
     }
 
@@ -1995,7 +1996,7 @@ export default function App() {
         console.error('No se pudo cargar control de acceso:', error);
         if (!ignore) {
           const friendlyErrorMessage = getFriendlySupabaseErrorMessage(error, 'dashboard');
-          setAccessControl({ roles: [], users: [], currentUserRoles: [], currentBarbershopId: null, currentBranchId: null, barbershops: [], branches: [] });
+          setAccessControl({ roles: [], users: [], currentUserRoles: [], currentSalonId: null, currentBranchId: null, salons: [], branches: [] });
           notify(`No pude cargar usuarios/sucursales desde Supabase.\n\n${friendlyErrorMessage}`, 'error');
           if (hydratedFromCacheRef.current) {
             setLoading(false);
@@ -2017,9 +2018,9 @@ export default function App() {
 
   useEffect(() => {
     setClientDirectoryLoaded(false);
-    setClientDirectoryData({ clients: [], appointments: [], barbers: [] });
+    setClientDirectoryData({ clients: [], appointments: [], stylists: [] });
     setClientDirectoryWarnings([]);
-  }, [session?.user?.id, effectiveOperationalBarbershopId, superAdminScopeOverride]);
+  }, [session?.user?.id, effectiveOperationalSalonId, superAdminScopeOverride]);
 
   useEffect(() => {
     if (!hasSupabaseConfig || !session?.user?.id || activeTab !== 'clientes' || clientDirectoryLoaded) return undefined;
@@ -2033,7 +2034,7 @@ export default function App() {
           setClientDirectoryData({
             clients: snapshot.clients.map(client => ({ ...client, phone: formatPhoneNumber(client.phone || '') })),
             appointments: snapshot.appointments,
-            barbers: snapshot.barbers.map((barber, index) => ensureBarberTheme(barber, index)),
+            stylists: snapshot.stylists.map((stylist, index) => ensureStylistTheme(stylist, index)),
           });
           setClientDirectoryWarnings(snapshot.warnings || []);
           if (snapshot.warnings?.length) {
@@ -2044,7 +2045,7 @@ export default function App() {
       } catch (error) {
         console.error('No se pudo cargar el directorio de clientes:', error);
         if (!ignore) {
-          setClientDirectoryData({ clients: [], appointments: [], barbers: [] });
+          setClientDirectoryData({ clients: [], appointments: [], stylists: [] });
           setClientDirectoryWarnings([
             error?.message || 'No se pudo cargar el directorio de clientes.',
           ]);
@@ -2062,7 +2063,7 @@ export default function App() {
     return () => {
       ignore = true;
     };
-  }, [session, activeTab, clientDirectoryLoaded, effectiveOperationalBarbershopId, superAdminScopeOverride, notify]);
+  }, [session, activeTab, clientDirectoryLoaded, effectiveOperationalSalonId, superAdminScopeOverride, notify]);
 
   const handleSignIn = async (email, password) => {
     if (!supabase) return;
@@ -2137,27 +2138,27 @@ export default function App() {
     const nextRole = payload.roleName || currentRole || 'cashier';
 
     if (!isSuperAdmin) {
-      if (currentRole !== 'cashier' || String(user.barbershopId || '') !== String(currentBarbershopId || '')) {
-        notify('Solo puedes editar usuarios Caja de tu propia barbería.', 'warning');
+      if (currentRole !== 'cashier' || String(user.salonId || '') !== String(currentSalonId || '')) {
+        notify('Solo puedes editar usuarios Caja de tu propio salón.', 'warning');
         return false;
       }
     }
 
     if (!isSuperAdmin && nextRole !== 'cashier') {
-      notify('Un administrador de barbería solo puede asignar el rol Caja.', 'warning');
+      notify('Un administrador de salón solo puede asignar el rol Caja.', 'warning');
       return false;
     }
 
-    const targetBarbershopId = isSuperAdmin
-      ? (payload.barbershopId || user.barbershopId || null)
-      : (currentBarbershopId || user.barbershopId || null);
+    const targetSalonId = isSuperAdmin
+      ? (payload.salonId || user.salonId || null)
+      : (currentSalonId || user.salonId || null);
     const targetBranchId = payload.branchId || null;
 
     setSavingUserId(user.id);
     try {
       await updateManagedUserProfile(user.id, {
         fullName: payload.fullName,
-        barbershopId: targetBarbershopId,
+        salonId: targetSalonId,
         branchId: targetBranchId,
       });
 
@@ -2182,12 +2183,12 @@ export default function App() {
     }
 
     if (!isSuperAdmin && payload.roleName !== 'cashier') {
-      notify('Un administrador de barbería solo puede crear usuarios de caja.', 'warning');
+      notify('Un administrador de salón solo puede crear usuarios de caja.', 'warning');
       return null;
     }
 
-    if (!isSuperAdmin && !currentBarbershopId) {
-      notify('Tu usuario administrador no tiene una barbería asignada.', 'error');
+    if (!isSuperAdmin && !currentSalonId) {
+      notify('Tu usuario administrador no tiene un salón asignado.', 'error');
       return null;
     }
 
@@ -2195,7 +2196,7 @@ export default function App() {
       ? {
           ...payload,
           roleName: 'cashier',
-          barbershopId: currentBarbershopId,
+          salonId: currentSalonId,
           branchId: payload.branchId || accessControl.currentBranchId || null,
         }
       : payload;
@@ -2204,10 +2205,10 @@ export default function App() {
     try {
       const createdUser = await createManagedUser(normalizedPayload, session?.user?.id);
       const snapshot = await fetchAccessControlSnapshot(session?.user?.id);
-      const createdBarbershop =
-        accessControl.barbershops.find((shop) => String(shop.id) === String(createdUser.barbershopId || normalizedPayload.barbershopId || ''))
-        || currentBarbershop
-        || availableBarbershops[0]
+      const createdSalon =
+        accessControl.salons.find((shop) => String(shop.id) === String(createdUser.salonId || normalizedPayload.salonId || ''))
+        || currentSalon
+        || availableSalons[0]
         || null;
       const createdBranch =
         accessControl.branches.find((branch) => String(branch.id) === String(createdUser.branchId || normalizedPayload.branchId || ''))
@@ -2219,8 +2220,8 @@ export default function App() {
         fullName: createdUser.fullName || createdUser.email,
         createdAt: new Date().toISOString(),
         roles: [createdUser.roleName || normalizedPayload.roleName],
-        barbershopId: createdUser.barbershopId || normalizedPayload.barbershopId || null,
-        barbershopName: createdBarbershop?.name || '',
+        salonId: createdUser.salonId || normalizedPayload.salonId || null,
+        salonName: createdSalon?.name || '',
         branchId: createdUser.branchId || normalizedPayload.branchId || null,
         branchName: createdBranch?.name || '',
       };
@@ -2248,7 +2249,7 @@ export default function App() {
     }
 
     if (!isSuperAdmin && getPrimaryRole(user) !== 'cashier') {
-      notify('Un administrador de barbería solo puede restablecer contraseñas de usuarios Caja.', 'warning');
+      notify('Un administrador de salón solo puede restablecer contraseñas de usuarios Caja.', 'warning');
       return false;
     }
 
@@ -2271,12 +2272,12 @@ export default function App() {
 
     setOnboardingBusy(true);
     try {
-      const resolvedBarbershopId = isSuperAdmin
-        ? payload.barbershopId
-        : (currentBarbershopId || currentBarbershop?.id || '');
+      const resolvedSalonId = isSuperAdmin
+        ? payload.salonId
+        : (currentSalonId || currentSalon?.id || '');
 
-      if (!resolvedBarbershopId) {
-        notify('Selecciona una barbería para crear la sucursal.', 'warning');
+      if (!resolvedSalonId) {
+        notify('Selecciona un salón para crear la sucursal.', 'warning');
         return null;
       }
 
@@ -2286,7 +2287,7 @@ export default function App() {
         code: payload.code,
         city: payload.city,
         address: payload.address,
-        barbershopId: resolvedBarbershopId,
+        salonId: resolvedSalonId,
         isActive: payload.isActive ?? true,
       });
 
@@ -2302,7 +2303,7 @@ export default function App() {
     }
   };
 
-  const handleCreateBarbershop = async (payload) => {
+  const handleCreateSalon = async (payload) => {
     if (!isSuperAdmin) {
       notify('Solo el super usuario puede crear nuevos negocios.', 'warning');
       return null;
@@ -2310,7 +2311,7 @@ export default function App() {
 
     setOnboardingBusy(true);
     try {
-      const createdBarbershop = await upsertBarbershop({
+      const createdSalon = await upsertSalon({
         id: makeId(),
         name: payload.name,
         ownerEmail: payload.ownerEmail,
@@ -2321,7 +2322,7 @@ export default function App() {
       });
 
       if (payload.adminUserId) {
-        await assignProfileBarbershop(payload.adminUserId, createdBarbershop.id);
+        await assignProfileSalon(payload.adminUserId, createdSalon.id);
         const targetUser = (accessControl.users || []).find((user) => String(user.id) === String(payload.adminUserId));
         const preservedRoles = new Set((targetUser?.roles || []).filter((role) => role === 'super_admin'));
         preservedRoles.add('admin');
@@ -2330,8 +2331,8 @@ export default function App() {
 
       const snapshot = await fetchAccessControlSnapshot(session?.user?.id);
       setAccessControl(snapshot);
-      notify(`Negocio ${createdBarbershop.name} creado correctamente.`, 'success');
-      return createdBarbershop;
+      notify(`Negocio ${createdSalon.name} creado correctamente.`, 'success');
+      return createdSalon;
     } catch (error) {
       handleSyncError(error, 'No pude completar el onboarding del negocio.');
       return null;
@@ -2339,11 +2340,11 @@ export default function App() {
       setOnboardingBusy(false);
     }
   };
-  const defaultBarberId = barbers[0]?.id || '';
-  const currentBarbershopId = effectiveOperationalBarbershopId;
+  const defaultStylistId = stylists[0]?.id || '';
+  const currentSalonId = effectiveOperationalSalonId;
   const currentBranchId = effectiveOperationalBranchId;
-  const currentBarbershop = availableBarbershops.find((shop) => String(shop.id) === String(currentBarbershopId || ''))
-    || availableBarbershops[0]
+  const currentSalon = availableSalons.find((shop) => String(shop.id) === String(currentSalonId || ''))
+    || availableSalons[0]
     || null;
   const currentBranch = availableBranches.find((branch) => String(branch.id) === String(currentBranchId || '')) || null;
   const isAdmin = isSuperAdmin || currentUserRoles.includes('admin');
@@ -2355,16 +2356,16 @@ export default function App() {
     appointments: clientDirectoryLoaded
       ? mergeEntitiesById(clientDirectoryData.appointments, appointments)
       : appointments,
-    barbers: clientDirectoryLoaded
-      ? mergeEntitiesById(clientDirectoryData.barbers, barbers)
-      : barbers,
-  }), [clientDirectoryLoaded, clientDirectoryData, clients, appointments, barbers]);
+    stylists: clientDirectoryLoaded
+      ? mergeEntitiesById(clientDirectoryData.stylists, stylists)
+      : stylists,
+  }), [clientDirectoryLoaded, clientDirectoryData, clients, appointments, stylists]);
   const roleFilterEnabled = hasSupabaseConfig && !accessLoading && currentUserRoles.length > 0;
   const navItems = [
     { id: 'dashboard', label: 'Tablero', icon: LayoutDashboard, allow: true },
     { id: 'agenda', label: 'Calendario', icon: CalendarIcon, allow: isAdmin || isCashier },
     { id: 'clientes', label: 'Clientes', icon: Users, allow: isAdmin || isCashier },
-    { id: 'barberos', label: 'Barbero', icon: UserCheck, allow: isAdmin },
+    { id: 'estilistas', label: 'Estilista', icon: UserCheck, allow: isAdmin },
     { id: 'services', label: 'Servicios', icon: Scissors, allow: isAdmin },
     { id: 'caja', label: 'Venta / POS', icon: ShoppingBag, allow: isAdmin || isCashier },
     { id: 'reportes', label: 'Reportes', icon: BarChart3, allow: isAdmin },
@@ -2438,9 +2439,9 @@ export default function App() {
         await upsertAppointments(
           [updatedAppointment],
           services,
-          currentBarbershopId,
+          currentSalonId,
           currentBranchId,
-          barbers,
+          stylists,
           clients,
         );
         await refreshClientsAfterAppointmentSync();
@@ -2449,9 +2450,9 @@ export default function App() {
       }
     }
   }, [
-    barbers,
+    stylists,
     clients,
-    currentBarbershopId,
+    currentSalonId,
     currentBranchId,
     handleSyncError,
     refreshClientsAfterAppointmentSync,
@@ -2504,7 +2505,7 @@ export default function App() {
 
         const alertKey = getReservationAlertKey(appointment);
         const clientName = clients.find((client) => String(client.id) === String(appointment.clientId))?.name || 'Cliente';
-        const barberName = barbers.find((barber) => String(barber.id) === String(appointment.barberId))?.name || 'barbero asignado';
+        const stylistName = stylists.find((stylist) => String(stylist.id) === String(appointment.stylistId))?.name || 'estilista asignado';
 
         if (
           delayMs >= 10 * 60 * 1000
@@ -2514,7 +2515,7 @@ export default function App() {
           const remainingMinutes = Math.max(1, Math.ceil((15 * 60 * 1000 - delayMs) / 60000));
           reservationNearExpiryAlertsRef.current.add(alertKey);
           notify(
-            `La cita de "${clientName}" está por vencerse\n\nSucursal / barbero: ${barberName}\nHora reservada: ${appointment.time}\nTiempo restante: ${remainingMinutes} minuto${remainingMinutes === 1 ? '' : 's'}\n\nMarca la llegada del cliente antes de que se venza la reserva.`,
+            `La cita de "${clientName}" está por vencerse\n\nSucursal / estilista: ${stylistName}\nHora reservada: ${appointment.time}\nTiempo restante: ${remainingMinutes} minuto${remainingMinutes === 1 ? '' : 's'}\n\nMarca la llegada del cliente antes de que se venza la reserva.`,
             'reservation-warning',
           );
         }
@@ -2528,7 +2529,7 @@ export default function App() {
           reservationExpiredAlertsRef.current.add(alertKey);
 
           notify(
-            `La cita de "${clientName}" ya se venció\n\nSucursal / barbero: ${barberName}\nHora reservada: ${appointment.time}\n\nLa reserva se marcó como cita perdida.`,
+            `La cita de "${clientName}" ya se venció\n\nSucursal / estilista: ${stylistName}\nHora reservada: ${appointment.time}\n\nLa reserva se marcó como cita perdida.`,
             'reservation-expired',
           );
 
@@ -2550,7 +2551,7 @@ export default function App() {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [appointments, barbers, clients, markReservationAsLost, notify]);
+  }, [appointments, stylists, clients, markReservationAsLost, notify]);
 
   useEffect(() => {
     if (!accessibleTabIds.has(activeTab)) {
@@ -2663,7 +2664,7 @@ export default function App() {
       updatedAppointment.checkInAt = new Date().toISOString();
     }
 
-    if (status === 'En Corte' && !apt.startedAt) {
+    if (status === 'En Servicio' && !apt.startedAt) {
       updatedAppointment.startedAt = new Date().toISOString();
       if (!updatedAppointment.checkInAt) updatedAppointment.checkInAt = apt.createdAt;
     }
@@ -2684,7 +2685,7 @@ export default function App() {
 
     if (hasSupabaseConfig && bootstrapCompletedRef.current) {
       try {
-        await upsertAppointments([updatedAppointment], services, currentBarbershopId, currentBranchId, barbers, clients);
+        await upsertAppointments([updatedAppointment], services, currentSalonId, currentBranchId, stylists, clients);
         await refreshClientsAfterAppointmentSync();
       } catch (error) {
         handleSyncError(error, 'No pude guardar el cambio de estado en Supabase.');
@@ -2776,14 +2777,14 @@ export default function App() {
     const appointment = appointments.find((item) => String(item.id) === String(appointmentId));
     if (!appointment || !targetDate || !targetTime) return;
 
-    if (hasAppointmentBarberConflict({
+    if (hasAppointmentStylistConflict({
       appointments,
       appointment,
-      targetBarberId: appointment.barberId,
+      targetStylistId: appointment.stylistId,
       targetDate,
       targetTime,
     })) {
-      notify('Ese horario ya está ocupado para este barbero.', 'warning');
+      notify('Ese horario ya está ocupado para este estilista.', 'warning');
       return;
     }
 
@@ -2803,7 +2804,7 @@ export default function App() {
 
     if (hasSupabaseConfig && bootstrapCompletedRef.current) {
       try {
-        await upsertAppointments([updatedAppointment], services, currentBarbershopId, currentBranchId, barbers, clients);
+        await upsertAppointments([updatedAppointment], services, currentSalonId, currentBranchId, stylists, clients);
         await refreshClientsAfterAppointmentSync();
       } catch (error) {
         handleSyncError(error, 'No pude guardar el cambio de horario en Supabase.');
@@ -2843,25 +2844,25 @@ export default function App() {
     }
   };
 
-  const handleTransferAppointment = async (appointmentId, targetBarberId) => {
+  const handleTransferAppointment = async (appointmentId, targetStylistId) => {
     const appointment = appointments.find((item) => String(item.id) === String(appointmentId));
-    const targetBarber = barbers.find((item) => String(item.id) === String(targetBarberId));
-    if (!appointment || !targetBarber) return;
+    const targetStylist = stylists.find((item) => String(item.id) === String(targetStylistId));
+    if (!appointment || !targetStylist) return;
 
-    if (String(appointment.barberId) === String(targetBarberId)) {
-      notify('La cita ya está asignada a ese barbero.', 'info');
+    if (String(appointment.stylistId) === String(targetStylistId)) {
+      notify('La cita ya está asignada a ese estilista.', 'info');
       return;
     }
 
-    if (hasAppointmentBarberConflict({ appointments, appointment, targetBarberId })) {
-      notify('Ese barbero ya tiene una cita en ese horario.', 'warning');
+    if (hasAppointmentStylistConflict({ appointments, appointment, targetStylistId })) {
+      notify('Ese estilista ya tiene una cita en ese horario.', 'warning');
       return;
     }
 
     const updatedAppointment = {
       ...appointment,
-      barberId: targetBarber.id,
-      barberName: targetBarber.name,
+      stylistId: targetStylist.id,
+      stylistName: targetStylist.name,
       updatedAt: new Date().toISOString(),
     };
 
@@ -2870,45 +2871,45 @@ export default function App() {
     )));
     setSelectedData((prev) => ({ ...prev, transferAppointment: null }));
     setModals((prev) => ({ ...prev, transferAppointment: false }));
-    notify(`Cita trasladada a ${targetBarber.name}.`, 'success');
+    notify(`Cita trasladada a ${targetStylist.name}.`, 'success');
 
     if (hasSupabaseConfig && bootstrapCompletedRef.current) {
       try {
-        await upsertAppointments([updatedAppointment], services, currentBarbershopId, currentBranchId, barbers, clients);
+        await upsertAppointments([updatedAppointment], services, currentSalonId, currentBranchId, stylists, clients);
         await refreshClientsAfterAppointmentSync();
       } catch (error) {
-        handleSyncError(error, 'No pude guardar el traslado de barbero en Supabase.');
+        handleSyncError(error, 'No pude guardar el traslado de estilista en Supabase.');
       }
     }
   };
 
-  const handleConfirmPayment = async (barberId) => {
+  const handleConfirmPayment = async (stylistId) => {
     const updatedAppointments = appointments
-      .filter(a => String(a.barberId) === String(barberId) && a.status === 'Finalizada')
+      .filter(a => String(a.stylistId) === String(stylistId) && a.status === 'Finalizada')
       .map(a => ({ ...a, isPaid: true }));
 
     setAppointments(prev => prev.map(a => 
-      String(a.barberId) === String(barberId) && a.status === 'Finalizada' ? { ...a, isPaid: true } : a
+      String(a.stylistId) === String(stylistId) && a.status === 'Finalizada' ? { ...a, isPaid: true } : a
     ));
     setModals({ ...modals, paymentReceipt: false });
 
     if (hasSupabaseConfig && bootstrapCompletedRef.current && updatedAppointments.length) {
       try {
-        await upsertAppointments(updatedAppointments, services, currentBarbershopId, currentBranchId, barbers, clients);
+        await upsertAppointments(updatedAppointments, services, currentSalonId, currentBranchId, stylists, clients);
       } catch (error) {
         handleSyncError(error, 'No pude liquidar el pago en Supabase.');
       }
     }
   };
 
-  const handleConfirmStaffSettlement = async (barberIds = []) => {
-    const normalizedIds = new Set((barberIds || []).map(id => String(id)));
+  const handleConfirmStaffSettlement = async (stylistIds = []) => {
+    const normalizedIds = new Set((stylistIds || []).map(id => String(id)));
     const updatedAppointments = appointments
-      .filter(a => normalizedIds.has(String(a.barberId)) && a.status === 'Finalizada' && !a.isPaid)
+      .filter(a => normalizedIds.has(String(a.stylistId)) && a.status === 'Finalizada' && !a.isPaid)
       .map(a => ({ ...a, isPaid: true }));
 
     setAppointments(prev => prev.map(a =>
-      normalizedIds.has(String(a.barberId)) && a.status === 'Finalizada' && !a.isPaid
+      normalizedIds.has(String(a.stylistId)) && a.status === 'Finalizada' && !a.isPaid
         ? { ...a, isPaid: true }
         : a
     ));
@@ -2916,7 +2917,7 @@ export default function App() {
 
     if (hasSupabaseConfig && bootstrapCompletedRef.current && updatedAppointments.length) {
       try {
-        await upsertAppointments(updatedAppointments, services, currentBarbershopId, currentBranchId, barbers, clients);
+        await upsertAppointments(updatedAppointments, services, currentSalonId, currentBranchId, stylists, clients);
       } catch (error) {
         handleSyncError(error, 'No pude liquidar la planilla en Supabase.');
       }
@@ -2946,8 +2947,8 @@ export default function App() {
         completedVisits: 0,
         totalSpent: 0,
         lastVisitAt: null,
-        favoriteBarberId: null,
-        favoriteBarberName: '',
+        favoriteStylistId: null,
+        favoriteStylistName: '',
         favoriteServiceName: '',
         statsUpdatedAt: null,
       };
@@ -2973,9 +2974,9 @@ export default function App() {
     if (hasSupabaseConfig && bootstrapCompletedRef.current) {
       try {
         if (createdClient) {
-          await upsertClients([createdClient], currentBarbershopId);
+          await upsertClients([createdClient], currentSalonId);
         }
-        await upsertAppointments([newApt], services, currentBarbershopId, currentBranchId, barbers, clients);
+        await upsertAppointments([newApt], services, currentSalonId, currentBranchId, stylists, clients);
       } catch (error) {
         handleSyncError(error, 'No pude guardar la cita en Supabase.');
       }
@@ -3008,8 +3009,8 @@ export default function App() {
         completedVisits: 0,
         totalSpent: 0,
         lastVisitAt: null,
-        favoriteBarberId: null,
-        favoriteBarberName: '',
+        favoriteStylistId: null,
+        favoriteStylistName: '',
         favoriteServiceName: '',
         statsUpdatedAt: null,
       };
@@ -3019,7 +3020,7 @@ export default function App() {
 
     if (hasSupabaseConfig && bootstrapCompletedRef.current && savedClient) {
       try {
-        await upsertClients([savedClient], currentBarbershopId);
+        await upsertClients([savedClient], currentSalonId);
       } catch (error) {
         handleSyncError(error, 'No pude guardar el cliente en Supabase.');
       }
@@ -3057,7 +3058,7 @@ export default function App() {
 
     if (hasSupabaseConfig && bootstrapCompletedRef.current) {
       try {
-        await upsertServices([savedService], currentBarbershopId);
+        await upsertServices([savedService], currentSalonId);
         await syncServiceComboItems(nextServices);
       } catch (error) {
         handleSyncError(error, 'No pude guardar el servicio en Supabase.');
@@ -3091,75 +3092,75 @@ export default function App() {
     }
   };
 
-  const handleSaveBarber = async (barber) => {
-    if (!barber.name || barber.name.trim() === '') {
-      notify('Ingrese nombre del barbero.', 'warning');
+  const handleSaveStylist = async (stylist) => {
+    if (!stylist.name || stylist.name.trim() === '') {
+      notify('Ingrese nombre del estilista.', 'warning');
       return;
     }
-    const normalizedPhone = formatPhoneNumber(barber.phone || '');
-    const resolvedBarbershopId = barber.barbershopId || currentBarbershopId || null;
-    const resolvedBranchId = barber.branchId ?? currentBranchId ?? undefined;
+    const normalizedPhone = formatPhoneNumber(stylist.phone || '');
+    const resolvedSalonId = stylist.salonId || currentSalonId || null;
+    const resolvedBranchId = stylist.branchId ?? currentBranchId ?? undefined;
     if (!resolvedBranchId) {
-      notify('Cada barbero debe tener una sucursal asignada.', 'warning');
+      notify('Cada estilista debe tener una sucursal asignada.', 'warning');
       return;
     }
-    let savedBarber = null;
+    let savedStylist = null;
 
-    if (barber.id) {
-      const currentIndex = barbers.findIndex(b => String(b.id) === String(barber.id));
-      savedBarber = ensureBarberTheme({
-        ...barber,
+    if (stylist.id) {
+      const currentIndex = stylists.findIndex(b => String(b.id) === String(stylist.id));
+      savedStylist = ensureStylistTheme({
+        ...stylist,
         phone: normalizedPhone,
-        id: String(barber.id),
-        barbershopId: resolvedBarbershopId,
+        id: String(stylist.id),
+        salonId: resolvedSalonId,
         branchId: resolvedBranchId ?? null,
       }, Math.max(currentIndex, 0));
-      setBarbers(prev => prev.map((b, idx) => String(b.id) === String(barber.id) ? ensureBarberTheme(savedBarber, idx) : b));
+      setStylists(prev => prev.map((b, idx) => String(b.id) === String(stylist.id) ? ensureStylistTheme(savedStylist, idx) : b));
     } else {
-      const newBarber = {
-        ...barber,
+      const newStylist = {
+        ...stylist,
         phone: normalizedPhone,
         id: makeId(),
-        barbershopId: resolvedBarbershopId,
+        salonId: resolvedSalonId,
         branchId: resolvedBranchId ?? null,
       };
-      savedBarber = ensureBarberTheme(newBarber, barbers.length);
-      setBarbers(prev => [...prev, savedBarber]);
+      savedStylist = ensureStylistTheme(newStylist, stylists.length);
+      setStylists(prev => [...prev, savedStylist]);
     }
 
-    if (hasSupabaseConfig && bootstrapCompletedRef.current && savedBarber) {
+    if (hasSupabaseConfig && bootstrapCompletedRef.current && savedStylist) {
       try {
-        await upsertBarbers([savedBarber], resolvedBarbershopId, resolvedBranchId, session?.user?.id);
+        await upsertStylists([savedStylist], resolvedSalonId, resolvedBranchId, session?.user?.id);
         if (session?.user?.id) {
-          const nextBarbers = await fetchScopedBarbers(session.user.id, superAdminScopeOverride);
-          setBarbers(nextBarbers.map((nextBarber, index) => ensureBarberTheme(nextBarber, index)));
+          const nextStylists = await fetchScopedStylists(session.user.id, superAdminScopeOverride);
+          setStylists(nextStylists.map((nextStylist, index) => ensureStylistTheme(nextStylist, index)));
         }
       } catch (error) {
-        handleSyncError(error, 'No pude guardar el barbero en Supabase.');
+        handleSyncError(error, 'No pude guardar el estilista en Supabase.');
       }
     }
   };
 
-  const handleDeleteBarber = async (id) => {
-    if (appointments.some(a => String(a.barberId) === String(id))) {
-      notify('No puedes eliminar este barbero porque ya tiene citas registradas.', 'warning');
+  const handleDeleteStylist = async (id) => {
+    if (appointments.some(a => String(a.stylistId) === String(id))) {
+      notify('No puedes eliminar este estilista porque ya tiene citas registradas.', 'warning');
       return;
     }
 
     const confirmed = await confirmAction({
-      title: 'Eliminar barbero',
-      message: '¿Eliminar barbero permanentemente?',
+      title: 'Eliminar estilista',
+      message: '¿Eliminar estilista permanentemente?',
       confirmLabel: 'Eliminar',
     });
 
     if (confirmed) {
-      setBarbers(prev => prev.filter(b => b.id !== id));
+      setStylists(prev => prev.filter(b => b.id !== id));
 
       if (hasSupabaseConfig && bootstrapCompletedRef.current) {
         try {
-          await deleteBarberRecord(id);
+          await deleteStylistRecord(id);
         } catch (error) {
-          handleSyncError(error, 'No pude eliminar el barbero en Supabase.');
+          handleSyncError(error, 'No pude eliminar el estilista en Supabase.');
         }
       }
     }
@@ -3187,8 +3188,8 @@ export default function App() {
 
   const handleRegisterPosSale = async (saleDraft) => {
     const normalizedItems = Array.isArray(saleDraft?.items) ? saleDraft.items : [];
-    if (!currentBarbershopId) {
-      notify('No se puede registrar la venta porque no hay una barbería activa.', 'error');
+    if (!currentSalonId) {
+      notify('No se puede registrar la venta porque no hay un salón activo.', 'error');
       return null;
     }
     if (!currentBranchId) {
@@ -3231,7 +3232,7 @@ export default function App() {
         : (saleDraft?.manualDiscount
           ? `Descuento manual aplicado: ${saleDraft.manualDiscount.type === 'percentage' ? `${saleDraft.manualDiscount.value}%` : `C$ ${Number(saleDraft.manualDiscount.value || 0).toLocaleString('es-NI')}`}`
           : ''),
-      barbershopId: currentBarbershopId || null,
+      salonId: currentSalonId || null,
       branchId: currentBranchId || null,
       createdAt: new Date().toISOString(),
       createdBy: session?.user?.id || null,
@@ -3244,7 +3245,7 @@ export default function App() {
         ...prev,
         posSaleReceipt: {
           sale: saleRecord,
-          barbershopName: currentBarbershop?.name || 'BarberPro',
+          salonName: currentSalon?.name || 'SalonPro',
           branchName: currentBranch?.name || 'General',
         },
       }));
@@ -3260,7 +3261,7 @@ export default function App() {
         ...prev,
         posSaleReceipt: {
           sale: persistedSale,
-          barbershopName: currentBarbershop?.name || 'BarberPro',
+          salonName: currentSalon?.name || 'SalonPro',
           branchName: currentBranch?.name || 'General',
         },
       }));
@@ -3298,13 +3299,13 @@ export default function App() {
     }
   };
 
-  const getNextWalkinQueueTime = (barberId, date = getTodayString()) => {
-    return resolveWalkinQueueTime({ appointments, barberId, date });
+  const getNextWalkinQueueTime = (stylistId, date = getTodayString()) => {
+    return resolveWalkinQueueTime({ appointments, stylistId, date });
   };
 
-  const triggerWalkIn = (barberId = defaultBarberId) => {
-    if (!barberId) {
-      notify('Primero debes tener barberos registrados en esta sucursal para crear un turno sin cita.', 'warning');
+  const triggerWalkIn = (stylistId = defaultStylistId) => {
+    if (!stylistId) {
+      notify('Primero debes tener estilistas registrados en esta sucursal para crear un turno sin cita.', 'warning');
       return;
     }
     const walkinDate = getTodayString();
@@ -3312,8 +3313,8 @@ export default function App() {
         ...selectedData,
         appointment: {
             date: walkinDate,
-            time: getNextWalkinQueueTime(barberId, walkinDate),
-            barberId,
+            time: getNextWalkinQueueTime(stylistId, walkinDate),
+            stylistId,
             type: 'walkin'
         }
     });
@@ -3323,13 +3324,13 @@ export default function App() {
   if (loading) return (
     <div className="h-dvh min-h-dvh flex flex-col items-center justify-center bg-black gap-4 text-white">
       <Loader2 className="animate-spin text-indigo-500" size={48} />
-      <span className="text-[10px] font-black uppercase tracking-widest italic">Iniciando BarberPro...</span>
+      <span className="text-[10px] font-black uppercase tracking-widest italic">Iniciando SalonPro...</span>
     </div>
   );
 
   return (
     <UiFeedbackContext.Provider value={feedbackContextValue}>
-    <div className="mobile-simplify-shell flex h-dvh min-h-dvh bg-black text-white font-sans overflow-hidden">
+    <div className="mobile-simplify-shell salon-app-shell flex h-dvh min-h-dvh bg-black text-white font-sans overflow-hidden">
       <style>{styleTag}</style>
 
       {mobileSidebarOpen && (
@@ -3341,17 +3342,17 @@ export default function App() {
         />
       )}
 
-      <aside className={`mobile-sidebar fixed inset-y-0 left-0 z-40 flex w-[10.75rem] max-w-[68vw] flex-col border-r border-slate-900 bg-slate-950 no-print overflow-hidden transition-all duration-300 lg:static lg:max-w-none lg:translate-x-0 ${sidebarCollapsed ? 'lg:w-0 lg:min-w-0 lg:opacity-0 lg:pointer-events-none lg:border-r-transparent' : 'lg:w-64 lg:opacity-100'} ${mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
+      <aside className={`mobile-sidebar salon-sidebar fixed inset-y-0 left-0 z-40 flex w-[10.75rem] max-w-[68vw] flex-col border-r border-slate-900 bg-slate-950 no-print overflow-hidden transition-all duration-300 lg:static lg:max-w-none lg:translate-x-0 ${sidebarCollapsed ? 'lg:w-0 lg:min-w-0 lg:opacity-0 lg:pointer-events-none lg:border-r-transparent' : 'lg:w-64 lg:opacity-100'} ${mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
         <div className={`mobile-sidebar-brand shrink-0 p-3 lg:p-8 flex items-start ${sidebarCollapsed ? 'lg:justify-center lg:px-4' : 'gap-2.5 lg:gap-3'}`}>
           <div className="w-12 h-12 shrink-0 flex items-center justify-center rounded-[1rem] p-1">
             <img
-              src="/barberpro-logo-ui.png"
-              alt="Logo BarberPro"
+              src="/salonpro-logo-ui.png"
+              alt="Logo SalonPro"
               className="h-9 w-9 object-contain"
             />
           </div>
           <div className={`min-w-0 flex-1 ${sidebarCollapsed ? 'lg:hidden' : ''}`}>
-            <h1 className="text-lg lg:text-xl font-bold tracking-tighter italic text-white">BarberPro<span className="text-indigo-500">.</span></h1>
+            <h1 className="text-lg lg:text-xl font-bold tracking-tighter italic text-white">SalonPro<span className="text-indigo-500">.</span></h1>
             {session?.user?.email && (
               <p className="mobile-sidebar-email hidden lg:block text-[10px] font-black tracking-[0.14em] uppercase text-slate-500 mt-2 truncate">
                 {session.user.email}
@@ -3369,35 +3370,35 @@ export default function App() {
         </div>
         <nav className={`mobile-sidebar-nav min-h-0 flex-1 overflow-y-auto custom-scrollbar px-2 lg:px-4 pb-3 space-y-1 ${sidebarCollapsed ? 'lg:px-3' : ''}`}>
           {navItems.map(item => (
-            <button key={item.id} onClick={() => { setActiveTab(item.id); setMobileSidebarOpen(false); }} className={`w-full flex items-center px-3 py-2.5 lg:py-4 rounded-2xl transition-all font-black uppercase text-[8px] lg:text-[10px] tracking-[0.16em] lg:tracking-widest ${sidebarCollapsed ? 'lg:justify-center lg:px-0' : 'gap-2 lg:gap-3'} ${activeTab === item.id ? 'bg-indigo-600 text-white shadow-[0_10px_20px_rgba(79,70,229,0.3)]' : 'text-slate-500 hover:bg-slate-900 hover:text-white'}`}>
+            <button key={item.id} onClick={() => { setActiveTab(item.id); setMobileSidebarOpen(false); }} className={`w-full flex items-center px-3 py-2.5 lg:py-4 rounded-2xl transition-all font-black uppercase text-[8px] lg:text-[10px] tracking-[0.16em] lg:tracking-widest ${sidebarCollapsed ? 'lg:justify-center lg:px-0' : 'gap-2 lg:gap-3'} ${activeTab === item.id ? 'bg-indigo-600 text-white shadow-[0_10px_20px_rgba(225,79,138,0.3)]' : 'text-slate-500 hover:bg-indigo-600/10 hover:text-indigo-500 hover:border-indigo-500/20'}`}>
               <item.icon size={16} />
               <span className={sidebarCollapsed ? 'lg:hidden' : ''}>{item.label}</span>
             </button>
           ))}
-          {(currentBarbershop?.name || currentBranch?.name || (isSuperAdmin && availableBarbershops.length > 0)) && !sidebarCollapsed && (
+          {(currentSalon?.name || currentBranch?.name || (isSuperAdmin && availableSalons.length > 0)) && !sidebarCollapsed && (
             <div className="mobile-sidebar-tenant-panel mt-2 rounded-xl border border-white/5 bg-black/25 px-2.5 py-2 space-y-1.5">
-              {isSuperAdmin && availableBarbershops.length > 0 ? (
+              {isSuperAdmin && availableSalons.length > 0 ? (
                 <div className="min-w-0">
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-[8px] font-black tracking-[0.16em] uppercase text-slate-500">Vista</p>
                     <Crown size={12} className="text-indigo-300" />
                   </div>
                   <select
-                    value={superAdminViewBarbershopId || availableBarbershops[0]?.id || ''}
-                    onChange={(event) => setSuperAdminViewBarbershopId(event.target.value)}
+                    value={superAdminViewSalonId || availableSalons[0]?.id || ''}
+                    onChange={(event) => setSuperAdminViewSalonId(event.target.value)}
                     className="mt-1.5 w-full rounded-xl border border-white/10 bg-black px-2.5 py-2 text-[8px] font-black uppercase tracking-[0.12em] text-white outline-none transition-all focus:border-indigo-500"
                   >
-                    {availableBarbershops.map((shop) => (
+                    {availableSalons.map((shop) => (
                       <option key={shop.id} value={shop.id} className="bg-slate-950 text-white">
                         {shop.name}
                       </option>
                     ))}
                   </select>
                 </div>
-              ) : currentBarbershop?.name ? (
+              ) : currentSalon?.name ? (
                 <div className="min-w-0">
-                  <p className="text-[8px] font-black tracking-[0.16em] uppercase text-slate-500">Barbería</p>
-                  <p className="mt-0.5 truncate text-[10px] font-black uppercase tracking-[0.1em] text-slate-200">{currentBarbershop.name}</p>
+                  <p className="text-[8px] font-black tracking-[0.16em] uppercase text-slate-500">Salón</p>
+                  <p className="mt-0.5 truncate text-[10px] font-black uppercase tracking-[0.1em] text-slate-200">{currentSalon.name}</p>
                 </div>
               ) : null}
               <div className="flex min-w-0 items-center justify-between gap-2 border-t border-white/5 pt-1.5">
@@ -3406,12 +3407,12 @@ export default function App() {
               </div>
             </div>
           )}
-          {isSuperAdmin && availableBarbershops.length > 0 && sidebarCollapsed && (
+          {isSuperAdmin && availableSalons.length > 0 && sidebarCollapsed && (
             <button
               type="button"
               onClick={() => setSidebarCollapsed(false)}
-              className="mt-2 flex w-full items-center justify-center rounded-2xl border border-white/10 bg-slate-900/70 px-4 py-3 text-slate-200 transition-all hover:border-indigo-500/40 hover:text-white"
-              title={currentBarbershop?.name ? `Cambiar barbería actual: ${currentBarbershop.name}` : 'Cambiar barbería'}
+              className="mt-2 flex w-full items-center justify-center rounded-2xl border border-indigo-500/20 bg-indigo-600/10 px-4 py-3 text-indigo-500 transition-all hover:border-indigo-500/40 hover:bg-indigo-600/20"
+              title={currentSalon?.name ? `Cambiar salón actual: ${currentSalon.name}` : 'Cambiar salón'}
             >
               <Crown size={16} />
             </button>
@@ -3423,7 +3424,7 @@ export default function App() {
               <button
                 onClick={() => setShowSelfPasswordModal(true)}
                 disabled={passwordBusy}
-                className={`w-full mb-2.5 lg:mb-3 bg-slate-900 hover:bg-slate-800 disabled:opacity-60 text-white px-3.5 lg:px-4 py-2.5 lg:py-3 rounded-2xl font-black text-[9px] lg:text-[10px] uppercase flex items-center justify-center border border-slate-800 transition-all ${sidebarCollapsed ? 'lg:px-0' : 'gap-2'}`}
+                className={`w-full mb-2.5 lg:mb-3 bg-indigo-600/10 hover:bg-indigo-600/20 disabled:opacity-60 text-indigo-500 px-3.5 lg:px-4 py-2.5 lg:py-3 rounded-2xl font-black text-[9px] lg:text-[10px] uppercase flex items-center justify-center border border-indigo-500/20 transition-all ${sidebarCollapsed ? 'lg:px-0' : 'gap-2'}`}
                 title={sidebarCollapsed ? 'Cambiar contraseña' : undefined}
               >
                 {passwordBusy ? <Loader2 size={14} className="animate-spin" /> : <ShieldCheck size={14} />}
@@ -3434,7 +3435,7 @@ export default function App() {
               <button
                 onClick={handleSignOut}
                 disabled={authBusy}
-                className={`w-full bg-slate-900 hover:bg-slate-800 disabled:opacity-60 text-white px-3.5 lg:px-4 py-2.5 lg:py-3 rounded-2xl font-black text-[9px] lg:text-[10px] uppercase flex items-center justify-center border border-slate-800 transition-all ${sidebarCollapsed ? 'lg:px-0' : 'gap-2'}`}
+                className={`w-full bg-indigo-600/10 hover:bg-indigo-600/20 disabled:opacity-60 text-indigo-500 px-3.5 lg:px-4 py-2.5 lg:py-3 rounded-2xl font-black text-[9px] lg:text-[10px] uppercase flex items-center justify-center border border-indigo-500/20 transition-all ${sidebarCollapsed ? 'lg:px-0' : 'gap-2'}`}
                 title={sidebarCollapsed ? 'Cerrar sesión' : undefined}
               >
                 {authBusy ? <Loader2 size={14} className="animate-spin" /> : <X size={14} />}
@@ -3445,8 +3446,8 @@ export default function App() {
         </div>
       </aside>
 
-      <main className="flex-1 flex flex-col overflow-hidden bg-slate-950 min-w-0">
-        <header className="bg-black border-b border-slate-900 px-3 md:px-8 py-2.5 md:py-4 flex flex-col gap-2.5 md:flex-row md:items-center md:justify-between z-20 no-print">
+      <main className="salon-main-stage flex-1 flex flex-col overflow-hidden bg-slate-950 min-w-0">
+        <header className="salon-topbar bg-black border-b border-slate-900 px-3 md:px-8 py-2.5 md:py-4 flex flex-col gap-2.5 md:flex-row md:items-center md:justify-between z-20 no-print">
           <div className="flex w-full md:w-auto items-center gap-3 min-w-0">
             <button
               type="button"
@@ -3470,38 +3471,38 @@ export default function App() {
           </div>
           {(activeTab === 'clientes' || activeTab === 'agenda') && (
             <div className="flex w-full md:w-auto flex-col sm:flex-row items-stretch sm:items-center justify-stretch md:justify-end gap-3">
-              {activeTab === 'clientes' && <button onClick={() => { setSelectedData({ ...selectedData, client: null }); setModals({ ...modals, client: true }); }} className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-500 text-white px-5 md:px-6 py-3 rounded-2xl font-black text-[10px] uppercase flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(79,70,229,0.3)] active:scale-95 transition-all"><UserPlus size={16}/> Nuevo Cliente</button>}
-              {activeTab === 'agenda' && <button onClick={() => { setSelectedData({ ...selectedData, appointment: { date: viewDate, time: '09:00', barberId: defaultBarberId } }); setModals({ ...modals, appointment: true }); }} className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-500 text-white px-5 md:px-6 py-3 rounded-2xl font-black text-[10px] uppercase flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(79,70,229,0.3)] active:scale-95 transition-all"><Plus size={16}/> Nueva Cita</button>}
+              {activeTab === 'clientes' && <button onClick={() => { setSelectedData({ ...selectedData, client: null }); setModals({ ...modals, client: true }); }} className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-500 text-white px-5 md:px-6 py-3 rounded-2xl font-black text-[10px] uppercase flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(201,111,141,0.28)] active:scale-95 transition-all"><UserPlus size={16}/> Nuevo Cliente</button>}
+              {activeTab === 'agenda' && <button onClick={() => { setSelectedData({ ...selectedData, appointment: { date: viewDate, time: '09:00', stylistId: defaultStylistId } }); setModals({ ...modals, appointment: true }); }} className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-500 text-white px-5 md:px-6 py-3 rounded-2xl font-black text-[10px] uppercase flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(201,111,141,0.28)] active:scale-95 transition-all"><Plus size={16}/> Nueva Cita</button>}
             </div>
           )}
         </header>
 
-        <div className="mobile-main-scroll flex-1 overflow-auto overflow-x-hidden custom-scrollbar">
+        <div className="mobile-main-scroll relative z-[1] flex-1 overflow-auto overflow-x-hidden custom-scrollbar">
           {['dashboard', 'caja', 'reportes'].includes(activeTab) && operationalWarnings.length > 0 && renderPersistentWarningBanner('Datos operativos con advertencias', operationalWarnings)}
           {activeTab === 'clientes' && clientDirectoryWarnings.length > 0 && renderPersistentWarningBanner('Clientes cargados parcialmente', clientDirectoryWarnings)}
-          {activeTab === 'dashboard' && <DashboardView appointments={appointments} clients={clients} onUpdate={handleUpdateStatus} onOpenAppointment={openAppointmentActions} barbers={barbers} onNewWalkin={triggerWalkIn} posSales={posSales} />}
-          {activeTab === 'agenda' && <AgendaView viewDate={viewDate} setViewDate={setViewDate} appointments={appointments} clients={clients} barbers={barbers} onSlotClick={(h, b) => { setSelectedData({ ...selectedData, appointment: { date: viewDate, time: h, barberId: b } }); setModals({ ...modals, appointment: true }); }} onAptClick={handleAgendaAppointmentClick} onTransferApt={openTransferAppointment} />}
-          {activeTab === 'clientes' && <ClientsTableView clients={effectiveClientDirectory.clients} appointments={effectiveClientDirectory.appointments} barbers={effectiveClientDirectory.barbers} onRowClick={(c) => { setSelectedData({...selectedData, client: c}); setModals({...modals, clientDetail: true}); }} onNewApt={(c) => { setSelectedData({ ...selectedData, appointment: { date: getTodayString(), time: '09:00', barberId: defaultBarberId, client: c } }); setModals({ ...modals, appointment: true }); }} />}
-          {activeTab === 'barberos' && (
-            <BarbersView
-              barbers={barbers}
+          {activeTab === 'dashboard' && <DashboardView appointments={appointments} clients={clients} onUpdate={handleUpdateStatus} onOpenAppointment={openAppointmentActions} stylists={stylists} onNewWalkin={triggerWalkIn} posSales={posSales} />}
+          {activeTab === 'agenda' && <AgendaView viewDate={viewDate} setViewDate={setViewDate} appointments={appointments} clients={clients} stylists={stylists} onSlotClick={(h, b) => { setSelectedData({ ...selectedData, appointment: { date: viewDate, time: h, stylistId: b } }); setModals({ ...modals, appointment: true }); }} onAptClick={handleAgendaAppointmentClick} onTransferApt={openTransferAppointment} />}
+          {activeTab === 'clientes' && <ClientsTableView clients={effectiveClientDirectory.clients} appointments={effectiveClientDirectory.appointments} stylists={effectiveClientDirectory.stylists} onRowClick={(c) => { setSelectedData({...selectedData, client: c}); setModals({...modals, clientDetail: true}); }} onNewApt={(c) => { setSelectedData({ ...selectedData, appointment: { date: getTodayString(), time: '09:00', stylistId: defaultStylistId, client: c } }); setModals({ ...modals, appointment: true }); }} />}
+          {activeTab === 'estilistas' && (
+            <StylistsView
+              stylists={stylists}
               appointments={appointments}
               branches={availableBranches}
-              currentBarbershopId={currentBarbershopId}
+              currentSalonId={currentSalonId}
               currentBranchId={currentBranchId}
               canChooseBranch={isAdmin}
-              onSave={handleSaveBarber}
-              onDelete={handleDeleteBarber}
+              onSave={handleSaveStylist}
+              onDelete={handleDeleteStylist}
               onGoToNomina={() => setActiveTab('nomina')}
             />
           )}
           {activeTab === 'nomina' && (
             <NominaView
-              barbers={barbers}
+              stylists={stylists}
               appointments={appointments}
-              onClose={() => setActiveTab('barberos')}
-              onPagar={(barber, nomina) => {
-                setSelectedData({ ...selectedData, paymentReceipt: { barber, nomina } });
+              onClose={() => setActiveTab('estilistas')}
+              onPagar={(stylist, nomina) => {
+                setSelectedData({ ...selectedData, paymentReceipt: { stylist, nomina } });
                 setModals({ ...modals, paymentReceipt: true });
               }}
               onLiquidarTodo={(rows, summary) => {
@@ -3516,7 +3517,7 @@ export default function App() {
             <ReportsView
               appointments={appointments}
               clients={clients}
-              barbers={barbers}
+              stylists={stylists}
               branches={availableBranches}
               currentBranchId={currentBranchId}
               posSales={posSales}
@@ -3533,7 +3534,7 @@ export default function App() {
               onCreateSystemUser={handleCreateSystemUser}
               onResetUserPassword={handleResetUserPassword}
               onUpdateUserProfile={handleUpdateUserProfile}
-              onCreateBarbershop={handleCreateBarbershop}
+              onCreateSalon={handleCreateSalon}
               onCreateBranch={handleCreateBranch}
               isAdmin={isAdmin}
               isSuperAdmin={isSuperAdmin}
@@ -3542,12 +3543,12 @@ export default function App() {
         </div>
       </main>
 
-      {modals.appointment && <AppointmentModal onClose={() => setModals({...modals, appointment: false})} onSave={handleSaveAppointment} services={services} clients={clients} barbers={barbers} initial={selectedData.appointment || { date: viewDate, time: '09:00', barberId: defaultBarberId }} appointments={appointments} />}
-      {modals.appointmentActions && <AppointmentActionsModal appointment={selectedData.appointmentActions} clients={clients} barbers={barbers} onClose={() => setModals({...modals, appointmentActions: false})} onUpdate={(id, status) => { setModals((prev) => ({ ...prev, appointmentActions: false })); handleUpdateStatus(id, status); }} onMove={(appointment) => { setModals((prev) => ({ ...prev, appointmentActions: false })); openRescheduleAppointment(appointment); }} onTransfer={(appointment) => { setModals((prev) => ({ ...prev, appointmentActions: false })); openTransferAppointment(appointment); }} onCancel={handleCancelAppointment} onMarkLost={handleMarkAppointmentLost} />}
-      {modals.rescheduleAppointment && <RescheduleAppointmentModal appointment={selectedData.rescheduleAppointment} appointments={appointments} clients={clients} barbers={barbers} onClose={() => setModals({...modals, rescheduleAppointment: false})} onSave={handleRescheduleAppointment} />}
-      {modals.transferAppointment && <TransferAppointmentModal appointment={selectedData.transferAppointment} appointments={appointments} clients={clients} barbers={barbers} onClose={() => setModals({...modals, transferAppointment: false})} onSave={handleTransferAppointment} />}
+      {modals.appointment && <AppointmentModal onClose={() => setModals({...modals, appointment: false})} onSave={handleSaveAppointment} services={services} clients={clients} stylists={stylists} initial={selectedData.appointment || { date: viewDate, time: '09:00', stylistId: defaultStylistId }} appointments={appointments} />}
+      {modals.appointmentActions && <AppointmentActionsModal appointment={selectedData.appointmentActions} clients={clients} stylists={stylists} onClose={() => setModals({...modals, appointmentActions: false})} onUpdate={(id, status) => { setModals((prev) => ({ ...prev, appointmentActions: false })); handleUpdateStatus(id, status); }} onMove={(appointment) => { setModals((prev) => ({ ...prev, appointmentActions: false })); openRescheduleAppointment(appointment); }} onTransfer={(appointment) => { setModals((prev) => ({ ...prev, appointmentActions: false })); openTransferAppointment(appointment); }} onCancel={handleCancelAppointment} onMarkLost={handleMarkAppointmentLost} />}
+      {modals.rescheduleAppointment && <RescheduleAppointmentModal appointment={selectedData.rescheduleAppointment} appointments={appointments} clients={clients} stylists={stylists} onClose={() => setModals({...modals, rescheduleAppointment: false})} onSave={handleRescheduleAppointment} />}
+      {modals.transferAppointment && <TransferAppointmentModal appointment={selectedData.transferAppointment} appointments={appointments} clients={clients} stylists={stylists} onClose={() => setModals({...modals, transferAppointment: false})} onSave={handleTransferAppointment} />}
       {modals.client && <ClientModal onClose={() => setModals({...modals, client: false})} onSave={handleSaveClient} clients={clients} initial={selectedData.client} />}
-      {modals.clientDetail && <ClientDetailModal client={selectedData.client} clients={effectiveClientDirectory.clients} appointments={effectiveClientDirectory.appointments} barbers={effectiveClientDirectory.barbers} onClose={() => setModals({...modals, clientDetail: false})} onEdit={() => { setModals({...modals, clientDetail: false, client: true}); }} onDelete={() => handleDeleteClient(selectedData.client.id)} onNewApt={() => { setModals({...modals, clientDetail: false, appointment: true}); setSelectedData({...selectedData, appointment: { date: getTodayString(), time: '09:00', barberId: defaultBarberId, client: selectedData.client } }); }} />}
+      {modals.clientDetail && <ClientDetailModal client={selectedData.client} clients={effectiveClientDirectory.clients} appointments={effectiveClientDirectory.appointments} stylists={effectiveClientDirectory.stylists} onClose={() => setModals({...modals, clientDetail: false})} onEdit={() => { setModals({...modals, clientDetail: false, client: true}); }} onDelete={() => handleDeleteClient(selectedData.client.id)} onNewApt={() => { setModals({...modals, clientDetail: false, appointment: true}); setSelectedData({...selectedData, appointment: { date: getTodayString(), time: '09:00', stylistId: defaultStylistId, client: selectedData.client } }); }} />}
       {modals.finalize && <FinalizeModal onClose={() => setModals({...modals, finalize: false})} onConfirm={(ex) => handleUpdateStatus(selectedData.finalize.id, 'Finalizada', ex)} services={services} clients={clients} initial={selectedData.finalize} />}
       {modals.service && <ServiceEditorModal services={services} onClose={() => setModals({...modals, service: false})} onSave={handleSaveService} initial={selectedData.service} />}
       {modals.paymentReceipt && <PaymentReceiptModal data={selectedData.paymentReceipt} onClose={() => setModals({...modals, paymentReceipt: false})} onConfirmPayment={handleConfirmPayment} confirmAction={confirmAction} />}
@@ -3669,16 +3670,16 @@ export default function App() {
   );
 }
 
-function AgendaView({ viewDate, setViewDate, appointments, clients, barbers, onSlotClick, onAptClick, onTransferApt }) {
+function AgendaView({ viewDate, setViewDate, appointments, clients, stylists, onSlotClick, onAptClick, onTransferApt }) {
   const today = getTodayString();
   const isToday = viewDate === today;
   const getAgendaServiceLabel = (serviceName) => normalizeFavoriteServiceName(serviceName) || 'Servicio';
   const [nowPos, setNowPos] = useState(0);
-  const agendaBarbers = (barbers && barbers.length > 0) ? barbers : [];
+  const agendaStylists = (stylists && stylists.length > 0) ? stylists : [];
   const agendaTimeColumnWidth = 112;
-  const agendaBarberColumnWidth = 168;
-  const agendaMinWidth = Math.max(760, agendaTimeColumnWidth + (agendaBarbers.length * agendaBarberColumnWidth));
-  const agendaGridColumns = `${agendaTimeColumnWidth}px repeat(${agendaBarbers.length}, minmax(${agendaBarberColumnWidth}px, 1fr))`;
+  const agendaStylistColumnWidth = 168;
+  const agendaMinWidth = Math.max(760, agendaTimeColumnWidth + (agendaStylists.length * agendaStylistColumnWidth));
+  const agendaGridColumns = `${agendaTimeColumnWidth}px repeat(${agendaStylists.length}, minmax(${agendaStylistColumnWidth}px, 1fr))`;
   const dayAppointments = useMemo(
     () => (appointments || [])
       .filter((appointment) => standardizeDate(appointment.date) === viewDate)
@@ -3720,7 +3721,7 @@ function AgendaView({ viewDate, setViewDate, appointments, clients, barbers, onS
             <button onClick={() => changeDay(1)} className="p-3 md:p-4 bg-slate-900 rounded-2xl text-white shadow-lg transition-all hover:bg-indigo-600"><ChevronRight size={20}/></button>
           </div>
           <div className="text-center lg:text-right">
-            <p className="mobile-simplify-subtitle text-[10px] font-black uppercase tracking-[0.3em] text-indigo-500 italic mb-2 leading-none">Agenda de Barbería</p>
+            <p className="mobile-simplify-subtitle text-[10px] font-black uppercase tracking-[0.3em] text-indigo-500 italic mb-2 leading-none">Agenda de Salón</p>
             <h3 className="text-2xl sm:text-3xl md:text-3xl font-black italic uppercase text-white tracking-tighter leading-tight">
               {new Date(viewDate + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
             </h3>
@@ -3729,26 +3730,26 @@ function AgendaView({ viewDate, setViewDate, appointments, clients, barbers, onS
       </div>
 
       <div className="lg:hidden space-y-4">
-        {agendaBarbers.map((barber) => {
-          const barberAppointments = dayAppointments.filter((appointment) => String(appointment.barberId) === String(barber.id));
+        {agendaStylists.map((stylist) => {
+          const stylistAppointments = dayAppointments.filter((appointment) => String(appointment.stylistId) === String(stylist.id));
           return (
-            <div key={barber.id} className="rounded-[2rem] border border-slate-800 bg-slate-900 p-5 shadow-xl">
+            <div key={stylist.id} className="rounded-[2rem] border border-slate-800 bg-slate-900 p-5 shadow-xl">
               <div className="flex items-center gap-4">
-                <div className={`w-14 h-14 rounded-2xl ${barber.bg} flex items-center justify-center font-black italic text-white`}>{barber.avatar}</div>
+                <div className={`w-14 h-14 rounded-2xl ${stylist.bg} flex items-center justify-center font-black italic text-white`}>{stylist.avatar}</div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-lg font-black uppercase italic tracking-tighter text-white truncate">{barber.name}</p>
-                  <p className={`mt-2 text-[10px] font-black uppercase tracking-[0.18em] ${barberAppointments.length ? 'text-indigo-300' : 'text-emerald-300'}`}>
-                    {barberAppointments.length ? `${barberAppointments.length} cita${barberAppointments.length === 1 ? '' : 's'} en agenda` : 'Disponible'}
+                  <p className="text-lg font-black uppercase italic tracking-tighter text-white truncate">{stylist.name}</p>
+                  <p className={`mt-2 text-[10px] font-black uppercase tracking-[0.18em] ${stylistAppointments.length ? 'text-indigo-300' : 'text-emerald-300'}`}>
+                    {stylistAppointments.length ? `${stylistAppointments.length} cita${stylistAppointments.length === 1 ? '' : 's'} en agenda` : 'Disponible'}
                   </p>
                 </div>
-                <button onClick={() => onSlotClick(getCurrentTimeHHmm(), barber.id)} className="rounded-xl border border-indigo-500/30 bg-indigo-600/10 p-3 text-indigo-300">
+                <button onClick={() => onSlotClick(getCurrentTimeHHmm(), stylist.id)} className="rounded-xl border border-indigo-500/30 bg-indigo-600/10 p-3 text-indigo-300">
                   <Plus size={18} />
                 </button>
               </div>
 
-              {barberAppointments.length > 0 ? (
+              {stylistAppointments.length > 0 ? (
                 <div className="mt-4 space-y-3">
-                  {barberAppointments.map((appointment) => {
+                  {stylistAppointments.map((appointment) => {
                     const client = clients.find((item) => item.id === appointment.clientId);
                     return (
                       <div key={appointment.id} onClick={() => onAptClick(appointment)} className="w-full cursor-pointer rounded-[1.4rem] border border-white/5 bg-black/25 px-4 py-4 text-left">
@@ -3779,7 +3780,7 @@ function AgendaView({ viewDate, setViewDate, appointments, clients, barbers, onS
                   })}
                 </div>
               ) : (
-                <button onClick={() => onSlotClick('09:00', barber.id)} className="mt-4 w-full rounded-[1.4rem] border border-dashed border-indigo-500/30 bg-indigo-500/5 px-4 py-4 text-[10px] font-black uppercase tracking-[0.22em] text-indigo-300">
+                <button onClick={() => onSlotClick('09:00', stylist.id)} className="mt-4 w-full rounded-[1.4rem] border border-dashed border-indigo-500/30 bg-indigo-500/5 px-4 py-4 text-[10px] font-black uppercase tracking-[0.22em] text-indigo-300">
                   Agendar cita
                 </button>
               )}
@@ -3796,7 +3797,7 @@ function AgendaView({ viewDate, setViewDate, appointments, clients, barbers, onS
               style={{ gridTemplateColumns: agendaGridColumns }}
             >
               <div className="p-4 border-r border-slate-800 flex items-center justify-center bg-black"><Clock className="text-slate-600" size={22} /></div>
-              {agendaBarbers.map(b => (
+              {agendaStylists.map(b => (
                 <div key={b.id} className="min-w-0 p-4 xl:p-6 border-r border-slate-800 last:border-0 flex items-center justify-center gap-3 xl:gap-4 text-white">
                   <div className={`w-11 h-11 rounded-xl bg-slate-950 border-2 ${b.color} flex items-center justify-center font-black italic text-xs text-white shadow-lg`}>{b.avatar}</div>
                   <div className="min-w-0 flex flex-col items-start leading-none text-white">
@@ -3820,17 +3821,17 @@ function AgendaView({ viewDate, setViewDate, appointments, clients, barbers, onS
                 style={{ gridTemplateColumns: agendaGridColumns }}
               >
                 <div className="p-4 flex items-center justify-center font-black text-slate-500 text-sm border-r border-slate-900 bg-slate-900/10 italic group-hover/row:text-indigo-400 transition-colors">{h}</div>
-                {agendaBarbers.map(b => {
+                {agendaStylists.map(b => {
                   const apt = appointments.find(a => {
                     const normalizedAptDate = standardizeDate(a.date);
                     const [aptH, aptM] = (a.time || "00:00").split(':').map(Number);
                     const [slotH, slotM] = h.split(':').map(Number);
                     const isWithinSlot = aptH === slotH && aptM >= slotM && aptM < slotM + 30;
-                    return normalizedAptDate === viewDate && isWithinSlot && String(a.barberId) === String(b.id) && a.status !== 'Cancelada';
+                    return normalizedAptDate === viewDate && isWithinSlot && String(a.stylistId) === String(b.id) && a.status !== 'Cancelada';
                   });
 
-                  let statusStyles = "bg-indigo-600 hover:bg-indigo-500 border-indigo-400 shadow-[0_10px_20px_rgba(79,70,229,0.3)]";
-                  if (apt?.status === 'En Corte') statusStyles = "bg-emerald-600 hover:bg-emerald-500 border-emerald-400 shadow-[0_10px_20px_rgba(16,185,129,0.3)]";
+                  let statusStyles = "bg-indigo-600 hover:bg-indigo-500 border-indigo-400 shadow-[0_10px_20px_rgba(201,111,141,0.28)]";
+                  if (apt?.status === 'En Servicio') statusStyles = "bg-emerald-600 hover:bg-emerald-500 border-emerald-400 shadow-[0_10px_20px_rgba(16,185,129,0.3)]";
                   if (apt?.status === 'Finalizada' || apt?.status === 'Cita Perdida') statusStyles = "bg-slate-800 border-slate-700 opacity-60";
                   
                   return (
@@ -3843,7 +3844,7 @@ function AgendaView({ viewDate, setViewDate, appointments, clients, barbers, onS
                           </div>
                           <div className="flex items-center justify-between mt-2 text-white">
                             <span className="text-white text-[8px] font-black truncate flex items-center gap-1">
-                              {apt.service?.toLowerCase().includes('barba') ? <BeardIcon size={10}/> : <Scissors size={10}/>}
+                              {apt.service?.toLowerCase().includes('uñas') ? <Sparkles size={10}/> : <Scissors size={10}/>}
                           {apt.status === 'Cita Perdida' ? 'NO LLEGÓ' : getAgendaServiceLabel(apt.service)}
                             </span>
                             <span className="text-[7px] opacity-70 font-black">{apt.time}</span>
@@ -3863,7 +3864,7 @@ function AgendaView({ viewDate, setViewDate, appointments, clients, barbers, onS
                         </div>
                       ) : (
                         <div className="w-full h-full opacity-0 group-hover/cell:opacity-100 flex items-center justify-center transition-all duration-200">
-                          <div className="w-11 h-11 rounded-xl bg-indigo-500/15 border border-indigo-500/40 flex items-center justify-center text-indigo-300 shadow-[0_0_20px_rgba(99,102,241,0.18)]">
+                          <div className="w-11 h-11 rounded-xl bg-indigo-500/15 border border-indigo-500/40 flex items-center justify-center text-indigo-300 shadow-[0_0_20px_rgba(201,111,141,0.18)]">
                             <Plus size={18} />
                           </div>
                         </div>
@@ -3881,11 +3882,13 @@ function AgendaView({ viewDate, setViewDate, appointments, clients, barbers, onS
 }
 
 function ServicesView({ services, onAdd, onEdit, onDelete }) {
-  const [activeCategory, setActiveCategory] = useState('Cortes');
+  const [activeCategory, setActiveCategory] = useState('Cabello');
   const getIcon = (cat) => {
     switch(cat) {
-      case 'Cortes': return <Scissors size={32} />;
-      case 'Barba': return <BeardIcon size={32} />;
+      case 'Cabello': return <Scissors size={32} />;
+      case 'Uñas': return <Sparkles size={32} />;
+      case 'Color': return <Sparkles size={32} />;
+      case 'Tratamiento': return <Activity size={32} />;
       case 'Combo': return <Zap size={32} />;
       case 'Producto': return <Package size={32} />;
       case 'Promocion': return <Gift size={32} />;
@@ -3946,10 +3949,10 @@ function ServicesView({ services, onAdd, onEdit, onDelete }) {
   );
 }
 
-function BarbersView({ barbers, appointments, branches, currentBarbershopId, currentBranchId, canChooseBranch, onSave, onDelete, onGoToNomina }) {
+function StylistsView({ stylists, appointments, branches, currentSalonId, currentBranchId, canChooseBranch, onSave, onDelete, onGoToNomina }) {
   const { notify } = useUiFeedback();
   const [editing, setEditing] = useState(null);
-  const [form, setForm] = useState({ name: '', fullName: '', cedula: '', salary: '', phone: '', paymentMode: 'salario', paymentFrequency: 'Quincenal', commission: '', level: 'Junior', color: BARBER_THEME_PALETTE[0].color, bg: BARBER_THEME_PALETTE[0].bg, branchId: currentBranchId || '' });
+  const [form, setForm] = useState({ name: '', fullName: '', cedula: '', salary: '', phone: '', paymentMode: 'salario', paymentFrequency: 'Quincenal', commission: '', level: 'Junior', color: STYLIST_THEME_PALETTE[0].color, bg: STYLIST_THEME_PALETTE[0].bg, branchId: currentBranchId || '' });
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [compensationIndicator, setCompensationIndicator] = useState('salary');
@@ -3957,40 +3960,40 @@ function BarbersView({ barbers, appointments, branches, currentBarbershopId, cur
     () => new Map((branches || []).map((branch) => [String(branch.id), branch.name])),
     [branches],
   );
-  const branchesForCurrentBarbershop = useMemo(
+  const branchesForCurrentSalon = useMemo(
     () => {
       const allBranches = branches || [];
-      if (!currentBarbershopId) return allBranches;
-      const scopedBranches = allBranches.filter((branch) => String(branch.barbershopId || '') === String(currentBarbershopId || ''));
+      if (!currentSalonId) return allBranches;
+      const scopedBranches = allBranches.filter((branch) => String(branch.salonId || '') === String(currentSalonId || ''));
       return scopedBranches.length ? scopedBranches : allBranches;
     },
-    [branches, currentBarbershopId],
+    [branches, currentSalonId],
   );
   const defaultBranchId = useMemo(() => {
-    if (!branchesForCurrentBarbershop.length) return '';
-    const currentBranchStillExists = branchesForCurrentBarbershop.some(
+    if (!branchesForCurrentSalon.length) return '';
+    const currentBranchStillExists = branchesForCurrentSalon.some(
       (branch) => String(branch.id) === String(currentBranchId || ''),
     );
     if (currentBranchStillExists) return String(currentBranchId || '');
-    return String(branchesForCurrentBarbershop[0].id || '');
-  }, [branchesForCurrentBarbershop, currentBranchId]);
-  const pendingEarningsByBarber = useMemo(() => {
-    const totalsByBarber = new Map();
+    return String(branchesForCurrentSalon[0].id || '');
+  }, [branchesForCurrentSalon, currentBranchId]);
+  const pendingEarningsByStylist = useMemo(() => {
+    const totalsByStylist = new Map();
 
     (appointments || []).forEach((appointment) => {
       if (appointment.status !== 'Finalizada' || appointment.isPaid) return;
-      const barberId = String(appointment.barberId || '');
-      if (!barberId) return;
-      totalsByBarber.set(barberId, (totalsByBarber.get(barberId) || 0) + (Number(appointment.price) || 0));
+      const stylistId = String(appointment.stylistId || '');
+      if (!stylistId) return;
+      totalsByStylist.set(stylistId, (totalsByStylist.get(stylistId) || 0) + (Number(appointment.price) || 0));
     });
 
-    return totalsByBarber;
+    return totalsByStylist;
   }, [appointments]);
 
-  const getBarberEarnings = (barber) => {
-    if (!barberHasCommissionPay(barber.paymentMode)) return 0;
-    const totalSales = pendingEarningsByBarber.get(String(barber.id)) || 0;
-    return totalSales * (Number(barber.commission) / 100);
+  const getStylistEarnings = (stylist) => {
+    if (!stylistHasCommissionPay(stylist.paymentMode)) return 0;
+    const totalSales = pendingEarningsByStylist.get(String(stylist.id)) || 0;
+    return totalSales * (Number(stylist.commission) / 100);
   };
 
   const formatSalary = (value) => {
@@ -4014,25 +4017,25 @@ function BarbersView({ barbers, appointments, branches, currentBarbershopId, cur
 
   const openNew = () => {
     setEditing(null);
-    setForm({ name: '', fullName: '', cedula: '', salary: '', phone: '', paymentMode: 'salario', paymentFrequency: 'Quincenal', commission: '', level: 'Junior', color: BARBER_THEME_PALETTE[0].color, bg: BARBER_THEME_PALETTE[0].bg, branchId: defaultBranchId });
+    setForm({ name: '', fullName: '', cedula: '', salary: '', phone: '', paymentMode: 'salario', paymentFrequency: 'Quincenal', commission: '', level: 'Junior', color: STYLIST_THEME_PALETTE[0].color, bg: STYLIST_THEME_PALETTE[0].bg, branchId: defaultBranchId });
     setIsModalOpen(true);
   };
 
-  const openEdit = (barber) => {
-    setEditing(barber.id);
+  const openEdit = (stylist) => {
+    setEditing(stylist.id);
     setForm({
-      name: barber.name || '',
-      fullName: barber.fullName || barber.name || '',
-      cedula: barber.cedula || '',
-      salary: formatSalary(barberHasBasePay(barber.paymentMode) ? barber.salary : ''),
-      phone: barber.phone || '',
-      paymentMode: barber.paymentMode || 'salario',
-      paymentFrequency: barber.paymentFrequency || 'Quincenal',
-      commission: barberHasCommissionPay(barber.paymentMode) ? String(barber.commission || '') : '',
-      level: barber.level || 'Junior',
-      color: barber.color || BARBER_THEME_PALETTE[0].color,
-      bg: barber.bg || BARBER_THEME_PALETTE[0].bg,
-      branchId: barber.branchId || defaultBranchId,
+      name: stylist.name || '',
+      fullName: stylist.fullName || stylist.name || '',
+      cedula: stylist.cedula || '',
+      salary: formatSalary(stylistHasBasePay(stylist.paymentMode) ? stylist.salary : ''),
+      phone: stylist.phone || '',
+      paymentMode: stylist.paymentMode || 'salario',
+      paymentFrequency: stylist.paymentFrequency || 'Quincenal',
+      commission: stylistHasCommissionPay(stylist.paymentMode) ? String(stylist.commission || '') : '',
+      level: stylist.level || 'Junior',
+      color: stylist.color || STYLIST_THEME_PALETTE[0].color,
+      bg: stylist.bg || STYLIST_THEME_PALETTE[0].bg,
+      branchId: stylist.branchId || defaultBranchId,
     });
     setIsModalOpen(true);
   };
@@ -4051,23 +4054,23 @@ function BarbersView({ barbers, appointments, branches, currentBarbershopId, cur
       notify('Nombre completo requerido', 'warning');
       return;
     }
-    if (!branchesForCurrentBarbershop.length) {
-      notify('Primero debes crear al menos una sucursal para registrar barberos.', 'warning');
+    if (!branchesForCurrentSalon.length) {
+      notify('Primero debes crear al menos una sucursal para registrar estilistas.', 'warning');
       return;
     }
     if (!String(form.branchId || '').trim()) {
-      notify('Debes seleccionar una sucursal para el barbero.', 'warning');
+      notify('Debes seleccionar una sucursal para el estilista.', 'warning');
       return;
     }
     if (getPhoneDigits(form.phone).length > 0 && !isValidPhoneNumber(form.phone)) {
       notify('El teléfono móvil debe tener exactamente 8 dígitos.', 'warning');
       return;
     }
-    if (barberHasBasePay(form.paymentMode) && parseSalary(form.salary) <= 0) {
+    if (stylistHasBasePay(form.paymentMode) && parseSalary(form.salary) <= 0) {
       notify('Debes ingresar un salario base válido para esta modalidad.', 'warning');
       return;
     }
-    if (barberHasCommissionPay(form.paymentMode)) {
+    if (stylistHasCommissionPay(form.paymentMode)) {
       const commissionRate = parseSalary(form.commission);
       if (commissionRate <= 0) {
         notify('Debes ingresar un porcentaje de comisión válido para esta modalidad.', 'warning');
@@ -4078,7 +4081,7 @@ function BarbersView({ barbers, appointments, branches, currentBarbershopId, cur
         return;
       }
     }
-    const savedBarber = {
+    const savedStylist = {
       id: editing,
       ...form,
       fullName: form.fullName.trim(),
@@ -4086,35 +4089,35 @@ function BarbersView({ barbers, appointments, branches, currentBarbershopId, cur
       phone: formatPhoneNumber(form.phone),
       paymentMode: form.paymentMode,
       paymentFrequency: form.paymentFrequency,
-      salary: barberHasBasePay(form.paymentMode) ? parseSalary(form.salary) : 0,
-      commission: barberHasCommissionPay(form.paymentMode) ? parseSalary(form.commission) : 0,
+      salary: stylistHasBasePay(form.paymentMode) ? parseSalary(form.salary) : 0,
+      commission: stylistHasCommissionPay(form.paymentMode) ? parseSalary(form.commission) : 0,
       level: form.level || 'Junior',
       branchId: form.branchId,
-      barbershopId: currentBarbershopId || null,
+      salonId: currentSalonId || null,
     };
-    await onSave(savedBarber);
+    await onSave(savedStylist);
     closeModal();
   };
 
-  const filteredBarbers = barbers.filter((b) => {
+  const filteredStylists = stylists.filter((b) => {
     const query = search.toLowerCase();
     return b.name.toLowerCase().includes(query) || (b.fullName || '').toLowerCase().includes(query) || (b.cedula || '').toLowerCase().includes(query) || (b.phone || '').includes(query);
   });
 
   const staffMetrics = useMemo(() => {
-    const roster = barbers || [];
-    const salariedBarbers = roster.filter(
-      (barber) => barberHasBasePay(barber.paymentMode) && Number(barber.salary || 0) > 0
+    const roster = stylists || [];
+    const salariedStylists = roster.filter(
+      (stylist) => stylistHasBasePay(stylist.paymentMode) && Number(stylist.salary || 0) > 0
     );
-    const avgSalary = salariedBarbers.length
-      ? salariedBarbers.reduce((sum, barber) => sum + (Number(barber.salary) || 0), 0) / salariedBarbers.length
+    const avgSalary = salariedStylists.length
+      ? salariedStylists.reduce((sum, stylist) => sum + (Number(stylist.salary) || 0), 0) / salariedStylists.length
       : 0;
-    const commissionBarbers = roster.filter((barber) => barberHasCommissionPay(barber.paymentMode));
-    const avgCommission = commissionBarbers.length
-      ? commissionBarbers.reduce((sum, barber) => {
-          const totalSales = pendingEarningsByBarber.get(String(barber.id)) || 0;
-          return sum + (totalSales * (Number(barber.commission) / 100));
-        }, 0) / commissionBarbers.length
+    const commissionStylists = roster.filter((stylist) => stylistHasCommissionPay(stylist.paymentMode));
+    const avgCommission = commissionStylists.length
+      ? commissionStylists.reduce((sum, stylist) => {
+          const totalSales = pendingEarningsByStylist.get(String(stylist.id)) || 0;
+          return sum + (totalSales * (Number(stylist.commission) / 100));
+        }, 0) / commissionStylists.length
       : 0;
 
     const today = parseLocalDate(getTodayString()) || new Date();
@@ -4127,31 +4130,31 @@ function BarbersView({ barbers, appointments, branches, currentBarbershopId, cur
       return appointmentDate.getFullYear() === currentYear && appointmentDate.getMonth() === currentMonth;
     });
 
-    const servicesByBarber = monthlyFinishedAppointments.reduce((map, appointment) => {
-      const barberId = String(appointment.barberId || '');
-      if (!barberId) return map;
-      map.set(barberId, (map.get(barberId) || 0) + 1);
+    const servicesByStylist = monthlyFinishedAppointments.reduce((map, appointment) => {
+      const stylistId = String(appointment.stylistId || '');
+      if (!stylistId) return map;
+      map.set(stylistId, (map.get(stylistId) || 0) + 1);
       return map;
     }, new Map());
 
-    const activeBarbers = roster.filter(
-      (barber) => (servicesByBarber.get(String(barber.id)) || 0) > 0
+    const activeStylists = roster.filter(
+      (stylist) => (servicesByStylist.get(String(stylist.id)) || 0) > 0
     ).length;
-    const coverage = roster.length ? activeBarbers / roster.length : 0;
+    const coverage = roster.length ? activeStylists / roster.length : 0;
 
     let performanceLabel = 'Sin datos';
-    let performanceTone = 'text-slate-300';
+    let performanceTone = 'text-[#5a3442]';
 
     if (monthlyFinishedAppointments.length > 0) {
       if (coverage >= 0.8) {
         performanceLabel = 'Alta';
-        performanceTone = 'text-emerald-300';
+        performanceTone = 'text-[#e14f8a]';
       } else if (coverage >= 0.5) {
         performanceLabel = 'Media';
-        performanceTone = 'text-amber-300';
+        performanceTone = 'text-[#bd2f68]';
       } else {
         performanceLabel = 'Baja';
-        performanceTone = 'text-rose-300';
+        performanceTone = 'text-[#d93f70]';
       }
     }
 
@@ -4159,74 +4162,74 @@ function BarbersView({ barbers, appointments, branches, currentBarbershopId, cur
       total: roster.length,
       avgSalary,
       avgCommission,
-      salariedCount: salariedBarbers.length,
-      commissionCount: commissionBarbers.length,
+      salariedCount: salariedStylists.length,
+      commissionCount: commissionStylists.length,
       performanceLabel,
       performanceTone,
-      avgSalaryCaption: salariedBarbers.length
-        ? `Solo ${salariedBarbers.length} con salario fijo`
-        : 'No hay staff con salario fijo',
-      avgCommissionCaption: commissionBarbers.length
-        ? `Promedio pendiente para ${commissionBarbers.length} por comisión`
-        : 'No hay staff por comisión',
+      avgSalaryCaption: salariedStylists.length
+        ? `Solo ${salariedStylists.length} con salario fijo`
+        : 'No hay personal con salario fijo',
+      avgCommissionCaption: commissionStylists.length
+        ? `Promedio pendiente para ${commissionStylists.length} por comisión`
+        : 'No hay personal por comisión',
       performanceCaption: monthlyFinishedAppointments.length
-        ? `${activeBarbers} de ${roster.length || 0} barberos con servicios finalizados este mes`
+        ? `${activeStylists} de ${roster.length || 0} estilistas con servicios finalizados este mes`
         : 'Sin servicios finalizados este mes',
     };
-  }, [barbers, appointments, pendingEarningsByBarber]);
+  }, [stylists, appointments, pendingEarningsByStylist]);
 
   const compensationMetric = compensationIndicator === 'commission'
     ? {
         label: 'Promedio Comisiones',
         value: staffMetrics.commissionCount ? `C$ ${Math.round(staffMetrics.avgCommission).toLocaleString()}` : 'N/A',
         caption: staffMetrics.avgCommissionCaption,
-        tone: 'text-cyan-300',
+        tone: 'text-[#e14f8a]',
       }
     : {
         label: 'Promedio Salario Fijo',
         value: staffMetrics.salariedCount ? `C$ ${Math.round(staffMetrics.avgSalary).toLocaleString()}` : 'N/A',
         caption: staffMetrics.avgSalaryCaption,
-        tone: 'text-emerald-300',
+        tone: 'text-[#e14f8a]',
       };
 
   return (
-    <div className="p-10 space-y-8 animate-in fade-in text-white no-print">
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 text-white">
+    <div className="p-10 space-y-8 animate-in fade-in text-[#34242b] no-print">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
         <div>
-          <h3 className="text-3xl font-black uppercase italic tracking-tighter leading-none text-white">Equipo de Barberos</h3>
-          <p className="text-[10px] text-indigo-400 font-black uppercase tracking-widest mt-1 italic leading-none">Administre el staff, salarios y liquidación de comisiones</p>
+          <h3 className="text-3xl font-black uppercase italic tracking-tighter leading-none text-[#34242b]">Equipo de Estilistas</h3>
+          <p className="text-[10px] text-[#e14f8a] font-black uppercase tracking-widest mt-1 italic leading-none">Administra el equipo, salarios y liquidación de comisiones</p>
         </div>
         <div className="flex gap-4">
           <button 
             onClick={onGoToNomina}
-            className="bg-[#6366f1] hover:bg-[#5356e3] text-white px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-[0_0_20px_rgba(99,102,241,0.3)] active:scale-95 transition-all flex items-center gap-2"
+            className="bg-[#d75f91] hover:bg-[#bd2f68] text-white px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-[0_14px_28px_rgba(225,79,138,0.24)] active:scale-95 transition-all flex items-center gap-2"
           >
             <Wallet size={16} /> Pagar Nómina
           </button>
-          <button onClick={openNew} className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-[0_0_20px_rgba(79,70,229,0.3)] active:scale-95 transition-all">Nuevo Barbero</button>
+          <button onClick={openNew} className="bg-[#e14f8a] hover:bg-[#bd2f68] text-white px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-[0_14px_28px_rgba(225,79,138,0.24)] active:scale-95 transition-all">Nuevo Estilista</button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-white">
-        <div className="bg-slate-900 p-6 rounded-[2rem] border border-slate-800 shadow-lg hover:shadow-indigo-500/40 transition-all text-white">
-          <p className="text-[9px] uppercase tracking-widest font-black text-slate-400">Total de Barberos</p>
-          <p className="text-4xl font-black text-indigo-200">{staffMetrics.total}</p>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-white p-6 rounded-[2rem] border border-[#ff9fc1] shadow-[0_16px_34px_rgba(225,79,138,0.12)] hover:border-[#e14f8a] hover:bg-[#fff7fb] hover:shadow-[0_20px_42px_rgba(225,79,138,0.26)] transition-all">
+          <p className="text-[9px] uppercase tracking-widest font-black text-[#9b6076]">Total de Estilistas</p>
+          <p className="text-4xl font-black text-[#e14f8a]">{staffMetrics.total}</p>
         </div>
-        <div className="bg-slate-900 p-6 rounded-[2rem] border border-slate-800 shadow-lg hover:shadow-emerald-500/40 transition-all text-white">
+        <div className="bg-white p-6 rounded-[2rem] border border-[#ff9fc1] shadow-[0_16px_34px_rgba(225,79,138,0.12)] hover:border-[#e14f8a] hover:bg-[#fff7fb] hover:shadow-[0_20px_42px_rgba(225,79,138,0.26)] transition-all">
           <div className="flex items-center justify-between gap-3">
-            <p className="text-[9px] uppercase tracking-widest font-black text-slate-400">{compensationMetric.label}</p>
-            <div className="inline-flex rounded-2xl border border-white/10 bg-black/30 p-1">
+            <p className="text-[9px] uppercase tracking-widest font-black text-[#9b6076]">{compensationMetric.label}</p>
+            <div className="inline-flex rounded-2xl border border-[#f5a8c5] bg-[#fff7fb] p-1">
               <button
                 type="button"
                 onClick={() => setCompensationIndicator('salary')}
-                className={`px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${compensationIndicator === 'salary' ? 'bg-emerald-500 text-slate-950' : 'text-slate-400 hover:text-white'}`}
+                className={`px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${compensationIndicator === 'salary' ? 'bg-[#e14f8a] text-white shadow-sm' : 'text-[#9b6076] hover:text-[#bd2f68] hover:bg-[#ffeaf3]'}`}
               >
                 Salario
               </button>
               <button
                 type="button"
                 onClick={() => setCompensationIndicator('commission')}
-                className={`px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${compensationIndicator === 'commission' ? 'bg-cyan-500 text-slate-950' : 'text-slate-400 hover:text-white'}`}
+                className={`px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${compensationIndicator === 'commission' ? 'bg-[#e14f8a] text-white shadow-sm' : 'text-[#9b6076] hover:text-[#bd2f68] hover:bg-[#ffeaf3]'}`}
               >
                 Comisión
               </button>
@@ -4235,70 +4238,70 @@ function BarbersView({ barbers, appointments, branches, currentBarbershopId, cur
           <p className={`text-4xl font-black ${compensationMetric.tone}`}>
             {compensationMetric.value}
           </p>
-          <p className="mt-2 text-[10px] font-black uppercase tracking-widest text-slate-500">
+          <p className="mt-2 text-[10px] font-black uppercase tracking-widest text-[#9b6076]">
             {compensationMetric.caption}
           </p>
         </div>
-        <div className="bg-slate-900 p-6 rounded-[2rem] border border-slate-800 shadow-lg hover:shadow-amber-500/40 transition-all text-white">
-          <p className="text-[9px] uppercase tracking-widest font-black text-slate-400">Rendimiento Staff</p>
+        <div className="bg-white p-6 rounded-[2rem] border border-[#ff9fc1] shadow-[0_16px_34px_rgba(225,79,138,0.12)] hover:border-[#e14f8a] hover:bg-[#fff7fb] hover:shadow-[0_20px_42px_rgba(225,79,138,0.26)] transition-all">
+          <p className="text-[9px] uppercase tracking-widest font-black text-[#9b6076]">Rendimiento del equipo</p>
           <p className={`text-4xl font-black ${staffMetrics.performanceTone}`}>{staffMetrics.performanceLabel}</p>
-          <p className="mt-2 text-[10px] font-black uppercase tracking-widest text-slate-500">
+          <p className="mt-2 text-[10px] font-black uppercase tracking-widest text-[#9b6076]">
             {staffMetrics.performanceCaption}
           </p>
         </div>
       </div>
 
-      <div className="bg-slate-900 border border-slate-800 rounded-[2rem] p-6 text-white">
-        <div className="flex justify-between items-center mb-5 text-white">
-          <h4 className="text-lg font-black uppercase text-white">Registro de Barberos</h4>
-          <div className="relative text-white w-full max-w-xs">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
-                <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por nombre, cédula o teléfono" className="pl-10 pr-4 py-3 w-full rounded-xl bg-black border border-slate-800 text-sm text-white outline-none focus:border-indigo-500" />
+      <div className="bg-white border border-[#ff9fc1] rounded-[2rem] p-6 shadow-[0_16px_38px_rgba(225,79,138,0.10)]">
+        <div className="flex justify-between items-center mb-5">
+          <h4 className="text-lg font-black uppercase text-[#34242b]">Registro de Estilistas</h4>
+          <div className="relative w-full max-w-xs">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9b6076]" size={16} />
+                <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por nombre, cédula o teléfono" className="pl-10 pr-4 py-3 w-full rounded-xl bg-white border border-[#f5a8c5] text-sm text-[#34242b] outline-none focus:border-[#e14f8a] focus:ring-4 focus:ring-[#e14f8a]/10" />
           </div>
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 text-white">
-          {filteredBarbers.length === 0 && <p className="text-slate-400 col-span-full">No se encontraron barberos.</p>}
-          {filteredBarbers.map((b) => {
-             const earnings = getBarberEarnings(b);
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+          {filteredStylists.length === 0 && <p className="text-[#7b4d5e] col-span-full">No se encontraron estilistas.</p>}
+          {filteredStylists.map((b) => {
+             const earnings = getStylistEarnings(b);
              return (
-              <div key={b.id} onClick={() => openEdit(b)} className={`bg-gradient-to-br from-slate-900 to-slate-800 border ${b.color || 'border-slate-700'} rounded-[2.5rem] p-6 shadow-lg hover:shadow-indigo-500/30 transition-all relative overflow-hidden group cursor-pointer flex flex-col justify-between h-full text-white`}>
-                <div className="absolute inset-0 bg-gradient-to-r from-indigo-700/10 via-transparent to-emerald-700/5 opacity-60 pointer-events-none z-0"></div>
+              <div key={b.id} onClick={() => openEdit(b)} className={`bg-white border ${b.color || 'border-[#ff9fc1]'} rounded-[2.5rem] p-6 shadow-[0_16px_34px_rgba(225,79,138,0.12)] hover:border-[#e14f8a] hover:bg-[#fff7fb] hover:shadow-[0_20px_42px_rgba(225,79,138,0.26)] transition-all relative overflow-hidden group cursor-pointer flex flex-col justify-between h-full`}>
+                <div className="absolute inset-0 bg-gradient-to-br from-[#ffeaf3] via-transparent to-[#fff7fb] opacity-80 pointer-events-none z-0"></div>
                 
-                <div className="relative z-10 text-white">
-                  <div className="flex items-center justify-between gap-2 mb-4 text-white">
+                <div className="relative z-10">
+                  <div className="flex items-center justify-between gap-2 mb-4">
                     <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white font-black italic shadow-xl ${b.bg || 'bg-indigo-500'}`}>{b.avatar || b.name?.slice(0, 2).toUpperCase()}</div>
                   </div>
                   
-                  <h5 className="text-xl font-black text-white uppercase tracking-tighter truncate mb-1">{b.name}</h5>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.16em] truncate mb-3">{b.fullName || b.name}</p>
-                  <div className="flex items-center gap-2 mb-4 text-white">
-                      <span className={`text-[8px] font-black uppercase px-2 py-1 rounded-md border ${b.color} text-white`}>{b.level || 'Junior'}</span>
-                      <span className="text-[8px] font-black uppercase px-2 py-1 rounded-md bg-black/40 text-slate-400 border border-white/5">{getBarberPaymentModeLabel(b.paymentMode, b.commission || 0)}</span>
+                  <h5 className="text-xl font-black text-[#34242b] uppercase tracking-tighter truncate mb-1">{b.name}</h5>
+                  <p className="text-[10px] font-bold text-[#9b6076] uppercase tracking-[0.16em] truncate mb-3">{b.fullName || b.name}</p>
+                  <div className="flex items-center gap-2 mb-4">
+                      <span className={`text-[8px] font-black uppercase px-2 py-1 rounded-md border ${b.color} text-[#bd2f68] bg-white`}>{b.level || 'Junior'}</span>
+                      <span className="text-[8px] font-black uppercase px-2 py-1 rounded-md bg-[#ffeaf3] text-[#9b6076] border border-[#f5a8c5]">{getStylistPaymentModeLabel(b.paymentMode, b.commission || 0)}</span>
                   </div>
 
-                  <div className="space-y-3 py-4 border-y border-white/5 mb-4 text-white">
-                    <div className="flex justify-between items-center text-white">
-                        <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Sucursal</span>
-                        <span className="text-[10px] font-black text-slate-300 italic">{branchNameById.get(String(b.branchId || '')) || 'Sucursal no asignada'}</span>
+                  <div className="space-y-3 py-4 border-y border-[#f5a8c5]/45 mb-4">
+                    <div className="flex justify-between items-center">
+                        <span className="text-[9px] font-black text-[#9b6076] uppercase tracking-widest">Sucursal</span>
+                        <span className="text-[10px] font-black text-[#5a3442] italic">{branchNameById.get(String(b.branchId || '')) || 'Sucursal no asignada'}</span>
                     </div>
-                    <div className="flex justify-between items-center text-white">
-                        <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Cédula</span>
-                        <span className="text-[10px] font-black text-slate-300 italic">{b.cedula?.trim() || 'Sin registrar'}</span>
+                    <div className="flex justify-between items-center">
+                        <span className="text-[9px] font-black text-[#9b6076] uppercase tracking-widest">Cédula</span>
+                        <span className="text-[10px] font-black text-[#5a3442] italic">{b.cedula?.trim() || 'Sin registrar'}</span>
                     </div>
-                    <div className="flex justify-between items-center text-white">
-                          <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Pago Base</span>
-                          <span className="text-xs font-black text-white italic">{barberHasBasePay(b.paymentMode) ? `C$ ${Number(b.salary || 0).toLocaleString()}` : 'N/A'}</span>
+                    <div className="flex justify-between items-center">
+                          <span className="text-[9px] font-black text-[#9b6076] uppercase tracking-widest">Pago Base</span>
+                          <span className="text-xs font-black text-[#34242b] italic">{stylistHasBasePay(b.paymentMode) ? `C$ ${Number(b.salary || 0).toLocaleString()}` : 'N/A'}</span>
                     </div>
-                    <div className="flex justify-between items-center text-white">
-                        <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">Pendiente Pago</span>
-                        <span className="text-xs font-black text-emerald-400 italic">C$ {earnings.toLocaleString()}</span>
+                    <div className="flex justify-between items-center">
+                        <span className="text-[9px] font-black text-[#e14f8a] uppercase tracking-widest">Pendiente Pago</span>
+                        <span className="text-xs font-black text-[#bd2f68] italic">C$ {earnings.toLocaleString()}</span>
                     </div>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between gap-2 relative z-10 pt-2 text-white">
-                  <button onClick={() => openEdit(b)} className="flex-1 bg-white/5 hover:bg-indigo-600 text-white py-3 rounded-xl text-[9px] font-black uppercase tracking-widest border border-white/5 hover:border-indigo-400 transition-all text-white">Ver Perfil</button>
+                <div className="flex items-center justify-between gap-2 relative z-10 pt-2">
+                  <button onClick={() => openEdit(b)} className="flex-1 bg-[#ffeaf3] hover:bg-[#e14f8a] text-[#bd2f68] hover:text-white py-3 rounded-xl text-[9px] font-black uppercase tracking-widest border border-[#f5a8c5] hover:border-[#e14f8a] transition-all">Ver Perfil</button>
                   <button onClick={(e) => { e.stopPropagation(); onDelete(b.id); }} className="px-4 bg-rose-500/10 hover:bg-rose-600 text-rose-500 hover:text-white py-3 rounded-xl border border-rose-500/20 transition-all"><Trash2 size={14}/></button>
                 </div>
               </div>
@@ -4335,7 +4338,7 @@ function BarbersView({ barbers, appointments, branches, currentBarbershopId, cur
               <div className="w-full space-y-3 text-white">
                 <div className="bg-white/5 rounded-2xl p-3 border border-white/5 flex items-center justify-between text-white">
                   <div className="flex items-center gap-3 text-white/40"><Briefcase size={14}/> <span className="text-[10px] font-black uppercase tracking-widest italic leading-none">Modo</span></div>
-                  <span className="text-[11px] font-black uppercase text-indigo-400 italic leading-none">{getBarberPaymentModeLabel(form.paymentMode, form.commission || 0)}</span>
+                  <span className="text-[11px] font-black uppercase text-indigo-400 italic leading-none">{getStylistPaymentModeLabel(form.paymentMode, form.commission || 0)}</span>
                 </div>
 
                 <div className="bg-white/5 rounded-2xl p-3 border border-white/5 text-white">
@@ -4404,14 +4407,14 @@ function BarbersView({ barbers, appointments, branches, currentBarbershopId, cur
                   <label className="text-[9px] font-black text-white/30 uppercase tracking-[0.2em] ml-2 italic leading-none">Modalidad de Pago</label>
                   <div className="relative group text-white">
                     <CreditCard className="absolute left-5 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-emerald-400 transition-colors" size={16}/>
-                    <select value={form.paymentMode} onChange={(e) => setForm({ ...form, paymentMode: e.target.value, salary: barberHasBasePay(e.target.value) ? form.salary : '', commission: barberHasCommissionPay(e.target.value) ? form.commission : '' })} className="w-full bg-black border border-white/10 rounded-2xl pl-12 pr-6 py-3.5 text-sm font-bold text-white outline-none focus:border-emerald-500 focus:bg-white/[0.07] transition-all appearance-none cursor-pointer text-white">
-                        {BARBER_PAYMENT_MODE_OPTIONS.map((option) => (
+                    <select value={form.paymentMode} onChange={(e) => setForm({ ...form, paymentMode: e.target.value, salary: stylistHasBasePay(e.target.value) ? form.salary : '', commission: stylistHasCommissionPay(e.target.value) ? form.commission : '' })} className="w-full bg-black border border-white/10 rounded-2xl pl-12 pr-6 py-3.5 text-sm font-bold text-white outline-none focus:border-emerald-500 focus:bg-white/[0.07] transition-all appearance-none cursor-pointer text-white">
+                        {STYLIST_PAYMENT_MODE_OPTIONS.map((option) => (
                           <option key={option.id} value={option.id} className="bg-slate-950 text-white">{option.label}</option>
                         ))}
                       </select>
                     </div>
                   </div>
-                  {barberHasBasePay(form.paymentMode) && (
+                  {stylistHasBasePay(form.paymentMode) && (
                   <div className="space-y-2 text-white">
                     <label className="text-[9px] font-black text-white/30 uppercase tracking-[0.2em] ml-2 italic leading-none">Sueldo base (C$)</label>
                     <div className="relative group text-white">
@@ -4420,7 +4423,7 @@ function BarbersView({ barbers, appointments, branches, currentBarbershopId, cur
                     </div>
                   </div>
                   )}
-                  {barberHasCommissionPay(form.paymentMode) && (
+                  {stylistHasCommissionPay(form.paymentMode) && (
                   <div className="space-y-2 text-white">
                     <label className="text-[9px] font-black text-white/30 uppercase tracking-[0.2em] ml-2 italic leading-none">Comisión (%)</label>
                     <div className="relative group text-white">
@@ -4437,13 +4440,13 @@ function BarbersView({ barbers, appointments, branches, currentBarbershopId, cur
                       <select
                         value={form.branchId || ''}
                         onChange={(e) => setForm({ ...form, branchId: e.target.value })}
-                        disabled={!branchesForCurrentBarbershop.length}
+                        disabled={!branchesForCurrentSalon.length}
                         className="w-full bg-black border border-white/10 rounded-2xl pl-12 pr-6 py-3.5 text-sm font-bold text-white outline-none focus:border-indigo-500 focus:bg-white/[0.07] transition-all disabled:opacity-60 appearance-none cursor-pointer"
                       >
                         <option value="" disabled className="bg-slate-950 text-white">
-                          {branchesForCurrentBarbershop.length ? 'Selecciona una sucursal' : 'Sin sucursales disponibles'}
+                          {branchesForCurrentSalon.length ? 'Selecciona una sucursal' : 'Sin sucursales disponibles'}
                         </option>
-                        {branchesForCurrentBarbershop.map((branch) => (
+                        {branchesForCurrentSalon.map((branch) => (
                           <option key={branch.id} value={branch.id} className="bg-slate-950 text-white">
                             {branch.name}
                           </option>
@@ -4457,8 +4460,8 @@ function BarbersView({ barbers, appointments, branches, currentBarbershopId, cur
               <div className="mb-6 text-white">
                 <label className="text-[9px] font-black text-white/30 uppercase tracking-[0.3em] ml-2 block mb-4 italic leading-none">Color de Identificación Visual</label>
                 <div className="grid grid-cols-4 md:grid-cols-6 gap-3 text-white">
-                  {BARBER_THEME_PALETTE.map((theme) => {
-                    const isUsed = barbers.some(b => b.color === theme.color && String(b.id) !== String(editing));
+                  {STYLIST_THEME_PALETTE.map((theme) => {
+                    const isUsed = stylists.some(b => b.color === theme.color && String(b.id) !== String(editing));
                     return (
                       <button key={theme.id} disabled={isUsed} onClick={() => setForm({ ...form, color: theme.color, bg: theme.bg })} className={`h-10 rounded-xl transition-all relative overflow-hidden flex items-center justify-center border-2 ${theme.bg} ${isUsed ? 'opacity-20 cursor-not-allowed grayscale' : 'hover:scale-110 active:scale-95'} ${form.color === theme.color ? 'border-white shadow-[0_0_15px_rgba(255,255,255,0.4)]' : 'border-black/50'}`}>
                         {form.color === theme.color && <Check size={14} className="text-white drop-shadow-md" />}
@@ -4486,13 +4489,13 @@ function BarbersView({ barbers, appointments, branches, currentBarbershopId, cur
   );
 }
 
-function NominaView({ barbers, appointments, onClose, onPagar, onLiquidarTodo }) {
+function NominaView({ stylists, appointments, onClose, onPagar, onLiquidarTodo }) {
   const payrollRows = useMemo(() => {
-    return barbers.map((barber) => ({
-      barber,
-      nomina: getBarberNominaData(barber, appointments),
+    return stylists.map((stylist) => ({
+      stylist,
+      nomina: getStylistNominaData(stylist, appointments),
     }));
-  }, [barbers, appointments]);
+  }, [stylists, appointments]);
 
   const summary = useMemo(() => {
     return payrollRows.reduce((acc, row) => ({
@@ -4511,16 +4514,16 @@ function NominaView({ barbers, appointments, onClose, onPagar, onLiquidarTodo })
       value: `C$ ${summary.total.toLocaleString()}`,
       helper: `Base C$ ${summary.base.toLocaleString()} + comisión C$ ${summary.comission.toLocaleString()}`,
       icon: Wallet,
-      shellClass: 'bg-gradient-to-br from-indigo-500/20 via-slate-900 to-slate-950 border-indigo-500/30 shadow-[0_0_35px_rgba(99,102,241,0.18)]',
+      shellClass: 'bg-gradient-to-br from-indigo-500/20 via-slate-900 to-slate-950 border-indigo-500/30 shadow-[0_0_35px_rgba(201,111,141,0.18)]',
       iconWrapClass: 'bg-indigo-500/15 text-indigo-300 border-indigo-400/20',
       valueClass: 'text-white',
       badgeClass: 'text-indigo-300',
     },
     {
       id: 'staff',
-      label: 'Staff Pendiente',
+      label: 'Equipo pendiente',
       value: `${summary.staffCount}`,
-      helper: `${summary.staffCount === 1 ? '1 barbero con pago pendiente' : `${summary.staffCount} barberos listos para liquidar`}`,
+      helper: `${summary.staffCount === 1 ? '1 estilista con pago pendiente' : `${summary.staffCount} estilistas listos para liquidar`}`,
       icon: Users,
       shellClass: 'bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 border-slate-700 shadow-[0_12px_35px_rgba(0,0,0,0.25)]',
       iconWrapClass: 'bg-white/5 text-slate-200 border-white/10',
@@ -4531,7 +4534,7 @@ function NominaView({ barbers, appointments, onClose, onPagar, onLiquidarTodo })
       id: 'services',
       label: 'Servicios Pendientes',
       value: `${summary.pendingServices}`,
-      helper: summary.pendingServices > 0 ? 'Citas finalizadas aún no liquidadas' : 'Todo el corte pendiente ya está bajo control',
+      helper: summary.pendingServices > 0 ? 'Citas finalizadas aún no liquidadas' : 'Todo el servicio pendiente ya está bajo control',
       icon: Scissors,
       shellClass: 'bg-gradient-to-br from-emerald-500/10 via-slate-900 to-slate-950 border-emerald-500/20 shadow-[0_0_35px_rgba(16,185,129,0.14)]',
       iconWrapClass: 'bg-emerald-500/15 text-emerald-300 border-emerald-400/20',
@@ -4552,11 +4555,11 @@ function NominaView({ barbers, appointments, onClose, onPagar, onLiquidarTodo })
           </button>
           <div>
           <h3 className="text-3xl font-black uppercase italic tracking-tighter leading-none text-white">Liquidación de Nómina</h3>
-            <p className="text-[#4ade80] text-[10px] font-black uppercase tracking-widest mt-1 italic leading-none">Procesar pagos pendientes del staff</p>
+            <p className="text-[#4ade80] text-[10px] font-black uppercase tracking-widest mt-1 italic leading-none">Procesar pagos pendientes del equipo</p>
           </div>
         </div>
         <div className="bg-slate-900 border border-slate-800 p-3 md:p-4 rounded-2xl flex items-center gap-4 self-start md:self-auto">
-          <CalendarIcon size={20} className="text-[#6366f1]" />
+          <CalendarIcon size={20} className="text-[#c96f8d]" />
           <div className="text-right">
             <p className="text-[9px] text-slate-500 font-black uppercase leading-none mb-1">Periodo Actual</p>
             <p className="text-xs font-black text-white italic">{new Date().toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}</p>
@@ -4590,7 +4593,7 @@ function NominaView({ barbers, appointments, onClose, onPagar, onLiquidarTodo })
         <table className="min-w-[980px] w-full text-left">
           <thead className="bg-black/80 border-b border-slate-800 font-black uppercase text-[10px] text-slate-500 tracking-[0.2em] italic">
             <tr>
-              <th className="px-10 py-7">Staff / Barbero</th>
+              <th className="px-10 py-7">Equipo / Estilista</th>
               <th className="px-10 py-7 text-center">Modalidad</th>
               <th className="px-10 py-7 text-center">Base</th>
               <th className="px-10 py-7 text-center">Comisiones</th>
@@ -4599,7 +4602,7 @@ function NominaView({ barbers, appointments, onClose, onPagar, onLiquidarTodo })
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-800/50">
-              {payrollRows.map(({ barber: b, nomina: data }) => {
+              {payrollRows.map(({ stylist: b, nomina: data }) => {
               return (
                 <tr key={b.id} className="hover:bg-white/[0.02] transition-colors group">
                   <td className="px-10 py-6">
@@ -4612,7 +4615,7 @@ function NominaView({ barbers, appointments, onClose, onPagar, onLiquidarTodo })
                     </div>
                   </td>
                   <td className="px-10 py-6 text-center">
-                    <span className="text-[10px] font-black text-slate-400 uppercase italic tracking-widest">{getBarberPaymentModeLabel(b.paymentMode, data.commissionRate)}</span>
+                    <span className="text-[10px] font-black text-slate-400 uppercase italic tracking-widest">{getStylistPaymentModeLabel(b.paymentMode, data.commissionRate)}</span>
                   </td>
                   <td className="px-10 py-6 text-center">
                     <span className="text-xs font-black text-white italic">C$ {data.base.toLocaleString()}</span>
@@ -4644,7 +4647,7 @@ function NominaView({ barbers, appointments, onClose, onPagar, onLiquidarTodo })
           onClick={() => onLiquidarTodo(payrollRows, summary)}
           className="w-full md:w-auto bg-[#4ade80] hover:bg-[#34d399] text-[#064e3b] px-7 md:px-12 py-4 md:py-6 rounded-[2rem] md:rounded-[2.5rem] flex items-center justify-center gap-3 text-[10px] md:text-xs font-black uppercase italic tracking-[0.16em] md:tracking-widest transition-all shadow-[0_0_30px_rgba(74,222,128,0.3)] active:scale-95"
         >
-          Liquidar Todo el Staff <ArrowRight size={18} />
+          Liquidar todo el equipo <ArrowRight size={18} />
         </button>
       </div>
     </div>
@@ -4685,7 +4688,7 @@ const formatRangeLabel = (start, end) => {
   return `${startLabel} a ${endLabel}`;
 };
 
-function ReportsView({ appointments, clients, barbers, branches = [], currentBranchId = null, posSales = [] }) {
+function ReportsView({ appointments, clients, stylists, branches = [], currentBranchId = null, posSales = [] }) {
   const [reportTab, setReportTab] = useState('ventas'); 
   const [salesPeriod, setSalesPeriod] = useState('week'); 
   const [productRangePreset, setProductRangePreset] = useState('month');
@@ -4698,7 +4701,7 @@ function ReportsView({ appointments, clients, barbers, branches = [], currentBra
   const [productRangeEnd, setProductRangeEnd] = useState(() => getPresetDateRange('month').end);
   const [staffRangeStart, setStaffRangeStart] = useState(() => getPresetDateRange('month').start);
   const [staffRangeEnd, setStaffRangeEnd] = useState(() => getPresetDateRange('month').end);
-  const barbersById = useMemo(() => Object.fromEntries((barbers || []).map(b => [String(b.id), b])), [barbers]);
+  const stylistsById = useMemo(() => Object.fromEntries((stylists || []).map(b => [String(b.id), b])), [stylists]);
   const reportTodayDate = useMemo(() => parseLocalDate(reportToday) || new Date(), [reportToday]);
 
   useEffect(() => {
@@ -4721,10 +4724,10 @@ function ReportsView({ appointments, clients, barbers, branches = [], currentBra
   const scopedAppointments = useMemo(
     () => (appointments || []).filter((appointment) => {
       if (effectiveReportBranchId === 'all') return true;
-      const resolvedBranchId = appointment.branchId || barbersById[String(appointment.barberId)]?.branchId || null;
+      const resolvedBranchId = appointment.branchId || stylistsById[String(appointment.stylistId)]?.branchId || null;
       return String(resolvedBranchId || '') === String(effectiveReportBranchId);
     }),
-    [appointments, effectiveReportBranchId, barbersById],
+    [appointments, effectiveReportBranchId, stylistsById],
   );
   const scopedPosSales = useMemo(
     () => (posSales || []).filter((sale) => (
@@ -4735,7 +4738,7 @@ function ReportsView({ appointments, clients, barbers, branches = [], currentBra
     [posSales, effectiveReportBranchId],
   );
   const unresolvedLegacyPosSalesCount = useMemo(
-    () => (posSales || []).filter((sale) => !sale.barbershopId || !sale.branchId).length,
+    () => (posSales || []).filter((sale) => !sale.salonId || !sale.branchId).length,
     [posSales],
   );
   const globalFinished = useMemo(
@@ -4917,20 +4920,20 @@ function ReportsView({ appointments, clients, barbers, branches = [], currentBra
     [productChartSegments],
   );
   const clientsById = useMemo(() => Object.fromEntries((clients || []).map(c => [String(c.id), c])), [clients]);
-  const barberIdsWithScopedAppointments = useMemo(
-    () => new Set((scopedAppointments || []).map((appointment) => String(appointment.barberId || '')).filter(Boolean)),
+  const stylistIdsWithScopedAppointments = useMemo(
+    () => new Set((scopedAppointments || []).map((appointment) => String(appointment.stylistId || '')).filter(Boolean)),
     [scopedAppointments],
   );
-  const scopedBarbers = useMemo(
-    () => (barbers || []).filter((barber) => (
+  const scopedStylists = useMemo(
+    () => (stylists || []).filter((stylist) => (
       effectiveReportBranchId === 'all'
         ? true
         : (
-          String(barber.branchId || '') === String(effectiveReportBranchId)
-          || barberIdsWithScopedAppointments.has(String(barber.id))
+          String(stylist.branchId || '') === String(effectiveReportBranchId)
+          || stylistIdsWithScopedAppointments.has(String(stylist.id))
         )
     )),
-    [barbers, effectiveReportBranchId, barberIdsWithScopedAppointments],
+    [stylists, effectiveReportBranchId, stylistIdsWithScopedAppointments],
   );
   const presetStaffRange = useMemo(
     () => getPresetDateRange(staffRangePreset === 'custom' ? 'month' : staffRangePreset, reportTodayDate),
@@ -4981,25 +4984,25 @@ function ReportsView({ appointments, clients, barbers, branches = [], currentBra
   const stats = useMemo(() => {
     const hasData = finished.length > 0;
 
-    const globalStaffMetrics = (barbers || []).map((barber) => {
-      const barberFinished = monthlyGlobalFinished.filter((appointment) => String(appointment.barberId) === String(barber.id));
-      const barberCount = barberFinished.length;
-      const barberSales = barberFinished.reduce((sum, appointment) => sum + (parseInt(appointment.price) || 0), 0);
+    const globalStaffMetrics = (stylists || []).map((stylist) => {
+      const stylistFinished = monthlyGlobalFinished.filter((appointment) => String(appointment.stylistId) === String(stylist.id));
+      const stylistCount = stylistFinished.length;
+      const stylistSales = stylistFinished.reduce((sum, appointment) => sum + (parseInt(appointment.price) || 0), 0);
 
       return {
-        ...barber,
-        count: barberCount,
-        sales: barberSales,
+        ...stylist,
+        count: stylistCount,
+        sales: stylistSales,
       };
     });
 
-    const bestBarberObj = globalStaffMetrics.length > 0
+    const bestStylistObj = globalStaffMetrics.length > 0
       ? globalStaffMetrics.reduce((prev, current) => (prev.sales >= current.sales ? prev : current), globalStaffMetrics[0])
       : null;
     
     // Métrica por personal
-    const staffMetrics = scopedBarbers.map((b) => {
-      const bFinished = finished.filter(a => String(a.barberId) === String(b.id));
+    const staffMetrics = scopedStylists.map((b) => {
+      const bFinished = finished.filter(a => String(a.stylistId) === String(b.id));
       const bCount = bFinished.length;
       const bSales = bFinished.reduce((sum, a) => sum + (parseInt(a.price) || 0), 0);
       const bAvgTicket = bCount > 0 ? bSales / bCount : 0;
@@ -5086,9 +5089,9 @@ function ReportsView({ appointments, clients, barbers, branches = [], currentBra
     };
 
     return { 
-      bestBarber: bestBarberObj, 
-      bestBarberCount: bestBarberObj?.count ?? 0, 
-      bestBarberSales: bestBarberObj?.sales ?? 0, 
+      bestStylist: bestStylistObj, 
+      bestStylistCount: bestStylistObj?.count ?? 0, 
+      bestStylistSales: bestStylistObj?.sales ?? 0, 
       topServiceName: topServiceNameVal || 'Sin datos', 
       topServiceCount: topServiceCountVal, 
       newClientsThisMonth: newClientsThisMonthVal, 
@@ -5097,11 +5100,11 @@ function ReportsView({ appointments, clients, barbers, branches = [], currentBra
       historicalSales: getHistoricalRealData(), 
       hasData 
     };
-  }, [barbers, clients, finished, finishedRevenueTotal, monthlyGlobalFinished, reportTodayDate, salesPeriod, scopedBarbers]);
+  }, [stylists, clients, finished, finishedRevenueTotal, monthlyGlobalFinished, reportTodayDate, salesPeriod, scopedStylists]);
 
   const monthlyStaffMetrics = useMemo(() => {
-    return scopedBarbers.map((b) => {
-      const bFinished = monthlyFinished.filter(a => String(a.barberId) === String(b.id));
+    return scopedStylists.map((b) => {
+      const bFinished = monthlyFinished.filter(a => String(a.stylistId) === String(b.id));
       const bCount = bFinished.length;
       const bSales = bFinished.reduce((sum, a) => sum + (Number(a.price) || 0), 0);
       return {
@@ -5110,7 +5113,7 @@ function ReportsView({ appointments, clients, barbers, branches = [], currentBra
         sales: bSales,
       };
     });
-  }, [scopedBarbers, monthlyFinished]);
+  }, [scopedStylists, monthlyFinished]);
 
   const maxMonthlyApts = Math.max(...monthlyStaffMetrics.map(m => m.count), 1);
   const maxMonthlySales = Math.max(...monthlyStaffMetrics.map(m => m.sales), 1);
@@ -5123,18 +5126,18 @@ function ReportsView({ appointments, clients, barbers, branches = [], currentBra
       .slice()
       .sort((a, b) => parseLocalDate(b.date) - parseLocalDate(a.date))
       .map((apt) => {
-        const barber = barbersById[String(apt.barberId)];
+        const stylist = stylistsById[String(apt.stylistId)];
         const client = clientsById[String(apt.clientId)];
         const serviceDate = parseLocalDate(apt.date);
         return [
-          barber?.fullName || barber?.name || `Barbero ${apt.barberId}`,
+          stylist?.fullName || stylist?.name || `Estilista ${apt.stylistId}`,
           client?.name || 'Cliente sin registro',
           Number(apt.price || 0),
           serviceDate ? serviceDate.toLocaleDateString('es-ES') : standardizeDate(apt.date),
         ].map(escapeCsv).join(',');
       });
 
-    const csv = `\uFEFFsep=,\r\n${['Barbero', 'Cliente', 'Costo del servicio', 'Fecha de servicio'].map(escapeCsv).join(',')}\r\n${rows.join('\r\n')}`;
+    const csv = `\uFEFFsep=,\r\n${['Estilista', 'Cliente', 'Costo del servicio', 'Fecha de servicio'].map(escapeCsv).join(',')}\r\n${rows.join('\r\n')}`;
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
@@ -5190,25 +5193,28 @@ function ReportsView({ appointments, clients, barbers, branches = [], currentBra
   }, [stats.historicalSales]);
 
   return (
-    <div className="reports-view px-3 py-4 md:p-12 space-y-6 md:space-y-12 h-full animate-in fade-in pb-24 md:pb-32 text-white no-print">
-      <div className="flex flex-col xl:flex-row xl:justify-between xl:items-end gap-4 md:gap-5 text-white">
-        <div><h3 className="text-2xl md:text-4xl font-black italic uppercase tracking-tighter leading-none text-white">Análisis del Negocio</h3><p className="text-[9px] md:text-[10px] text-indigo-400 font-black uppercase mt-2 italic tracking-[0.16em] md:tracking-[0.2em] leading-none">Métricas avanzadas y rendimiento comercial real</p></div>
-        <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+    <div className="reports-view px-3 py-4 md:p-6 space-y-5 md:space-y-7 h-full animate-in fade-in pb-24 md:pb-28 text-white no-print">
+      <div className="rounded-[1.6rem] border border-rose-200/80 bg-white/85 px-4 py-3 md:px-5 md:py-4 shadow-[0_14px_34px_rgba(120,78,93,0.08)] backdrop-blur-sm flex flex-col xl:flex-row xl:justify-between xl:items-center gap-3 text-white">
+        <div>
+          <h3 className="text-2xl md:text-3xl font-black italic uppercase tracking-tighter leading-none text-white">Análisis del Negocio</h3>
+          <p className="text-[9px] md:text-[10px] text-indigo-400 font-black uppercase mt-2 italic tracking-[0.14em] md:tracking-[0.18em] leading-none">Métricas avanzadas y rendimiento comercial real</p>
+        </div>
+        <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
           {(branches || []).length > 0 && (
             <div className="w-full sm:min-w-[220px] sm:w-auto">
               <select
                 value={effectiveReportBranchId}
                 onChange={(e) => setSelectedReportBranchId(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-800 rounded-2xl px-4 py-3 text-xs md:text-sm font-bold text-white outline-none focus:border-indigo-500 italic"
+                className="w-full bg-white border border-rose-200 rounded-2xl px-4 py-3 text-xs md:text-sm font-bold text-white outline-none focus:border-indigo-500 italic shadow-sm"
               >
-                <option value="all">Toda la barbería</option>
+                <option value="all">Todo el salón</option>
                 {branches.map((branch) => (
                   <option key={branch.id} value={branch.id}>{branch.name}</option>
                 ))}
               </select>
             </div>
           )}
-          <div className="bg-slate-900 border border-slate-800 px-4 py-3 rounded-2xl flex items-center gap-3 text-white"><CalendarIcon size={18} className="text-slate-500" /><span className="text-[10px] md:text-xs font-black uppercase italic text-white">{reportTodayDate.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}</span></div>
+          <div className="bg-white border border-rose-200 px-4 py-3 rounded-2xl flex items-center gap-3 text-white shadow-sm"><CalendarIcon size={18} className="text-slate-500" /><span className="text-[10px] md:text-xs font-black uppercase italic text-white">{reportTodayDate.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}</span></div>
         </div>
       </div>
       {unresolvedLegacyPosSalesCount > 0 && (
@@ -5221,9 +5227,9 @@ function ReportsView({ appointments, clients, barbers, branches = [], currentBra
         </div>
       )}
       
-      <div className="flex w-full md:w-fit items-center gap-2 p-1.5 bg-black border border-slate-900 rounded-[1.4rem] md:rounded-[2rem] md:w-fit mx-auto shadow-2xl text-white">
-        <button onClick={() => setReportTab('ventas')} className={`flex flex-1 md:flex-none items-center justify-center gap-2 px-4 md:px-8 py-3 md:py-4 rounded-[1.2rem] md:rounded-[1.8rem] text-[9px] md:text-[11px] font-black uppercase italic tracking-[0.12em] md:tracking-widest transition-all ${reportTab === 'ventas' ? 'bg-indigo-600 text-white shadow-[0_10px_20px_rgba(79,70,229,0.3)]' : 'text-slate-500 hover:text-slate-300'}`}><TrendingUp size={14} className="md:size-4" /> Ventas</button>
-        <button onClick={() => setReportTab('personal')} className={`flex flex-1 md:flex-none items-center justify-center gap-2 px-4 md:px-8 py-3 md:py-4 rounded-[1.2rem] md:rounded-[1.8rem] text-[9px] md:text-[11px] font-black uppercase italic tracking-[0.12em] md:tracking-widest transition-all ${reportTab === 'personal' ? 'bg-indigo-600 text-white shadow-[0_10px_20px_rgba(79,70,229,0.3)]' : 'text-slate-500 hover:text-slate-300'}`}><Users size={14} className="md:size-4" /> Personal</button>
+      <div className="flex w-full md:w-fit items-center gap-2 p-1.5 bg-white/90 border border-rose-200 rounded-[1.4rem] md:rounded-[1.7rem] md:w-fit mx-auto shadow-[0_12px_32px_rgba(120,78,93,0.1)] text-white">
+        <button onClick={() => setReportTab('ventas')} className={`flex flex-1 md:flex-none items-center justify-center gap-2 px-4 md:px-7 py-3 rounded-[1.15rem] md:rounded-[1.35rem] text-[9px] md:text-[11px] font-black uppercase italic tracking-[0.12em] md:tracking-widest transition-all ${reportTab === 'ventas' ? 'bg-indigo-600 text-white shadow-[0_10px_20px_rgba(201,111,141,0.22)]' : 'text-slate-500 hover:text-indigo-400'}`}><TrendingUp size={14} className="md:size-4" /> Ventas</button>
+        <button onClick={() => setReportTab('personal')} className={`flex flex-1 md:flex-none items-center justify-center gap-2 px-4 md:px-7 py-3 rounded-[1.15rem] md:rounded-[1.35rem] text-[9px] md:text-[11px] font-black uppercase italic tracking-[0.12em] md:tracking-widest transition-all ${reportTab === 'personal' ? 'bg-indigo-600 text-white shadow-[0_10px_20px_rgba(201,111,141,0.22)]' : 'text-slate-500 hover:text-indigo-400'}`}><Users size={14} className="md:size-4" /> Personal</button>
       </div>
 
       <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 text-white">
@@ -5234,10 +5240,10 @@ function ReportsView({ appointments, clients, barbers, branches = [], currentBra
                 <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 blur-3xl -translate-y-1/2 translate-x-1/2"></div>
                 <div className="relative z-10 text-white">
                   <div className="flex justify-between items-center mb-6 text-white">
-                    <p className="text-[11px] font-black text-slate-500 uppercase italic tracking-widest leading-none">Ingresos Totales (Corte)</p>
+                    <p className="text-[11px] font-black text-slate-500 uppercase italic tracking-widest leading-none">Ingresos Totales (Servicio)</p>
                     <div className="p-2 bg-indigo-600/20 rounded-lg text-indigo-400"><ArrowUpRight size={16} /></div>
                   </div>
-                  <h4 className="text-5xl font-black text-indigo-400 italic tracking-tighter leading-none drop-shadow-[0_0_15px_rgba(99,102,241,0.3)]">C$ {(Number(total) || 0).toLocaleString()}</h4>
+                  <h4 className="text-5xl font-black text-indigo-400 italic tracking-tighter leading-none drop-shadow-[0_0_15px_rgba(201,111,141,0.28)]">C$ {(Number(total) || 0).toLocaleString()}</h4>
                   <div className="mt-8 flex items-center gap-2 text-white">
                     <div className="h-1 flex-1 bg-black rounded-full overflow-hidden text-white"><div className="h-full bg-indigo-600 w-full" /></div>
                     <span className="text-[10px] font-black text-indigo-400 leading-none">{salesRangeLabel}</span>
@@ -5279,7 +5285,7 @@ function ReportsView({ appointments, clients, barbers, branches = [], currentBra
                     <div className="p-2 bg-emerald-600/20 rounded-lg text-emerald-400"><UserPlus size={16} /></div>
                   </div>
                   <h4 className="text-6xl font-black text-emerald-400 italic tracking-tighter leading-none drop-shadow-[0_0_15px_rgba(16,185,129,0.3)]">C$ {totalCombinedRevenue.toLocaleString()}</h4>
-                  <p className="text-[10px] text-slate-500 font-black mt-4 uppercase italic leading-none">Cortes + productos • {salesRangeLabel}</p>
+                  <p className="text-[10px] text-slate-500 font-black mt-4 uppercase italic leading-none">Servicios + productos • {salesRangeLabel}</p>
                 </div>
               </div>
             </div>
@@ -5486,7 +5492,7 @@ function ReportsView({ appointments, clients, barbers, branches = [], currentBra
           </section>
         ) : (
           <section className="space-y-12 text-white">
-            <div className="flex items-center gap-4 text-white"><div className="h-px flex-1 bg-gradient-to-r from-indigo-500/50 to-transparent"></div><h4 className="text-xl font-black italic uppercase text-indigo-400 tracking-tighter">Eficiencia del Staff</h4><div className="h-px flex-1 bg-gradient-to-l from-indigo-500/50 to-transparent"></div></div>
+            <div className="flex items-center gap-4 text-white"><div className="h-px flex-1 bg-gradient-to-r from-indigo-500/50 to-transparent"></div><h4 className="text-xl font-black italic uppercase text-indigo-400 tracking-tighter">Eficiencia del equipo</h4><div className="h-px flex-1 bg-gradient-to-l from-indigo-500/50 to-transparent"></div></div>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 text-white">
                <div className="bg-slate-900 p-6 rounded-[2rem] border border-slate-800 flex flex-col gap-2 text-white"><p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] italic leading-none">Ticket Promedio Equipo</p><div className="flex items-end justify-between text-white"><h5 className="text-2xl font-black italic text-indigo-400 leading-none">C$ {stats.globalAvgTicket.toFixed(0)}</h5><div className="p-2 bg-indigo-600/10 rounded-lg text-indigo-500"><TrendingUp size={16}/></div></div></div>
                <div className="bg-slate-900 p-6 rounded-[2rem] border border-slate-800 flex flex-col gap-2 text-white"><p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] italic leading-none">Nivel Satisfacción</p><div className="flex items-end justify-between text-white"><h5 className="text-2xl font-black italic text-amber-500 leading-none">4.8 / 5.0</h5><div className="p-2 bg-amber-600/10 rounded-lg text-amber-500"><Star size={16} fill="currentColor"/></div></div></div>
@@ -5507,16 +5513,16 @@ function ReportsView({ appointments, clients, barbers, branches = [], currentBra
                   <div className="transition-transform duration-700 relative group-hover:scale-110 text-white">
                     <div className="absolute inset-0 bg-amber-400 blur-3xl opacity-30 animate-pulse text-white"></div>
                     <div className="w-40 h-40 bg-amber-500 rounded-[3.5rem] flex items-center justify-center text-amber-950 font-black text-6xl italic shadow-[0_0_60px_rgba(245,158,11,0.8)] border-4 border-amber-50 relative z-10 overflow-hidden text-white">
-                      <span className="relative z-10 drop-shadow-2xl">{stats.bestBarber?.avatar || '?'}</span>
+                      <span className="relative z-10 drop-shadow-2xl">{stats.bestStylist?.avatar || '?'}</span>
                     </div>
                   </div>
                   <div className="mt-12 text-white w-full">
-                    <p className="text-[14px] font-black text-amber-500 uppercase italic tracking-[0.4em] mb-2 drop-shadow-md leading-none">---THE BEST BARBER-PRO---</p>
-                    <h4 className="text-6xl font-black italic uppercase text-white tracking-tighter drop-shadow-[0_5px_15px_rgba(0,0,0,0.8)] leading-none">{stats.bestBarber?.name || '---'}</h4>
+                    <p className="text-[14px] font-black text-amber-500 uppercase italic tracking-[0.4em] mb-2 drop-shadow-md leading-none">---THE BEST SALON PRO---</p>
+                    <h4 className="text-6xl font-black italic uppercase text-white tracking-tighter drop-shadow-[0_5px_15px_rgba(0,0,0,0.8)] leading-none">{stats.bestStylist?.name || '---'}</h4>
                   </div>
                   <div className="mt-16 pt-10 border-t border-white/20 w-full flex justify-between px-8 text-white relative">
-                    <div className="flex flex-col items-start text-white"><p className="text-[13px] font-black text-amber-500 uppercase mb-2 italic tracking-widest opacity-80 leading-none">Total Cortes</p><p className="text-6xl font-black text-white leading-none tracking-tighter drop-shadow-lg">{stats.bestBarberCount || 0}</p></div>
-                    <div className="flex flex-col items-end text-white"><p className="text-[13px] font-black text-amber-500 uppercase mb-2 italic tracking-widest opacity-80 leading-none">Ventas Brutas</p><p className="text-6xl font-black text-white leading-none tracking-tighter drop-shadow-lg"><span className="text-2xl mr-1 font-bold text-emerald-400">C$</span>{(stats.bestBarberSales || 0).toLocaleString()}</p></div>
+                    <div className="flex flex-col items-start text-white"><p className="text-[13px] font-black text-amber-500 uppercase mb-2 italic tracking-widest opacity-80 leading-none">Total servicios</p><p className="text-6xl font-black text-white leading-none tracking-tighter drop-shadow-lg">{stats.bestStylistCount || 0}</p></div>
+                    <div className="flex flex-col items-end text-white"><p className="text-[13px] font-black text-amber-500 uppercase mb-2 italic tracking-widest opacity-80 leading-none">Ventas Brutas</p><p className="text-6xl font-black text-white leading-none tracking-tighter drop-shadow-lg"><span className="text-2xl mr-1 font-bold text-emerald-400">C$</span>{(stats.bestStylistSales || 0).toLocaleString()}</p></div>
                   </div>
                 </div>
               </div>
@@ -5525,7 +5531,7 @@ function ReportsView({ appointments, clients, barbers, branches = [], currentBra
                 <div className="flex flex-col lg:flex-row justify-between items-start lg:items-start gap-8 mb-10 text-white">
                   <div className="max-w-xl">
                     <h5 className="text-xl font-black italic uppercase text-white flex items-center gap-2"><BarChart3 className="text-indigo-500" /> Comparativa de Rendimiento Real</h5>
-                    <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest mt-1 italic leading-none">Citas e ingresos por barbero dentro del rango seleccionado</p>
+                    <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest mt-1 italic leading-none">Citas e ingresos por estilista dentro del rango seleccionado</p>
                   </div>
                   <div className="w-full lg:w-auto flex items-start justify-end gap-3">
                     <div className="relative">
@@ -5625,7 +5631,7 @@ function ReportsView({ appointments, clients, barbers, branches = [], currentBra
                         const chartHeightCap = 84;
                         const countHeight = (b.count / maxMonthlyApts) * chartHeightCap;
                         const salesHeight = (b.sales / maxMonthlySales) * chartHeightCap;
-                        const barberColorClass = b.bg || 'bg-indigo-600';
+                        const stylistColorClass = b.bg || 'bg-indigo-600';
 
                         return (
                           <div
@@ -5636,12 +5642,12 @@ function ReportsView({ appointments, clients, barbers, branches = [], currentBra
                               {/* Barra de Citas */}
                               <div className="flex flex-col items-center justify-end h-full w-full max-w-[20px] md:max-w-[32px] relative text-white">
                                 <span
-                                  className="text-[9px] md:text-[11.5px] font-black text-white absolute whitespace-nowrap bg-indigo-600 px-2 py-1 rounded-lg border border-indigo-400 shadow-[0_5px_15px_rgba(79,70,229,0.3)] z-20 transition-all duration-1000 ease-out italic group-hover:scale-110 leading-none"
+                                  className="text-[9px] md:text-[11.5px] font-black text-white absolute whitespace-nowrap bg-indigo-600 px-2 py-1 rounded-lg border border-indigo-400 shadow-[0_5px_15px_rgba(201,111,141,0.28)] z-20 transition-all duration-1000 ease-out italic group-hover:scale-110 leading-none"
                                   style={{ bottom: `calc(${Math.max(countHeight, 4)}% + 6px)` }}
                                 >
                                   {b.count}
                                 </span>
-                                <div className={`w-full rounded-t-2xl transition-all duration-1000 ease-out relative ${barberColorClass} shadow-lg text-white border-t border-white/20`} style={{ height: `${Math.max(countHeight, 4)}%` }}>
+                                <div className={`w-full rounded-t-2xl transition-all duration-1000 ease-out relative ${stylistColorClass} shadow-lg text-white border-t border-white/20`} style={{ height: `${Math.max(countHeight, 4)}%` }}>
                                   <div className="absolute inset-0 bg-white/5 opacity-0 transition-opacity rounded-t-2xl group-hover:opacity-100 text-white"></div>
                                 </div>
                               </div>
@@ -5656,9 +5662,9 @@ function ReportsView({ appointments, clients, barbers, branches = [], currentBra
                                     C$ {b.sales >= 1000 ? (b.sales / 1000).toFixed(1) + 'k' : b.sales}
                                   </span>
                                 </div>
-                                <div className={`w-full rounded-t-2xl transition-all duration-1000 ease-out relative ${barberColorClass} brightness-125 shadow-lg text-white border-t border-white/30`} style={{ height: `${Math.max(salesHeight, 4)}%` }}>
+                                <div className={`w-full rounded-t-2xl transition-all duration-1000 ease-out relative ${stylistColorClass} brightness-125 shadow-lg text-white border-t border-white/30`} style={{ height: `${Math.max(salesHeight, 4)}%` }}>
                                   <div className="absolute inset-0 bg-white/10 opacity-30 rounded-t-2xl text-white"></div>
-                                  <div className={`absolute -inset-1 opacity-0 transition-opacity rounded-t-2xl blur-lg ${barberColorClass} group-hover:opacity-20 text-white`} />
+                                  <div className={`absolute -inset-1 opacity-0 transition-opacity rounded-t-2xl blur-lg ${stylistColorClass} group-hover:opacity-20 text-white`} />
                                 </div>
                               </div>
                             </div>
@@ -5692,7 +5698,7 @@ function ReportsView({ appointments, clients, barbers, branches = [], currentBra
             </div>
             
             <div className="space-y-6 text-white mt-12">
-                <div className="flex items-center gap-4 text-white"><h4 className="text-xl font-black italic uppercase text-white tracking-tighter leading-none">Rendimiento Detallado por Barbero</h4><div className="h-px flex-1 bg-slate-900"></div></div>
+                <div className="flex items-center gap-4 text-white"><h4 className="text-xl font-black italic uppercase text-white tracking-tighter leading-none">Rendimiento Detallado por Estilista</h4><div className="h-px flex-1 bg-slate-900"></div></div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-white">
                   {stats.staffMetrics.map(b => (
                     <div key={b.id} className="bg-slate-900 border border-slate-800 p-8 rounded-[2.5rem] transition-all group relative overflow-hidden hover:border-indigo-500/50 text-white">
@@ -5751,19 +5757,19 @@ function ClientModal({ onClose, onSave, clients, initial }) {
   );
 }
 
-function TransferAppointmentModal({ appointment, appointments, clients, barbers, onClose, onSave }) {
-  const [targetBarberId, setTargetBarberId] = useState('');
+function TransferAppointmentModal({ appointment, appointments, clients, stylists, onClose, onSave }) {
+  const [targetStylistId, setTargetStylistId] = useState('');
 
   const client = clients.find((item) => String(item.id) === String(appointment?.clientId));
-  const currentBarber = barbers.find((item) => String(item.id) === String(appointment?.barberId));
+  const currentStylist = stylists.find((item) => String(item.id) === String(appointment?.stylistId));
   const availableTargets = useMemo(
-    () => (barbers || []).filter((barber) => String(barber.id) !== String(appointment?.barberId)),
-    [barbers, appointment?.barberId],
+    () => (stylists || []).filter((stylist) => String(stylist.id) !== String(appointment?.stylistId)),
+    [stylists, appointment?.stylistId],
   );
-  const effectiveTargetBarberId = targetBarberId || availableTargets[0]?.id || '';
-  const selectedTarget = availableTargets.find((barber) => String(barber.id) === String(effectiveTargetBarberId));
+  const effectiveTargetStylistId = targetStylistId || availableTargets[0]?.id || '';
+  const selectedTarget = availableTargets.find((stylist) => String(stylist.id) === String(effectiveTargetStylistId));
   const hasConflict = selectedTarget
-    ? hasAppointmentBarberConflict({ appointments, appointment, targetBarberId: selectedTarget.id })
+    ? hasAppointmentStylistConflict({ appointments, appointment, targetStylistId: selectedTarget.id })
     : false;
 
   if (!appointment) return null;
@@ -5796,12 +5802,12 @@ function TransferAppointmentModal({ appointment, appointments, clients, barbers,
 
         <div className="space-y-5 p-5">
           <div className="rounded-[1.5rem] border border-white/5 bg-black/35 p-4">
-            <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-500">Barbero actual</p>
+            <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-500">Estilista actual</p>
             <div className="mt-3 flex items-center gap-3">
-              <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${currentBarber?.bg || 'bg-slate-800'} text-xs font-black italic text-white`}>
-                {currentBarber?.avatar || '?'}
+              <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${currentStylist?.bg || 'bg-slate-800'} text-xs font-black italic text-white`}>
+                {currentStylist?.avatar || '?'}
               </div>
-              <p className="font-black uppercase italic text-white">{currentBarber?.name || 'Sin asignar'}</p>
+              <p className="font-black uppercase italic text-white">{currentStylist?.name || 'Sin asignar'}</p>
             </div>
           </div>
 
@@ -5809,29 +5815,29 @@ function TransferAppointmentModal({ appointment, appointments, clients, barbers,
             <p className="text-[10px] font-black uppercase italic tracking-[0.2em] text-slate-500">Mover hacia</p>
             {availableTargets.length === 0 ? (
               <div className="rounded-[1.5rem] border border-dashed border-slate-700 bg-black/40 p-6 text-center text-[10px] font-black uppercase tracking-widest text-slate-400">
-                No hay otro barbero disponible para trasladar.
+                No hay otro estilista disponible para trasladar.
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {availableTargets.map((barber) => {
-                  const blocked = hasAppointmentBarberConflict({ appointments, appointment, targetBarberId: barber.id });
-                  const selected = String(effectiveTargetBarberId) === String(barber.id);
+                {availableTargets.map((stylist) => {
+                  const blocked = hasAppointmentStylistConflict({ appointments, appointment, targetStylistId: stylist.id });
+                  const selected = String(effectiveTargetStylistId) === String(stylist.id);
                   return (
                     <button
-                      key={barber.id}
+                      key={stylist.id}
                       type="button"
-                      onClick={() => setTargetBarberId(barber.id)}
+                      onClick={() => setTargetStylistId(stylist.id)}
                       className={`flex items-center gap-3 rounded-[1.3rem] border p-3 text-left transition-all ${
                         selected
-                          ? 'border-indigo-400 bg-indigo-600/15 shadow-[0_0_24px_rgba(79,70,229,0.18)]'
+                          ? 'border-indigo-400 bg-indigo-600/15 shadow-[0_0_24px_rgba(201,111,141,0.18)]'
                           : 'border-slate-800 bg-black hover:border-slate-600'
                       }`}
                     >
-                      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${barber.bg} text-xs font-black italic text-white`}>
-                        {barber.avatar}
+                      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${stylist.bg} text-xs font-black italic text-white`}>
+                        {stylist.avatar}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-xs font-black uppercase italic text-white">{barber.name}</p>
+                        <p className="truncate text-xs font-black uppercase italic text-white">{stylist.name}</p>
                         <p className={`mt-1 text-[9px] font-black uppercase tracking-[0.18em] ${blocked ? 'text-rose-300' : 'text-emerald-300'}`}>
                           {blocked ? 'Ocupado en ese horario' : 'Disponible'}
                         </p>
@@ -5845,7 +5851,7 @@ function TransferAppointmentModal({ appointment, appointments, clients, barbers,
 
           {hasConflict && (
             <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 text-[10px] font-black uppercase italic leading-relaxed text-rose-200">
-              El barbero seleccionado ya tiene una cita que se cruza con este horario.
+              El estilista seleccionado ya tiene una cita que se cruza con este horario.
             </div>
           )}
         </div>
@@ -5867,30 +5873,30 @@ function TransferAppointmentModal({ appointment, appointments, clients, barbers,
   );
 }
 
-function RescheduleAppointmentModal({ appointment, appointments, clients, barbers, onClose, onSave }) {
+function RescheduleAppointmentModal({ appointment, appointments, clients, stylists, onClose, onSave }) {
   const [targetDate, setTargetDate] = useState(appointment?.date || getTodayString());
   const [targetTime, setTargetTime] = useState(appointment?.time || '09:00');
 
   const client = clients.find((item) => String(item.id) === String(appointment?.clientId));
-  const barber = barbers.find((item) => String(item.id) === String(appointment?.barberId));
+  const stylist = stylists.find((item) => String(item.id) === String(appointment?.stylistId));
   const normalizedTargetDate = standardizeDate(targetDate);
   const today = getTodayString();
   const isSameDate = normalizedTargetDate === standardizeDate(appointment?.date);
   const isSameTime = targetTime === appointment?.time;
-  const hasConflict = hasAppointmentBarberConflict({
+  const hasConflict = hasAppointmentStylistConflict({
     appointments,
     appointment,
-    targetBarberId: appointment?.barberId,
+    targetStylistId: appointment?.stylistId,
     targetDate,
     targetTime,
   });
 
   const freeSlots = HOURS.filter((time) => {
     if (isSameDate && time === appointment?.time) return true;
-    return !hasAppointmentBarberConflict({
+    return !hasAppointmentStylistConflict({
       appointments,
       appointment,
-      targetBarberId: appointment?.barberId,
+      targetStylistId: appointment?.stylistId,
       targetDate,
       targetTime: time,
     });
@@ -5915,7 +5921,7 @@ function RescheduleAppointmentModal({ appointment, appointments, clients, barber
             <div className="min-w-0">
               <h3 className="text-xl font-black uppercase italic tracking-tight text-white">Mover turno</h3>
               <p className="mt-1 truncate text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
-                {client?.name || 'Cliente desconocido'} · {barber?.name || 'Sin barbero'}
+                {client?.name || 'Cliente desconocido'} · {stylist?.name || 'Sin estilista'}
               </p>
             </div>
           </div>
@@ -5934,10 +5940,10 @@ function RescheduleAppointmentModal({ appointment, appointments, clients, barber
               onChange={(event) => {
                 const nextDate = event.target.value;
                 setTargetDate(nextDate);
-                const firstFree = HOURS.find((time) => !hasAppointmentBarberConflict({
+                const firstFree = HOURS.find((time) => !hasAppointmentStylistConflict({
                   appointments,
                   appointment,
-                  targetBarberId: appointment.barberId,
+                  targetStylistId: appointment.stylistId,
                   targetDate: nextDate,
                   targetTime: time,
                 }));
@@ -5978,7 +5984,7 @@ function RescheduleAppointmentModal({ appointment, appointments, clients, barber
 
           {hasConflict && (
             <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 text-[10px] font-black uppercase italic leading-relaxed text-rose-200">
-              Ese horario ya está ocupado para este barbero.
+              Ese horario ya está ocupado para este estilista.
             </div>
           )}
         </div>
@@ -6000,11 +6006,11 @@ function RescheduleAppointmentModal({ appointment, appointments, clients, barber
   );
 }
 
-function AppointmentActionsModal({ appointment, clients, barbers, onClose, onUpdate, onMove, onTransfer, onCancel, onMarkLost }) {
+function AppointmentActionsModal({ appointment, clients, stylists, onClose, onUpdate, onMove, onTransfer, onCancel, onMarkLost }) {
   if (!appointment) return null;
 
   const client = clients.find((item) => String(item.id) === String(appointment.clientId));
-  const barber = barbers.find((item) => String(item.id) === String(appointment.barberId));
+  const stylist = stylists.find((item) => String(item.id) === String(appointment.stylistId));
   const hasArrived = !!appointment.checkInAt;
   const isClosed = appointment.status === 'Finalizada' || appointment.status === 'Cita Perdida' || appointment.status === 'Cancelada';
   const canMarkLost = appointment.type === 'reserva' && appointment.status === 'Confirmada';
@@ -6014,13 +6020,13 @@ function AppointmentActionsModal({ appointment, clients, barbers, onClose, onUpd
       <div className="w-full max-w-xl rounded-[2rem] border border-slate-800 bg-slate-950 shadow-2xl animate-in zoom-in-95 overflow-hidden">
         <div className="flex items-center justify-between gap-4 border-b border-slate-800 bg-black px-5 py-4">
           <div className="flex items-center gap-4 min-w-0">
-            <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${barber?.bg || 'bg-slate-800'} text-sm font-black italic text-white`}>
-              {barber?.avatar || '?'}
+            <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${stylist?.bg || 'bg-slate-800'} text-sm font-black italic text-white`}>
+              {stylist?.avatar || '?'}
             </div>
             <div className="min-w-0">
               <h3 className="truncate text-xl font-black uppercase italic tracking-tight text-white">{client?.name || 'Cliente desconocido'}</h3>
               <p className="mt-1 truncate text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
-                {appointment.time || '--:--'} · {normalizeFavoriteServiceName(appointment.service) || 'Servicio'} · {barber?.name || 'Sin barbero'}
+                {appointment.time || '--:--'} · {normalizeFavoriteServiceName(appointment.service) || 'Servicio'} · {stylist?.name || 'Sin estilista'}
               </p>
             </div>
           </div>
@@ -6050,7 +6056,7 @@ function AppointmentActionsModal({ appointment, clients, barbers, onClose, onUpd
             className="flex w-full items-center justify-between rounded-2xl border border-indigo-500/25 bg-indigo-600/10 px-5 py-4 text-left transition-all hover:bg-indigo-600/20 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <span>
-              <span className="block text-[11px] font-black uppercase tracking-[0.2em] text-white">Trasladar barbero</span>
+              <span className="block text-[11px] font-black uppercase tracking-[0.2em] text-white">Trasladar estilista</span>
               <span className="mt-1 block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Mover este turno a otro profesional</span>
             </span>
             <Repeat size={18} className="text-indigo-300" />
@@ -6106,8 +6112,8 @@ function AppointmentActionsModal({ appointment, clients, barbers, onClose, onUpd
   );
 }
 
-function AppointmentModal({ onClose, onSave, services, clients, barbers, initial, appointments }) {
-  const availableBarbers = (barbers && barbers.length > 0) ? barbers : [];
+function AppointmentModal({ onClose, onSave, services, clients, stylists, initial, appointments }) {
+  const availableStylists = (stylists && stylists.length > 0) ? stylists : [];
   const [searchTerm, setSearchTerm] = useState(initial?.client?.name || '');
   const [phoneVal, setPhoneVal] = useState(formatPhoneNumber(initial?.client?.phone || ''));
   const [selectedClient, setSelectedClient] = useState(initial?.client || null);
@@ -6118,7 +6124,7 @@ function AppointmentModal({ onClose, onSave, services, clients, barbers, initial
   const [form, setForm] = useState({ 
     date: initial?.date || getTodayString(), 
     time: initial?.time || '09:00', 
-    barberId: initial?.barberId || availableBarbers[0]?.id || '', 
+    stylistId: initial?.stylistId || availableStylists[0]?.id || '', 
     service: initial?.service || '', 
     price: initial?.price || 0,
     durationMinutes: Number(initial?.durationMinutes) > 0 ? Number(initial.durationMinutes) : 30,
@@ -6171,16 +6177,16 @@ function AppointmentModal({ onClose, onSave, services, clients, barbers, initial
     return h * 60 + m;
   };
 
-  const getWalkinQueueTime = (barberId, date) => {
-    return resolveWalkinQueueTime({ appointments, barberId, date });
+  const getWalkinQueueTime = (stylistId, date) => {
+    return resolveWalkinQueueTime({ appointments, stylistId, date });
   };
 
   const handleSubmit = (e) => { 
     e.preventDefault(); 
     setModalError(null); 
 
-    if (!form.barberId) {
-      setModalError('Debes tener al menos un barbero activo en esta sucursal para registrar la cita.');
+    if (!form.stylistId) {
+      setModalError('Debes tener al menos un estilista activo en esta sucursal para registrar la cita.');
       return;
     }
     
@@ -6196,7 +6202,7 @@ function AppointmentModal({ onClose, onSave, services, clients, barbers, initial
     const newDurationMinutes = Number(form.durationMinutes) > 0 ? Number(form.durationMinutes) : 30;
     const newEndMinutes = newStartMinutes + newDurationMinutes;
     const hasReservationConflict = form.type !== 'walkin' && (appointments || []).some(a => {
-      if (standardizeDate(a.date) !== standardizeDate(form.date) || String(a.barberId) !== String(form.barberId) || a.status === 'Cancelada' || a.status === 'Finalizada' || a.status === 'Cita Perdida') return false;
+      if (standardizeDate(a.date) !== standardizeDate(form.date) || String(a.stylistId) !== String(form.stylistId) || a.status === 'Cancelada' || a.status === 'Finalizada' || a.status === 'Cita Perdida') return false;
       const existingStartMinutes = toMinutes(a.time);
       const existingDurationMinutes = Number(a.durationMinutes) > 0 ? Number(a.durationMinutes) : 30;
       const existingEndMinutes = existingStartMinutes + existingDurationMinutes;
@@ -6204,7 +6210,7 @@ function AppointmentModal({ onClose, onSave, services, clients, barbers, initial
     });
 
     if (hasReservationConflict) { 
-      setModalError(`Este barbero ya tiene una cita que se solapa con el horario ${form.time}.`); 
+      setModalError(`Este estilista ya tiene una cita que se solapa con el horario ${form.time}.`); 
       return; 
     } 
     
@@ -6233,19 +6239,19 @@ function AppointmentModal({ onClose, onSave, services, clients, barbers, initial
         <form onSubmit={handleSubmit} className="p-5 md:p-6 space-y-5 overflow-y-auto custom-scrollbar flex-1 text-white">
           {modalError && <div className="bg-rose-500/10 border border-rose-500/30 p-3 rounded-2xl flex items-center gap-3 text-rose-500 text-[10px] font-black uppercase italic leading-none">{modalError}</div>}
           <div className="space-y-3 text-white">
-            <label className="text-[10px] font-black text-slate-500 uppercase italic tracking-[0.2em] block leading-none">1. ELIGE BARBERO PROFESIONAL</label>
-            {availableBarbers.length === 0 ? (
+            <label className="text-[10px] font-black text-slate-500 uppercase italic tracking-[0.2em] block leading-none">1. ELIGE STYLISTO PROFESIONAL</label>
+            {availableStylists.length === 0 ? (
               <div className="rounded-[1.8rem] border border-dashed border-slate-700 bg-black/40 p-6 text-center text-slate-400">
-                <p className="text-[11px] font-black uppercase italic leading-none">No hay barberos activos en esta sucursal.</p>
+                <p className="text-[11px] font-black uppercase italic leading-none">No hay estilistas activos en esta sucursal.</p>
               </div>
             ) : (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-white">
-                {availableBarbers.map(b => (
+                {availableStylists.map(b => (
                   <div key={b.id} onClick={() => setForm((prev) => {
-                    const nextBarberId = b.id;
-                    const nextTime = prev.type === 'walkin' ? getWalkinQueueTime(nextBarberId, prev.date) : prev.time;
-                    return { ...prev, barberId: nextBarberId, time: nextTime };
-                  })} className={`p-3 rounded-[1.35rem] border-2 cursor-pointer transition-all flex flex-col items-center text-center gap-2 justify-center relative ${form.barberId === b.id ? `${b.color} bg-indigo-600/10 shadow-lg scale-[1.02]` : 'border-slate-800 bg-black'}`}>
+                    const nextStylistId = b.id;
+                    const nextTime = prev.type === 'walkin' ? getWalkinQueueTime(nextStylistId, prev.date) : prev.time;
+                    return { ...prev, stylistId: nextStylistId, time: nextTime };
+                  })} className={`p-3 rounded-[1.35rem] border-2 cursor-pointer transition-all flex flex-col items-center text-center gap-2 justify-center relative ${form.stylistId === b.id ? `${b.color} bg-indigo-600/10 shadow-lg scale-[1.02]` : 'border-slate-800 bg-black'}`}>
                     <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-black italic shadow-xl text-[11px] text-white ${b.bg}`}>{b.avatar}</div>
                     <p className="text-[9px] font-black uppercase italic text-white leading-tight truncate max-w-full">{b.name}</p>
                   </div>
@@ -6298,7 +6304,7 @@ function AppointmentModal({ onClose, onSave, services, clients, barbers, initial
                   value={form.date}
                   onChange={e => setForm((prev) => {
                     const nextDate = e.target.value;
-                    const nextTime = prev.type === 'walkin' ? getWalkinQueueTime(prev.barberId, nextDate) : prev.time;
+                    const nextTime = prev.type === 'walkin' ? getWalkinQueueTime(prev.stylistId, nextDate) : prev.time;
                     return { ...prev, date: nextDate, time: nextTime };
                   })}
                 />

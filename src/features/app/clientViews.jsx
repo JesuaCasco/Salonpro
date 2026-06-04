@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+﻿import React, { useMemo, useState } from 'react';
 import {
   Award,
   CalendarCheck,
@@ -25,23 +25,23 @@ import {
   getTodayString,
 } from './shared';
 
-export function ClientsTableView({ clients, appointments, barbers, onRowClick, onNewApt }) {
+export function ClientsTableView({ clients, appointments, stylists, onRowClick, onNewApt }) {
   const [search, setSearch] = useState('');
   const tableData = useMemo(() => {
     return (clients || []).map((client) => {
-      const insights = getClientInsights(client, appointments, clients, barbers, {
-        emptyFavoriteBarber: 'N/A',
+      const insights = getClientInsights(client, appointments, clients, stylists, {
+        emptyFavoriteStylist: 'N/A',
       });
       const visits = Number(insights.completedVisits || 0);
       const totalSpent = Number(insights.totalSpent || 0);
-      const favBarber = insights.favoriteBarberName || 'N/A';
+      const favStylist = insights.favoriteStylistName || 'N/A';
       const lastVisit = insights.lastVisitAt || 'N/A';
       let type = { label: 'Bronce', color: 'text-white', bg: 'bg-orange-500', border: 'border-white' };
       if (visits >= 10) type = { label: 'Oro', color: 'text-yellow-950', bg: 'bg-yellow-400', border: 'border-yellow-600' };
       else if (visits >= 5) type = { label: 'Plata', color: 'text-slate-950', bg: 'bg-slate-100', border: 'border-white' };
-      return { ...client, visits, spent: totalSpent, favBarber, type, lastVisit };
+      return { ...client, visits, spent: totalSpent, favStylist, type, lastVisit };
     });
-  }, [clients, appointments, barbers]);
+  }, [clients, appointments, stylists]);
 
   const duplicatePhones = useMemo(() => {
     const phoneCounts = new Map();
@@ -73,11 +73,11 @@ export function ClientsTableView({ clients, appointments, barbers, onRowClick, o
       client.phone,
       client.type.label,
       client.visits,
-      client.favBarber,
+      client.favStylist,
       client.lastVisit,
     ].map(escapeCsv).join(',')));
 
-    const csv = `\uFEFFsep=,\r\n${['Cliente', 'Celular', 'Tipo', 'Visitas', 'Barbero favorito', 'Última visita'].map(escapeCsv).join(',')}\r\n${rows.join('\r\n')}`;
+    const csv = `\uFEFFsep=,\r\n${['Cliente', 'Celular', 'Tipo', 'Visitas', 'Estilista favorito', 'Última visita'].map(escapeCsv).join(',')}\r\n${rows.join('\r\n')}`;
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
@@ -89,7 +89,7 @@ export function ClientsTableView({ clients, appointments, barbers, onRowClick, o
   };
 
   return (
-    <div className="p-3 md:p-10 space-y-5 md:space-y-8 animate-in fade-in text-white no-print">
+    <div className="clients-view p-3 md:p-10 space-y-5 md:space-y-8 animate-in fade-in text-white no-print">
       <div className="flex flex-col xl:flex-row xl:justify-between xl:items-center gap-4 text-white">
         <div>
           <h3 className="text-2xl md:text-3xl font-black uppercase italic tracking-tighter leading-none text-white">Directorio de Clientes</h3>
@@ -128,8 +128,8 @@ export function ClientsTableView({ clients, appointments, barbers, onRowClick, o
             </div>
             <div className="mt-5 grid grid-cols-1 gap-3 rounded-[1.5rem] border border-white/5 bg-black/20 p-4">
               <div>
-                <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-500">Barbero favorito</p>
-                <p className="mt-1 text-sm font-black italic text-white">{client.favBarber}</p>
+                <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-500">Estilista favorito</p>
+                <p className="mt-1 text-sm font-black italic text-white">{client.favStylist}</p>
               </div>
               <div>
                 <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-500">Última visita</p>
@@ -145,7 +145,7 @@ export function ClientsTableView({ clients, appointments, barbers, onRowClick, o
       <div className="hidden lg:block bg-slate-900 border border-slate-800 rounded-[2.5rem] overflow-hidden shadow-2xl">
         <table className="w-full text-left">
           <thead className="bg-black/80 border-b border-slate-800 font-black uppercase text-[10px] text-slate-500 tracking-[0.2em] italic">
-            <tr><th className="px-10 py-7">Cliente</th><th className="px-10 py-7 text-center">Tipo</th><th className="px-10 py-7 text-center">Visitas</th><th className="px-10 py-7 text-center">Barbero Fav</th><th className="px-10 py-7 text-center">Última Visita</th><th className="px-10 py-7 text-right">Acción</th></tr>
+            <tr><th className="px-10 py-7">Cliente</th><th className="px-10 py-7 text-center">Tipo</th><th className="px-10 py-7 text-center">Visitas</th><th className="px-10 py-7 text-center">Estilista Fav</th><th className="px-10 py-7 text-center">Última Visita</th><th className="px-10 py-7 text-right">Acción</th></tr>
           </thead>
           <tbody className="divide-y divide-slate-800/50">
             {filtered.map((client) => (
@@ -153,7 +153,7 @@ export function ClientsTableView({ clients, appointments, barbers, onRowClick, o
                 <td className="px-10 py-6"><div className="flex items-center gap-4 text-white"><div className="w-12 h-12 bg-indigo-600/20 border border-indigo-600/30 rounded-xl flex items-center justify-center font-black italic text-indigo-400 group-hover:bg-indigo-600 group-hover:text-white transition-all shadow-lg text-white">{client.name[0]}</div><div className="flex flex-col"><span className="text-base font-black uppercase italic tracking-tighter text-white leading-none">{client.name}</span><span className="text-[10px] text-slate-500 mt-1 font-bold leading-none">{client.phone}</span></div></div></td>
                 <td className="px-10 py-6 text-center text-white"><span className={`${client.type.bg} ${client.type.color} px-5 py-2 rounded-xl text-[11px] font-black uppercase tracking-widest border-2 ${client.type.border} shadow-lg leading-none inline-flex items-center justify-center min-w-[112px]`}>{client.type.label}</span></td>
                 <td className="px-10 py-6 text-center font-black text-indigo-400 leading-none text-lg">{client.visits}</td>
-                <td className="px-10 py-6 text-center text-slate-300 font-bold italic text-sm leading-none">{client.favBarber}</td>
+                <td className="px-10 py-6 text-center text-slate-300 font-bold italic text-sm leading-none">{client.favStylist}</td>
                 <td className="px-10 py-6 text-center text-slate-400 font-bold text-xs italic leading-none">{client.lastVisit}</td>
                 <td className="px-10 py-6 text-right text-white"><button onClick={(event) => { event.stopPropagation(); onNewApt(client); }} className="p-3.5 bg-slate-800 hover:bg-emerald-600 text-slate-400 hover:text-white rounded-xl transition-all shadow-xl active:scale-95 text-white"><CalendarDays size={20} /></button></td>
               </tr>
@@ -165,16 +165,16 @@ export function ClientsTableView({ clients, appointments, barbers, onRowClick, o
   );
 }
 
-export function ClientDetailModal({ client, clients, appointments, barbers, onClose, onEdit, onNewApt }) {
+export function ClientDetailModal({ client, clients, appointments, stylists, onClose, onEdit, onNewApt }) {
   const stats = useMemo(() => {
-    const insights = getClientInsights(client, appointments, clients, barbers, {
-      emptyFavoriteBarber: 'SIN REGISTRO',
+    const insights = getClientInsights(client, appointments, clients, stylists, {
+      emptyFavoriteStylist: 'SIN REGISTRO',
       emptyFavoriteService: 'NINGUNO',
       historyLimit: 10,
     });
     const totalVisits = Number(insights.completedVisits || 0);
     const totalSpent = Number(insights.totalSpent || 0);
-    const favBarberVal = insights.favoriteBarberName || 'SIN REGISTRO';
+    const favStylistVal = insights.favoriteStylistName || 'SIN REGISTRO';
     const favServiceVal = insights.favoriteServiceName || 'NINGUNO';
     const lastVisitDateVal = insights.lastVisitAt || 'N/A';
     const rewardVisitsGoal = 10;
@@ -188,7 +188,7 @@ export function ClientDetailModal({ client, clients, appointments, barbers, onCl
 
     return {
       totalSpent,
-      favBarber: favBarberVal,
+      favStylist: favStylistVal,
       favService: favServiceVal,
       totalVisits,
       type,
@@ -196,7 +196,7 @@ export function ClientDetailModal({ client, clients, appointments, barbers, onCl
       progressTowardReward,
       rewardVisitsGoal,
     };
-  }, [client, clients, appointments, barbers]);
+  }, [client, clients, appointments, stylists]);
   const TypeIcon = stats.type.icon;
 
   return (
@@ -254,9 +254,9 @@ export function ClientDetailModal({ client, clients, appointments, barbers, onCl
                       <div className="w-11 h-11 bg-amber-500/10 rounded-2xl flex shrink-0 items-center justify-center text-amber-500 border border-amber-500/20">
                         <UserCheck size={20} />
                       </div>
-                      <span className="text-[10px] font-black text-slate-400 uppercase italic tracking-[0.16em]">Barbero Favorito</span>
+                      <span className="text-[10px] font-black text-slate-400 uppercase italic tracking-[0.16em]">Estilista Favorito</span>
                     </div>
-                    <span className="text-base font-black text-white uppercase italic tracking-tighter text-right">{stats.favBarber}</span>
+                    <span className="text-base font-black text-white uppercase italic tracking-tighter text-right">{stats.favStylist}</span>
                   </div>
                 </div>
 
@@ -269,7 +269,7 @@ export function ClientDetailModal({ client, clients, appointments, barbers, onCl
                   <div className="bg-black/40 border border-white/5 p-5 rounded-[1.8rem] shadow-inner relative overflow-hidden group min-h-[92px]">
                     <div className="absolute top-0 left-0 w-1.5 h-full bg-indigo-600"></div>
                     <p className="italic text-white text-sm leading-relaxed text-slate-200">
-                      {client.notes || 'No hay notas técnicas registradas para este cliente. Utiliza el botón de editar para añadir preferencias de corte.'}
+                      {client.notes || 'No hay notas técnicas registradas para este cliente. Utiliza el botón de editar para añadir preferencias de servicio.'}
                     </p>
                   </div>
                 </div>
