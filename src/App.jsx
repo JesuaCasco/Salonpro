@@ -1543,8 +1543,8 @@ export default function App() {
     return [
       { id: '1', name: 'Corte y brushing', price: 450, category: 'Cabello' },
       { id: '2', name: 'Manicure spa', price: 380, category: 'Uñas' },
-      { id: '3', name: 'Tinte global', price: 1200, category: 'Color' },
-      { id: '4', name: 'Tratamiento hidratante', price: 650, category: 'Tratamiento' },
+      { id: '3', name: 'Tinte global', price: 1200, category: 'Cabello' },
+      { id: '4', name: 'Tratamiento hidratante', price: 650, category: 'Tratamientos' },
       { id: '5', name: 'Serum capilar premium', price: 350, category: 'Producto' },
       { id: '6', name: 'Paquete Belleza Total', price: 1750, category: 'Combo', items: ['1', '2', '4'] },
       {
@@ -1594,12 +1594,17 @@ export default function App() {
   const effectiveOperationalSalonId = isSuperAdmin
     ? (superAdminViewSalonId || availableSalons[0]?.id || null)
     : (accessControl.currentSalonId || null);
-  const effectiveOperationalBranchId = isSuperAdmin ? null : (accessControl.currentBranchId || null);
+  const effectiveOperationalBranchId = isSuperAdmin
+    ? (
+        availableBranches.find((branch) => String(branch.salonId || '') === String(effectiveOperationalSalonId || ''))?.id
+        || null
+      )
+    : (accessControl.currentBranchId || null);
   const superAdminScopeOverride = useMemo(() => (
     isSuperAdmin && effectiveOperationalSalonId
-      ? { currentSalonId: effectiveOperationalSalonId, currentBranchId: null }
+      ? { currentSalonId: effectiveOperationalSalonId, currentBranchId: effectiveOperationalBranchId }
       : {}
-  ), [isSuperAdmin, effectiveOperationalSalonId]);
+  ), [isSuperAdmin, effectiveOperationalSalonId, effectiveOperationalBranchId]);
 
   const dismissFeedbackToast = React.useCallback(() => {
     if (feedbackTimerRef.current) {
@@ -1624,18 +1629,8 @@ export default function App() {
     if (feedbackToast || feedbackToastQueue.length === 0) return;
 
     const [nextToast, ...remainingQueue] = feedbackToastQueue;
-    const requiresAcknowledgement =
-      nextToast.tone === 'reservation-warning' || nextToast.tone === 'reservation-expired';
-
     setFeedbackToast(nextToast);
     setFeedbackToastQueue(remainingQueue);
-
-    if (!requiresAcknowledgement) {
-      feedbackTimerRef.current = setTimeout(() => {
-        setFeedbackToast(null);
-        feedbackTimerRef.current = null;
-      }, 3600);
-    }
   }, [feedbackToast, feedbackToastQueue]);
 
   const renderPersistentWarningBanner = (title, messages = []) => (
@@ -2504,7 +2499,7 @@ export default function App() {
         if (delayMs < 0) continue;
 
         const alertKey = getReservationAlertKey(appointment);
-        const clientName = clients.find((client) => String(client.id) === String(appointment.clientId))?.name || 'Cliente';
+        const clientName = clients.find((client) => String(client.id) === String(appointment.clientId))?.name || appointment.clientName || 'Cliente genérico';
         const stylistName = stylists.find((stylist) => String(stylist.id) === String(appointment.stylistId))?.name || 'estilista asignado';
 
         if (
@@ -2925,12 +2920,24 @@ export default function App() {
   };
 
   const handleSaveAppointment = async (aptData, clientData) => {
-    let finalClientId = clientData.id;
+    const skipClientRegistration = Boolean(clientData?.skipRegistration);
+    let finalClientId = skipClientRegistration ? null : clientData.id;
     const now = new Date().toISOString();
     const normalizedPhone = formatPhoneNumber(clientData.phone || '');
     let createdClient = null;
 
-    if (clientData.isNew) {
+    if (hasSupabaseConfig && bootstrapCompletedRef.current) {
+      if (!currentSalonId) {
+        notify('No se puede guardar la cita porque no hay un salón activo.', 'error');
+        return;
+      }
+      if (!currentBranchId) {
+        notify('Selecciona una sucursal antes de guardar la cita.', 'warning');
+        return;
+      }
+    }
+
+    if (!skipClientRegistration && clientData.isNew) {
       const duplicateClient = findClientByPhone(clients, normalizedPhone);
       if (duplicateClient) {
         notify(`Este número ya pertenece a ${duplicateClient.name}. Selecciona ese cliente existente.`, 'warning');
@@ -2960,6 +2967,7 @@ export default function App() {
       id: makeId(),
       ...aptData,
       clientId: finalClientId,
+      clientName: skipClientRegistration ? 'Cliente genérico' : undefined,
       type: aptData.type || 'reserva',
       durationMinutes: Number(aptData.durationMinutes) > 0 ? Number(aptData.durationMinutes) : 30,
       status: 'Confirmada',
@@ -2984,6 +2992,11 @@ export default function App() {
   };
 
   const handleSaveClient = async (clientData) => {
+    if (hasSupabaseConfig && bootstrapCompletedRef.current && !currentSalonId) {
+      notify('No se puede guardar el cliente porque no hay un salón activo.', 'error');
+      return;
+    }
+
     const normalizedClient = {
       ...clientData,
       phone: formatPhoneNumber(clientData.phone || ''),
@@ -3028,6 +3041,11 @@ export default function App() {
   };
 
   const handleSaveService = async (serviceData) => {
+    if (hasSupabaseConfig && bootstrapCompletedRef.current && !currentSalonId) {
+      notify('No se puede guardar el servicio porque no hay un salón activo.', 'error');
+      return;
+    }
+
     const isPromotion = serviceData.category === 'Promocion';
     const normalizedPromotionDiscount = isPromotion
       ? clampPromotionDiscountValue(serviceData.discountType || 'percentage', serviceData.discountValue)
@@ -3605,22 +3623,41 @@ export default function App() {
             </div>
           </div>
         ) : (
-          <div className="fixed top-6 right-6 z-[130] max-w-md">
-            <div className={`rounded-[1.8rem] border px-5 py-4 shadow-2xl backdrop-blur-md ${
+          <div className="fixed left-1/2 top-5 z-[130] w-[min(92vw,620px)] -translate-x-1/2">
+            <div className={`rounded-[1.8rem] border-2 px-5 py-4 shadow-[0_18px_45px_rgba(48,37,48,0.22)] ${
               feedbackToast.tone === 'success'
-                ? 'bg-emerald-500/15 border-emerald-400/30 text-emerald-200'
+                ? 'bg-[#edf7f2] border-[#6fae93] text-[#2f5f50]'
                 : feedbackToast.tone === 'error'
-                  ? 'bg-rose-500/15 border-rose-400/30 text-rose-200'
-                  : 'bg-amber-500/15 border-amber-400/30 text-amber-100'
+                  ? 'bg-[#fff0f4] border-[#d94f83] text-[#8f2d5b]'
+                  : feedbackToast.tone === 'info'
+                    ? 'bg-[#f2edf8] border-[#6d4aa0] text-[#4b3470]'
+                    : 'bg-[#fff7e6] border-[#c8a96a] text-[#7b571d]'
             }`}>
-              <div className="flex items-start justify-between gap-4">
-                <p className="text-sm font-bold leading-relaxed whitespace-pre-line">{feedbackToast.message}</p>
+              <div className="flex items-start gap-4">
+                <div className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border ${
+                  feedbackToast.tone === 'success'
+                    ? 'bg-[#6fae93] border-[#6fae93] text-white'
+                    : feedbackToast.tone === 'error'
+                      ? 'bg-[#d94f83] border-[#d94f83] text-white'
+                      : feedbackToast.tone === 'info'
+                        ? 'bg-[#6d4aa0] border-[#6d4aa0] text-white'
+                        : 'bg-[#c8a96a] border-[#c8a96a] text-white'
+                }`}>
+                  <Info size={18} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] leading-none">
+                    {feedbackToast.tone === 'success' ? 'Mensaje del sistema' : feedbackToast.tone === 'error' ? 'Revisar error' : feedbackToast.tone === 'info' ? 'Información' : 'Atención'}
+                  </p>
+                  <p className="mt-2 text-sm font-black leading-relaxed whitespace-pre-line">{feedbackToast.message}</p>
+                </div>
                 <button
                   type="button"
                   onClick={dismissFeedbackToast}
-                  className="text-white/50 hover:text-white transition-all"
+                  className="shrink-0 rounded-xl border border-current/20 bg-white/70 p-2 transition-all hover:bg-white"
+                  aria-label="Cerrar notificación"
                 >
-                  <X size={16} />
+                  <X size={18} />
                 </button>
               </div>
             </div>
@@ -3755,7 +3792,7 @@ function AgendaView({ viewDate, setViewDate, appointments, clients, stylists, on
                       <div key={appointment.id} onClick={() => onAptClick(appointment)} className="w-full cursor-pointer rounded-[1.4rem] border border-white/5 bg-black/25 px-4 py-4 text-left">
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <p className="text-sm font-black uppercase italic text-white truncate">{client?.name || 'Cliente desconocido'}</p>
+                            <p className="text-sm font-black uppercase italic text-white truncate">{client?.name || appointment.clientName || 'Cliente genérico'}</p>
                             <p className="mt-2 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">{getAgendaServiceLabel(appointment.service)}</p>
                           </div>
                           <div className="text-right shrink-0">
@@ -3883,12 +3920,20 @@ function AgendaView({ viewDate, setViewDate, appointments, clients, stylists, on
 
 function ServicesView({ services, onAdd, onEdit, onDelete }) {
   const [activeCategory, setActiveCategory] = useState('Cabello');
+  const getNewServiceLabel = (category) => {
+    if (category === 'Promocion') return 'Nueva Promoción';
+    if (category === 'Combo') return 'Nuevo Combo';
+    if (category === 'Tratamientos') return 'Nuevo Tratamiento';
+    if (['Facial', 'Uñas'].includes(category)) return 'Nuevo Servicio';
+    return `Nuevo ${CATEGORY_LABELS[category] || 'Servicio'}`;
+  };
+  const addLabel = getNewServiceLabel(activeCategory);
   const getIcon = (cat) => {
     switch(cat) {
       case 'Cabello': return <Scissors size={32} />;
       case 'Uñas': return <Sparkles size={32} />;
-      case 'Color': return <Sparkles size={32} />;
-      case 'Tratamiento': return <Activity size={32} />;
+      case 'Facial': return <Sparkles size={32} />;
+      case 'Tratamientos': return <Activity size={32} />;
       case 'Combo': return <Zap size={32} />;
       case 'Producto': return <Package size={32} />;
       case 'Promocion': return <Gift size={32} />;
@@ -3904,10 +3949,10 @@ function ServicesView({ services, onAdd, onEdit, onDelete }) {
           <h3 className="text-2xl sm:text-3xl md:text-4xl font-black italic uppercase tracking-tighter leading-none text-white">Menú de servicios</h3>
           <p className="mobile-simplify-subtitle text-[10px] text-indigo-400 font-black uppercase mt-2 italic tracking-[0.2em] leading-none">Gestión Maestra de Catálogo</p>
         </div>
-        <button onClick={() => onAdd(activeCategory)} className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-500 text-white px-8 md:px-10 py-4 md:py-5 rounded-[2rem] font-black text-[10px] md:text-xs uppercase italic shadow-2xl shadow-indigo-600/40 flex items-center justify-center gap-3 transition-all active:scale-95 group text-white"><Plus size={20} className="group-hover:rotate-90 transition-transform" /> {activeCategory === 'Promocion' ? 'Nueva Promoción' : 'Nuevo Servicio'}</button>
+        <button onClick={() => onAdd(activeCategory)} className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-500 text-white px-8 md:px-10 py-4 md:py-5 rounded-[2rem] font-black text-[10px] md:text-xs uppercase italic shadow-2xl shadow-indigo-600/40 flex items-center justify-center gap-3 transition-all active:scale-95 group text-white"><Plus size={20} className="group-hover:rotate-90 transition-transform" /> {addLabel}</button>
       </div>
       <div className="grid w-full grid-cols-2 gap-3 p-3 bg-black border border-slate-800 rounded-[2.5rem] text-white sm:flex sm:flex-wrap sm:items-center sm:w-fit">
-        {CATEGORIES.map(cat => <button key={cat} onClick={() => setActiveCategory(cat)} className={`px-4 md:px-8 py-4 rounded-[2rem] font-black uppercase italic text-[10px] tracking-widest transition-all ${activeCategory === cat ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-600/40 translate-y-[-2px]' : 'text-slate-500 hover:text-white hover:bg-slate-900'}`}>{CATEGORY_LABELS[cat] || cat}</button>)}
+        {CATEGORIES.map(cat => <button key={cat} onClick={() => setActiveCategory(cat)} className={`service-category-tab border border-transparent px-4 md:px-8 py-4 rounded-[2rem] font-black uppercase italic text-[10px] tracking-widest transition-all ${activeCategory === cat ? 'service-category-tab--active shadow-xl shadow-indigo-600/40 translate-y-[-2px]' : 'text-slate-500'}`}>{CATEGORY_LABELS[cat] || cat}</button>)}
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 md:gap-8">
         {filteredServices.map(s => (
@@ -3943,7 +3988,7 @@ function ServicesView({ services, onAdd, onEdit, onDelete }) {
             </div>
           </div>
         ))}
-        <div onClick={() => onAdd(activeCategory)} className="border-4 border-dashed border-slate-900 rounded-[2.2rem] md:rounded-[3rem] p-6 md:p-10 flex flex-col items-center justify-center text-slate-800 hover:border-indigo-600 hover:text-indigo-400 transition-all cursor-pointer group min-h-[260px] md:min-h-[320px] text-white"><div className="w-14 h-14 md:w-16 md:h-16 rounded-full border-4 border-current flex items-center justify-center mb-4 group-hover:scale-110 transition-transform text-white"><Plus size={28} /></div><p className="font-black uppercase italic text-[10px] md:text-xs tracking-widest leading-none text-white text-center">{activeCategory === 'Promocion' ? 'Añadir promoción' : `Añadir a ${CATEGORY_LABELS[activeCategory] || activeCategory}`}</p></div>
+        <div onClick={() => onAdd(activeCategory)} className="border-4 border-dashed border-slate-900 rounded-[2.2rem] md:rounded-[3rem] p-6 md:p-10 flex flex-col items-center justify-center text-slate-800 hover:border-indigo-600 hover:text-indigo-400 transition-all cursor-pointer group min-h-[260px] md:min-h-[320px] text-white"><div className="w-14 h-14 md:w-16 md:h-16 rounded-full border-4 border-current flex items-center justify-center mb-4 group-hover:scale-110 transition-transform text-white"><Plus size={28} /></div><p className="font-black uppercase italic text-[10px] md:text-xs tracking-widest leading-none text-white text-center">{addLabel.replace(/^Nuevo/i, 'Añadir').replace(/^Nueva/i, 'Añadir')}</p></div>
       </div>
     </div>
   );
@@ -4202,11 +4247,11 @@ function StylistsView({ stylists, appointments, branches, currentSalonId, curren
         <div className="flex gap-4">
           <button 
             onClick={onGoToNomina}
-            className="bg-[#d75f91] hover:bg-[#bd2f68] text-white px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-[0_14px_28px_rgba(225,79,138,0.24)] active:scale-95 transition-all flex items-center gap-2"
+            className="staff-primary-action px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest active:scale-95 transition-all flex items-center gap-2"
           >
             <Wallet size={16} /> Pagar Nómina
           </button>
-          <button onClick={openNew} className="bg-[#e14f8a] hover:bg-[#bd2f68] text-white px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-[0_14px_28px_rgba(225,79,138,0.24)] active:scale-95 transition-all">Nuevo Estilista</button>
+          <button onClick={openNew} className="staff-primary-action px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest active:scale-95 transition-all">Nuevo Estilista</button>
         </div>
       </div>
 
@@ -4222,14 +4267,14 @@ function StylistsView({ stylists, appointments, branches, currentSalonId, curren
               <button
                 type="button"
                 onClick={() => setCompensationIndicator('salary')}
-                className={`px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${compensationIndicator === 'salary' ? 'bg-[#e14f8a] text-white shadow-sm' : 'text-[#9b6076] hover:text-[#bd2f68] hover:bg-[#ffeaf3]'}`}
+                className={`px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${compensationIndicator === 'salary' ? 'staff-segment-active shadow-sm' : 'text-[#9b6076] hover:text-[#7b3f62] hover:bg-[#f3e5ef]'}`}
               >
                 Salario
               </button>
               <button
                 type="button"
                 onClick={() => setCompensationIndicator('commission')}
-                className={`px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${compensationIndicator === 'commission' ? 'bg-[#e14f8a] text-white shadow-sm' : 'text-[#9b6076] hover:text-[#bd2f68] hover:bg-[#ffeaf3]'}`}
+                className={`px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${compensationIndicator === 'commission' ? 'staff-segment-active shadow-sm' : 'text-[#9b6076] hover:text-[#7b3f62] hover:bg-[#f3e5ef]'}`}
               >
                 Comisión
               </button>
@@ -4311,8 +4356,8 @@ function StylistsView({ stylists, appointments, branches, currentSalonId, curren
       </div>
 
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md animate-in fade-in duration-300 text-white">
-          <div className="w-full max-w-[70rem] max-h-[92vh] bg-slate-950 border border-white/10 rounded-[2.4rem] overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.8)] animate-in zoom-in-95 duration-300 flex flex-col md:flex-row relative text-white">
+        <div className="fixed top-[64px] bottom-0 left-0 right-0 lg:left-[13.25rem] z-40 flex items-start justify-center overflow-y-auto bg-black/70 p-4 md:p-6 backdrop-blur-md animate-in fade-in duration-300 text-white">
+          <div className="w-full max-w-[70rem] max-h-[calc(100dvh-7rem)] bg-slate-950 border border-white/10 rounded-[2.4rem] overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.8)] animate-in zoom-in-95 duration-300 flex flex-col md:flex-row relative text-white">
             
             <button onClick={closeModal} className="absolute top-6 right-6 p-3 rounded-2xl bg-white/5 hover:bg-rose-500/20 text-white/40 hover:text-rose-400 transition-all z-20 text-white">
               <X size={20} />
@@ -4514,10 +4559,10 @@ function NominaView({ stylists, appointments, onClose, onPagar, onLiquidarTodo }
       value: `C$ ${summary.total.toLocaleString()}`,
       helper: `Base C$ ${summary.base.toLocaleString()} + comisión C$ ${summary.comission.toLocaleString()}`,
       icon: Wallet,
-      shellClass: 'bg-gradient-to-br from-indigo-500/20 via-slate-900 to-slate-950 border-indigo-500/30 shadow-[0_0_35px_rgba(201,111,141,0.18)]',
-      iconWrapClass: 'bg-indigo-500/15 text-indigo-300 border-indigo-400/20',
-      valueClass: 'text-white',
-      badgeClass: 'text-indigo-300',
+      shellClass: 'bg-white border-[#ee9fbc] shadow-[0_18px_44px_rgba(122,77,94,0.12)]',
+      iconWrapClass: 'bg-[#fbe9ef] text-[#d94f83] border-[#ee9fbc]',
+      valueClass: 'text-[#d94f83]',
+      badgeClass: 'text-[#9b6076]',
     },
     {
       id: 'staff',
@@ -4525,10 +4570,10 @@ function NominaView({ stylists, appointments, onClose, onPagar, onLiquidarTodo }
       value: `${summary.staffCount}`,
       helper: `${summary.staffCount === 1 ? '1 estilista con pago pendiente' : `${summary.staffCount} estilistas listos para liquidar`}`,
       icon: Users,
-      shellClass: 'bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 border-slate-700 shadow-[0_12px_35px_rgba(0,0,0,0.25)]',
-      iconWrapClass: 'bg-white/5 text-slate-200 border-white/10',
-      valueClass: 'text-white',
-      badgeClass: 'text-slate-300',
+      shellClass: 'bg-white border-[#d7c6ea] shadow-[0_18px_44px_rgba(109,74,160,0.10)]',
+      iconWrapClass: 'bg-[#f2edf8] text-[#6d4aa0] border-[#d7c6ea]',
+      valueClass: 'text-[#6d4aa0]',
+      badgeClass: 'text-[#856a75]',
     },
     {
       id: 'services',
@@ -4536,33 +4581,33 @@ function NominaView({ stylists, appointments, onClose, onPagar, onLiquidarTodo }
       value: `${summary.pendingServices}`,
       helper: summary.pendingServices > 0 ? 'Citas finalizadas aún no liquidadas' : 'Todo el servicio pendiente ya está bajo control',
       icon: Scissors,
-      shellClass: 'bg-gradient-to-br from-emerald-500/10 via-slate-900 to-slate-950 border-emerald-500/20 shadow-[0_0_35px_rgba(16,185,129,0.14)]',
-      iconWrapClass: 'bg-emerald-500/15 text-emerald-300 border-emerald-400/20',
-      valueClass: summary.pendingServices > 0 ? 'text-emerald-300' : 'text-white',
-      badgeClass: summary.pendingServices > 0 ? 'text-emerald-300' : 'text-slate-300',
+      shellClass: 'bg-white border-[#b7d8c7] shadow-[0_18px_44px_rgba(79,134,116,0.12)]',
+      iconWrapClass: 'bg-[#edf7f2] text-[#4f8674] border-[#b7d8c7]',
+      valueClass: 'text-[#4f8674]',
+      badgeClass: 'text-[#6f8d7e]',
     },
   ];
 
   return (
-    <div className="p-4 md:p-10 space-y-6 md:space-y-8 animate-in fade-in text-white no-print">
+    <div className="p-4 md:p-10 space-y-6 md:space-y-8 animate-in fade-in text-[#302530] no-print">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <button 
             onClick={onClose}
-            className="p-3 md:p-4 bg-slate-900 rounded-2xl text-white hover:bg-indigo-600 transition-all border border-slate-800"
+            className="p-3 md:p-4 bg-white rounded-2xl text-[#9b6076] hover:text-white hover:bg-[#d94f83] transition-all border border-[#ee9fbc] shadow-[0_10px_24px_rgba(122,77,94,0.10)]"
           >
             <ChevronLeft size={20} />
           </button>
           <div>
-          <h3 className="text-3xl font-black uppercase italic tracking-tighter leading-none text-white">Liquidación de Nómina</h3>
-            <p className="text-[#4ade80] text-[10px] font-black uppercase tracking-widest mt-1 italic leading-none">Procesar pagos pendientes del equipo</p>
+          <h3 className="text-3xl font-black uppercase italic tracking-tighter leading-none text-[#302530]">Liquidación de Nómina</h3>
+            <p className="text-[#4f8674] text-[10px] font-black uppercase tracking-widest mt-1 italic leading-none">Procesar pagos pendientes del equipo</p>
           </div>
         </div>
-        <div className="bg-slate-900 border border-slate-800 p-3 md:p-4 rounded-2xl flex items-center gap-4 self-start md:self-auto">
-          <CalendarIcon size={20} className="text-[#c96f8d]" />
+        <div className="bg-white border border-[#ee9fbc] p-3 md:p-4 rounded-2xl flex items-center gap-4 self-start md:self-auto shadow-[0_10px_24px_rgba(122,77,94,0.10)]">
+          <CalendarIcon size={20} className="text-[#d94f83]" />
           <div className="text-right">
-            <p className="text-[9px] text-slate-500 font-black uppercase leading-none mb-1">Periodo Actual</p>
-            <p className="text-xs font-black text-white italic">{new Date().toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}</p>
+            <p className="text-[9px] text-[#856a75] font-black uppercase leading-none mb-1">Periodo Actual</p>
+            <p className="text-xs font-black text-[#302530] italic">{new Date().toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}</p>
           </div>
         </div>
       </div>
@@ -4571,13 +4616,13 @@ function NominaView({ stylists, appointments, onClose, onPagar, onLiquidarTodo }
         {indicatorCards.map((card) => {
           const Icon = card.icon;
           return (
-            <div key={card.id} className={`relative overflow-hidden rounded-[2.6rem] border p-7 md:p-8 ${card.shellClass}`}>
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.08),transparent_35%)] pointer-events-none" />
+            <div key={card.id} className={`relative overflow-hidden rounded-[2.2rem] border p-7 md:p-8 ${card.shellClass}`}>
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(217,79,131,0.08),transparent_38%)] pointer-events-none" />
               <div className="relative flex items-start justify-between gap-4">
                 <div>
                   <p className={`text-[10px] font-black uppercase italic tracking-[0.24em] leading-none ${card.badgeClass}`}>{card.label}</p>
                   <h4 className={`mt-5 text-4xl md:text-5xl font-black italic tracking-tighter leading-none ${card.valueClass}`}>{card.value}</h4>
-                  <p className="mt-4 max-w-[26ch] text-[11px] font-bold text-slate-500 leading-relaxed">{card.helper}</p>
+                  <p className="mt-4 max-w-[26ch] text-[11px] font-bold text-[#856a75] leading-relaxed">{card.helper}</p>
                 </div>
                 <div className={`shrink-0 w-14 h-14 rounded-[1.4rem] border flex items-center justify-center shadow-xl ${card.iconWrapClass}`}>
                   <Icon size={24} />
@@ -4588,10 +4633,10 @@ function NominaView({ stylists, appointments, onClose, onPagar, onLiquidarTodo }
         })}
       </div>
 
-      <div className="bg-slate-900 border border-slate-800 rounded-[2rem] md:rounded-[3rem] overflow-hidden shadow-2xl">
+      <div className="bg-white border border-[#ee9fbc] rounded-[2rem] md:rounded-[3rem] overflow-hidden shadow-[0_18px_44px_rgba(122,77,94,0.10)]">
         <div className="overflow-x-auto custom-scrollbar">
         <table className="min-w-[980px] w-full text-left">
-          <thead className="bg-black/80 border-b border-slate-800 font-black uppercase text-[10px] text-slate-500 tracking-[0.2em] italic">
+          <thead className="bg-[#fbe9ef] border-b border-[#ee9fbc] font-black uppercase text-[10px] text-[#856a75] tracking-[0.2em] italic">
             <tr>
               <th className="px-10 py-7">Equipo / Estilista</th>
               <th className="px-10 py-7 text-center">Modalidad</th>
@@ -4601,35 +4646,35 @@ function NominaView({ stylists, appointments, onClose, onPagar, onLiquidarTodo }
               <th className="px-10 py-7 text-right">Acción</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-800/50">
+          <tbody className="divide-y divide-[#f0c7d5]">
               {payrollRows.map(({ stylist: b, nomina: data }) => {
               return (
-                <tr key={b.id} className="hover:bg-white/[0.02] transition-colors group">
+                <tr key={b.id} className="hover:bg-[#fff8fa] transition-colors group">
                   <td className="px-10 py-6">
                     <div className="flex items-center gap-4">
                       <div className={`w-12 h-12 ${b.bg} rounded-xl flex items-center justify-center font-black italic text-white shadow-lg`}>{b.avatar}</div>
                       <div>
-                        <p className="text-base font-black uppercase italic text-white tracking-tighter leading-none">{b.fullName || b.name}</p>
-                        <p className="text-[10px] text-slate-500 mt-1 font-bold italic leading-none">{b.cedula?.trim() || `ID STAFF ${b.id}`}</p>
+                        <p className="text-base font-black uppercase italic text-[#302530] tracking-tighter leading-none">{b.fullName || b.name}</p>
+                        <p className="text-[10px] text-[#856a75] mt-1 font-bold italic leading-none">{b.cedula?.trim() || `ID STAFF ${b.id}`}</p>
                       </div>
                     </div>
                   </td>
                   <td className="px-10 py-6 text-center">
-                    <span className="text-[10px] font-black text-slate-400 uppercase italic tracking-widest">{getStylistPaymentModeLabel(b.paymentMode, data.commissionRate)}</span>
+                    <span className="text-[10px] font-black text-[#856a75] uppercase italic tracking-widest">{getStylistPaymentModeLabel(b.paymentMode, data.commissionRate)}</span>
                   </td>
                   <td className="px-10 py-6 text-center">
-                    <span className="text-xs font-black text-white italic">C$ {data.base.toLocaleString()}</span>
+                    <span className="text-xs font-black text-[#302530] italic">C$ {data.base.toLocaleString()}</span>
                   </td>
                   <td className="px-10 py-6 text-center">
-                    <span className="text-xs font-black text-emerald-400 italic">C$ {data.comission.toLocaleString()}</span>
+                    <span className="text-xs font-black text-[#4f8674] italic">C$ {data.comission.toLocaleString()}</span>
                   </td>
                   <td className="px-10 py-6 text-right">
-                    <span className="text-lg font-black text-white italic tracking-tighter">C$ {data.total.toLocaleString()}</span>
+                    <span className="text-lg font-black text-[#d94f83] italic tracking-tighter">C$ {data.total.toLocaleString()}</span>
                   </td>
                   <td className="px-10 py-6 text-right">
                     <button 
                       onClick={() => onPagar(b, data)}
-                      className="bg-emerald-600/10 hover:bg-emerald-600 text-emerald-500 hover:text-white px-5 py-2.5 rounded-xl text-[10px] font-black uppercase italic transition-all border border-emerald-500/20 shadow-lg"
+                      className="bg-[#edf7f2] hover:bg-[#6fae93] text-[#4f8674] hover:text-white px-5 py-2.5 rounded-xl text-[10px] font-black uppercase italic transition-all border border-[#b7d8c7] shadow-[0_8px_18px_rgba(79,134,116,0.12)]"
                     >
                       Pagar
                     </button>
@@ -4645,7 +4690,7 @@ function NominaView({ stylists, appointments, onClose, onPagar, onLiquidarTodo }
       <div className="flex justify-end pt-4 md:pt-8">
         <button
           onClick={() => onLiquidarTodo(payrollRows, summary)}
-          className="w-full md:w-auto bg-[#4ade80] hover:bg-[#34d399] text-[#064e3b] px-7 md:px-12 py-4 md:py-6 rounded-[2rem] md:rounded-[2.5rem] flex items-center justify-center gap-3 text-[10px] md:text-xs font-black uppercase italic tracking-[0.16em] md:tracking-widest transition-all shadow-[0_0_30px_rgba(74,222,128,0.3)] active:scale-95"
+          className="w-full md:w-auto bg-[#6fae93] hover:bg-[#4f8674] text-white px-7 md:px-12 py-4 md:py-6 rounded-[2rem] md:rounded-[2.5rem] flex items-center justify-center gap-3 text-[10px] md:text-xs font-black uppercase italic tracking-[0.16em] md:tracking-widest transition-all shadow-[0_14px_30px_rgba(79,134,116,0.22)] active:scale-95"
         >
           Liquidar todo el equipo <ArrowRight size={18} />
         </button>
@@ -5131,7 +5176,7 @@ function ReportsView({ appointments, clients, stylists, branches = [], currentBr
         const serviceDate = parseLocalDate(apt.date);
         return [
           stylist?.fullName || stylist?.name || `Estilista ${apt.stylistId}`,
-          client?.name || 'Cliente sin registro',
+          client?.name || apt.clientName || 'Cliente genérico',
           Number(apt.price || 0),
           serviceDate ? serviceDate.toLocaleDateString('es-ES') : standardizeDate(apt.date),
         ].map(escapeCsv).join(',');
@@ -5501,28 +5546,28 @@ function ReportsView({ appointments, clients, stylists, branches = [], currentBr
             </div>
             
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 text-white">
-              <div className="bg-mesh-amber border-2 border-amber-500/60 p-10 rounded-[3.5rem] flex flex-col items-center text-center shadow-[0_0_60px_rgba(245,158,11,0.4)] animate-glow relative overflow-hidden group text-white min-h-[570px] justify-center">
-                <div className="absolute inset-0 aurora-effect opacity-10 pointer-events-none z-0"></div>
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-[0.20] pointer-events-none z-0 animate-spin-very-slow text-white"><Crown size={500} className="text-amber-500" strokeWidth={0.6} /></div>
-                <Scissors className="absolute top-20 right-10 text-emerald-400 -rotate-12 animate-float" size={50} />
-                <Star className="absolute top-1/4 right-[30%] text-amber-500 rotate-12 animate-float" size={44} />
-                <Sparkles className="absolute bottom-20 left-10 text-amber-500/90 animate-float" size={70} />
-                <Award className="absolute bottom-1/4 right-10 text-amber-500/90 -rotate-15 animate-float" size={75} />
-                <div className="relative z-10 flex flex-col items-center text-white w-full">
-                  <Crown size={72} className="text-amber-500 drop-shadow-[0_10px_15px_rgba(245,158,11,1)] animate-bounce mb-6" />
-                  <div className="transition-transform duration-700 relative group-hover:scale-110 text-white">
-                    <div className="absolute inset-0 bg-amber-400 blur-3xl opacity-30 animate-pulse text-white"></div>
-                    <div className="w-40 h-40 bg-amber-500 rounded-[3.5rem] flex items-center justify-center text-amber-950 font-black text-6xl italic shadow-[0_0_60px_rgba(245,158,11,0.8)] border-4 border-amber-50 relative z-10 overflow-hidden text-white">
-                      <span className="relative z-10 drop-shadow-2xl">{stats.bestStylist?.avatar || '?'}</span>
+              <div className="bg-white border-2 border-[#ee9fbc] p-10 rounded-[3.5rem] flex flex-col items-center text-center shadow-[0_22px_54px_rgba(122,77,94,0.12)] relative overflow-hidden group min-h-[570px] justify-center">
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(217,79,131,0.14),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(111,174,147,0.18),transparent_34%)] pointer-events-none z-0"></div>
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-[0.10] pointer-events-none z-0 animate-spin-very-slow"><Crown size={500} className="text-[#6fae93]" strokeWidth={0.6} /></div>
+                <Scissors className="absolute top-20 right-10 text-[#6fae93] -rotate-12 animate-float" size={50} />
+                <Star className="absolute top-1/4 right-[30%] text-[#d94f83] rotate-12 animate-float" size={44} />
+                <Sparkles className="absolute bottom-20 left-10 text-[#d94f83]/70 animate-float" size={70} />
+                <Award className="absolute bottom-1/4 right-10 text-[#6fae93]/70 -rotate-15 animate-float" size={75} />
+                <div className="relative z-10 flex flex-col items-center w-full">
+                  <Crown size={72} className="text-[#6fae93] drop-shadow-[0_10px_18px_rgba(79,134,116,0.35)] animate-bounce mb-6" />
+                  <div className="transition-transform duration-700 relative group-hover:scale-110">
+                    <div className="absolute inset-0 bg-[#d94f83] blur-3xl opacity-18 animate-pulse"></div>
+                    <div className="w-40 h-40 bg-gradient-to-br from-[#f27dad] to-[#d94f83] rounded-[3.5rem] flex items-center justify-center text-white font-black text-6xl italic shadow-[0_18px_42px_rgba(217,79,131,0.32)] border-4 border-white relative z-10 overflow-hidden">
+                      <span className="relative z-10 drop-shadow-lg">{stats.bestStylist?.avatar || '?'}</span>
                     </div>
                   </div>
-                  <div className="mt-12 text-white w-full">
-                    <p className="text-[14px] font-black text-amber-500 uppercase italic tracking-[0.4em] mb-2 drop-shadow-md leading-none">---THE BEST SALON PRO---</p>
-                    <h4 className="text-6xl font-black italic uppercase text-white tracking-tighter drop-shadow-[0_5px_15px_rgba(0,0,0,0.8)] leading-none">{stats.bestStylist?.name || '---'}</h4>
+                  <div className="mt-12 w-full">
+                    <p className="text-[12px] font-black text-[#d94f83] uppercase italic tracking-[0.32em] mb-2 leading-none">Destacada del salón</p>
+                    <h4 className="text-5xl font-black italic uppercase text-[#302530] tracking-tighter leading-none">{stats.bestStylist?.name || '---'}</h4>
                   </div>
-                  <div className="mt-16 pt-10 border-t border-white/20 w-full flex justify-between px-8 text-white relative">
-                    <div className="flex flex-col items-start text-white"><p className="text-[13px] font-black text-amber-500 uppercase mb-2 italic tracking-widest opacity-80 leading-none">Total servicios</p><p className="text-6xl font-black text-white leading-none tracking-tighter drop-shadow-lg">{stats.bestStylistCount || 0}</p></div>
-                    <div className="flex flex-col items-end text-white"><p className="text-[13px] font-black text-amber-500 uppercase mb-2 italic tracking-widest opacity-80 leading-none">Ventas Brutas</p><p className="text-6xl font-black text-white leading-none tracking-tighter drop-shadow-lg"><span className="text-2xl mr-1 font-bold text-emerald-400">C$</span>{(stats.bestStylistSales || 0).toLocaleString()}</p></div>
+                  <div className="mt-16 pt-10 border-t border-[#ee9fbc] w-full flex justify-between px-8 relative">
+                    <div className="flex flex-col items-start"><p className="text-[12px] font-black text-[#856a75] uppercase mb-2 italic tracking-widest leading-none">Total servicios</p><p className="text-6xl font-black text-[#6fae93] leading-none tracking-tighter">{stats.bestStylistCount || 0}</p></div>
+                    <div className="flex flex-col items-end"><p className="text-[12px] font-black text-[#856a75] uppercase mb-2 italic tracking-widest leading-none">Ventas Brutas</p><p className="text-6xl font-black text-[#d94f83] leading-none tracking-tighter"><span className="text-2xl mr-1 font-bold text-[#6fae93]">C$</span>{(stats.bestStylistSales || 0).toLocaleString()}</p></div>
                   </div>
                 </div>
               </div>
@@ -5791,7 +5836,7 @@ function TransferAppointmentModal({ appointment, appointments, clients, stylists
             <div className="min-w-0">
               <h3 className="text-xl font-black uppercase italic tracking-tight text-white">Trasladar cita</h3>
               <p className="mt-1 truncate text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
-                {client?.name || 'Cliente desconocido'} · {appointment.time || '--:--'} · {normalizeFavoriteServiceName(appointment.service) || 'Servicio'}
+                {client?.name || appointment.clientName || 'Cliente genérico'} · {appointment.time || '--:--'} · {normalizeFavoriteServiceName(appointment.service) || 'Servicio'}
               </p>
             </div>
           </div>
@@ -5921,7 +5966,7 @@ function RescheduleAppointmentModal({ appointment, appointments, clients, stylis
             <div className="min-w-0">
               <h3 className="text-xl font-black uppercase italic tracking-tight text-white">Mover turno</h3>
               <p className="mt-1 truncate text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
-                {client?.name || 'Cliente desconocido'} · {stylist?.name || 'Sin estilista'}
+                {client?.name || appointment.clientName || 'Cliente genérico'} · {stylist?.name || 'Sin estilista'}
               </p>
             </div>
           </div>
@@ -6024,7 +6069,7 @@ function AppointmentActionsModal({ appointment, clients, stylists, onClose, onUp
               {stylist?.avatar || '?'}
             </div>
             <div className="min-w-0">
-              <h3 className="truncate text-xl font-black uppercase italic tracking-tight text-white">{client?.name || 'Cliente desconocido'}</h3>
+              <h3 className="truncate text-xl font-black uppercase italic tracking-tight text-white">{client?.name || appointment.clientName || 'Cliente genérico'}</h3>
               <p className="mt-1 truncate text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
                 {appointment.time || '--:--'} · {normalizeFavoriteServiceName(appointment.service) || 'Servicio'} · {stylist?.name || 'Sin estilista'}
               </p>
@@ -6117,6 +6162,7 @@ function AppointmentModal({ onClose, onSave, services, clients, stylists, initia
   const [searchTerm, setSearchTerm] = useState(initial?.client?.name || '');
   const [phoneVal, setPhoneVal] = useState(formatPhoneNumber(initial?.client?.phone || ''));
   const [selectedClient, setSelectedClient] = useState(initial?.client || null);
+  const [skipClientData, setSkipClientData] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [modalError, setModalError] = useState(null);
   const [serviceSearch, setServiceSearch] = useState('');
@@ -6141,20 +6187,34 @@ function AppointmentModal({ onClose, onSave, services, clients, stylists, initia
     return () => document.removeEventListener("mousedown", handleClickOutside); 
   }, []);
   const filteredClients = useMemo(() => { 
-    if (searchTerm.trim().length < 2 || selectedClient) return []; 
+    if (skipClientData || searchTerm.trim().length < 2 || selectedClient) return []; 
     const phoneQuery = getPhoneDigits(searchTerm);
     return (clients || []).filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase()) || (phoneQuery.length > 0 && getPhoneDigits(c.phone).includes(phoneQuery))); 
-  }, [searchTerm, clients, selectedClient]);
+  }, [searchTerm, clients, selectedClient, skipClientData]);
   const filteredServices = useMemo(
     () => (services || []).filter((service) => !isPromotionService(service) && service.name.toLowerCase().includes(serviceSearch.toLowerCase())),
     [services, serviceSearch],
   );
-  const isNewClient = searchTerm.trim().length >= 3 && filteredClients.length === 0 && !selectedClient;
+  const isNewClient = !skipClientData && searchTerm.trim().length >= 3 && filteredClients.length === 0 && !selectedClient;
   const duplicatePhoneClient = useMemo(() => {
     if (!isValidPhoneNumber(phoneVal)) return null;
     return findClientByPhone(clients, phoneVal, selectedClient?.id);
   }, [clients, phoneVal, selectedClient]);
-  const handleSelectClient = (c) => { setSelectedClient(c); setSearchTerm(c.name); setPhoneVal(formatPhoneNumber(c.phone)); setShowResults(false); setModalError(null); };
+  const showGenericClientOption = !selectedClient && searchTerm.trim().length === 0;
+  const handleSelectClient = (c) => { setSelectedClient(c); setSkipClientData(false); setSearchTerm(c.name); setPhoneVal(formatPhoneNumber(c.phone)); setShowResults(false); setModalError(null); };
+  const handleToggleSkipClientData = () => {
+    setSkipClientData((current) => {
+      const next = !current;
+      if (next) {
+        setSelectedClient(null);
+        setSearchTerm('');
+        setPhoneVal('');
+        setShowResults(false);
+        setModalError(null);
+      }
+      return next;
+    });
+  };
   const handleSelectService = (s) => { 
     if (s === "POR DEFINIR") { 
       setForm({ ...form, service: "POR DEFINIR", price: 0, durationMinutes: 30 }); 
@@ -6215,11 +6275,14 @@ function AppointmentModal({ onClose, onSave, services, clients, stylists, initia
     } 
     
     if (!form.service) { setModalError("Por favor elige un servicio."); return; } 
-    if ((selectedClient || isNewClient) && phoneVal.trim() && !isValidPhoneNumber(phoneVal)) { setModalError("El celular debe tener exactamente 8 dígitos."); return; }
-    if (isNewClient && !phoneVal.trim()) { setModalError("Ingresa el número de celular del nuevo cliente."); return; }
-    if (isNewClient && duplicatePhoneClient) { setModalError(`Ese número ya está registrado con ${duplicatePhoneClient.name}.`); return; }
+    if (!skipClientData && (selectedClient || isNewClient) && phoneVal.trim() && !isValidPhoneNumber(phoneVal)) { setModalError("El celular debe tener exactamente 8 dígitos."); return; }
+    if (!skipClientData && isNewClient && !phoneVal.trim()) { setModalError("Ingresa el número de celular del nuevo cliente."); return; }
+    if (!skipClientData && isNewClient && duplicatePhoneClient) { setModalError(`Ese número ya está registrado con ${duplicatePhoneClient.name}.`); return; }
     
-    onSave(form, { name: searchTerm, phone: formatPhoneNumber(phoneVal), id: selectedClient?.id, isNew: isNewClient }); 
+    onSave(form, skipClientData
+      ? { id: null, name: 'Cliente genérico', phone: '', isNew: false, skipRegistration: true }
+      : { name: searchTerm, phone: formatPhoneNumber(phoneVal), id: selectedClient?.id, isNew: isNewClient }
+    ); 
   };
 
   return (
@@ -6263,7 +6326,18 @@ function AppointmentModal({ onClose, onSave, services, clients, stylists, initia
             <div className="space-y-3 text-white" ref={wrapperRef}>
               <label className="text-[10px] font-black text-slate-500 uppercase italic tracking-[0.2em] block leading-none">2. DATOS DEL CLIENTE</label>
               <div className="space-y-3 text-white relative">
-                <input required className={`w-full bg-black border border-slate-800 p-4 text-sm font-black uppercase italic text-white outline-none focus:border-indigo-600 leading-none ${showResults && filteredClients.length > 0 ? 'rounded-t-[1.2rem] rounded-b-none' : 'rounded-[1.2rem]'}`} placeholder="BUSCAR CLIENTE" value={searchTerm} onChange={e => { setSearchTerm(e.target.value); setSelectedClient(null); setShowResults(true); }} onFocus={() => setShowResults(true)} />
+                <input disabled={skipClientData} required={!skipClientData} className={`w-full bg-black border border-slate-800 p-4 text-sm font-black uppercase italic text-white outline-none focus:border-indigo-600 leading-none disabled:cursor-not-allowed disabled:opacity-45 ${showResults && filteredClients.length > 0 ? 'rounded-t-[1.2rem] rounded-b-none' : 'rounded-[1.2rem]'}`} placeholder={skipClientData ? 'CLIENTE GENÉRICO' : 'BUSCAR CLIENTE'} value={skipClientData ? 'CLIENTE GENÉRICO' : searchTerm} onChange={e => { setSearchTerm(e.target.value); setSelectedClient(null); setShowResults(true); }} onFocus={() => setShowResults(true)} />
+                {showGenericClientOption && (
+                  <label className="ml-auto flex w-fit cursor-pointer select-none items-center gap-2 rounded-full px-1 text-[9px] font-black uppercase italic tracking-[0.14em] text-slate-400 transition-colors hover:text-white">
+                    <input
+                      type="checkbox"
+                      checked={skipClientData}
+                      onChange={handleToggleSkipClientData}
+                      className="h-3.5 w-3.5 rounded border-slate-400 accent-emerald-500"
+                    />
+                    Cliente genérico
+                  </label>
+                )}
                 {showResults && filteredClients.length > 0 && (
                   <div className="absolute top-full left-0 w-full bg-slate-900 border border-t-0 border-slate-700 rounded-b-[1.2rem] shadow-2xl z-50 overflow-hidden text-white">
                     {filteredClients.map(c => (<div key={c.id} onClick={() => handleSelectClient(c)} className="flex items-center gap-4 p-4 hover:bg-indigo-600 cursor-pointer border-b border-slate-800 text-white"><span className="text-xs font-black uppercase italic text-white">{c.name}</span></div>))}
@@ -6274,7 +6348,7 @@ function AppointmentModal({ onClose, onSave, services, clients, stylists, initia
                     <span className="drop-shadow-[0_0_10px_rgba(0,0,0,0.5)]">¡Nuevo cliente detectado!</span>
                   </div>
                 )}
-                {(selectedClient || isNewClient) && (
+                {!skipClientData && (selectedClient || isNewClient) && (
                   <input required type="tel" className="w-full bg-black border-2 border-indigo-600/40 p-4 rounded-[1.2rem] text-sm font-black text-white italic leading-none" placeholder="TELÉFONO 0000-0000" value={phoneVal} onChange={e => setPhoneVal(formatPhoneNumber(e.target.value))} />
                 )}
               </div>
@@ -6329,6 +6403,3 @@ function AppointmentModal({ onClose, onSave, services, clients, stylists, initia
     </div>
   );
 }
-
-
-

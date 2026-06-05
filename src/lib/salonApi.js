@@ -1,10 +1,10 @@
-import { isPromotionService } from '../features/app/shared';
+﻿import { isPromotionService } from '../features/app/shared';
 import { hasSupabaseConfig, supabase, supabasePublishableKey, supabaseUrl } from './supabase';
 
 const STATUS_TO_DB = {
   Confirmada: 'confirmada',
   'En Espera': 'en_espera',
-  'En Corte': 'en_corte',
+  'En Servicio': 'en_servicio',
   Finalizada: 'finalizada',
   Cancelada: 'cancelada',
   'Cita Perdida': 'cita_perdida',
@@ -13,7 +13,7 @@ const STATUS_TO_DB = {
 const STATUS_FROM_DB = {
   confirmada: 'Confirmada',
   en_espera: 'En Espera',
-  en_corte: 'En Corte',
+  en_servicio: 'En Servicio',
   finalizada: 'Finalizada',
   cancelada: 'Cancelada',
   cita_perdida: 'Cita Perdida',
@@ -35,7 +35,7 @@ const normalizeDbStatus = (status) => {
     || STATUS_TO_DB[rawStatus] && rawStatus
     || {
       'en espera': 'En Espera',
-      'en corte': 'En Corte',
+      'en servicio': 'En Servicio',
       finalizada: 'Finalizada',
       cancelada: 'Cancelada',
       confirmada: 'Confirmada',
@@ -83,8 +83,8 @@ const assertSupabase = () => {
 
 const fixMojibakeText = (value = '') =>
   `${value ?? ''}`
-    .replaceAll('barberÃ­a', 'barbería')
-    .replaceAll('barberÃ­as', 'barberías')
+    .replaceAll('salón', 'salón')
+    .replaceAll('salones', 'salones')
     .replaceAll('sesiÃ³n', 'sesión')
     .replaceAll('vÃ¡lida', 'válida')
     .replaceAll('configuraciÃ³n', 'configuración')
@@ -127,20 +127,20 @@ const settleQuery = async (query, fallbackData = []) => {
 
 const encodeBranchScope = (branchId) => `branch_id.is.null,branch_id.eq.${branchId}`;
 
-const applyTenantScope = (query, { isSuperAdmin, currentBarbershopId, currentBranchId }, options = {}) => {
+const applyTenantScope = (query, { isSuperAdmin, currentSalonId, currentBranchId }, options = {}) => {
   const {
-    barbershopColumn = 'barbershop_id',
+    salonColumn = 'salon_id',
     branchColumn = 'branch_id',
     includeGlobalBranchRows = true,
-    includeLegacyBarbershopRows = false,
+    includeLegacySalonRows = false,
   } = options;
 
   let nextQuery = query;
 
-  if (!isSuperAdmin && currentBarbershopId) {
-    nextQuery = includeLegacyBarbershopRows
-      ? nextQuery.or(`${barbershopColumn}.is.null,${barbershopColumn}.eq.${currentBarbershopId}`)
-      : nextQuery.eq(barbershopColumn, currentBarbershopId);
+  if (!isSuperAdmin && currentSalonId) {
+    nextQuery = includeLegacySalonRows
+      ? nextQuery.or(`${salonColumn}.is.null,${salonColumn}.eq.${currentSalonId}`)
+      : nextQuery.eq(salonColumn, currentSalonId);
   }
 
   if (!isSuperAdmin && currentBranchId && branchColumn) {
@@ -152,22 +152,22 @@ const applyTenantScope = (query, { isSuperAdmin, currentBarbershopId, currentBra
   return nextQuery;
 };
 
-const validateBranchBelongsToBarbershop = async (barbershopId, branchId) => {
+const validateBranchBelongsToSalon = async (salonId, branchId) => {
   if (!branchId) return;
-  if (!barbershopId) {
-    throw normalizeError(null, 'Debes asignar una barber\u00eda antes de seleccionar una sucursal.');
+  if (!salonId) {
+    throw normalizeError(null, 'Debes asignar un salón antes de seleccionar una sucursal.');
   }
 
   const { data, error } = await supabase
     .from('branches')
-    .select('id, barbershop_id')
+    .select('id, salon_id')
     .eq('id', branchId)
     .maybeSingle();
 
   if (error) throw normalizeError(error, 'No se pudo validar la sucursal seleccionada.');
   if (!data) throw normalizeError(null, 'La sucursal seleccionada no existe.');
-  if (String(data.barbershop_id || '') !== String(barbershopId || '')) {
-    throw normalizeError(null, 'La sucursal seleccionada no pertenece a la barber\u00eda indicada.');
+  if (String(data.salon_id || '') !== String(salonId || '')) {
+    throw normalizeError(null, 'La sucursal seleccionada no pertenece al salón indicado.');
   }
 };
 
@@ -181,13 +181,13 @@ const toUiClient = (row) => ({
   completedVisits: Number(row.completed_visits || 0),
   totalSpent: Number(row.total_spent || 0),
   lastVisitAt: row.last_visit_at || null,
-  favoriteBarberId: row.favorite_barber_id || null,
-  favoriteBarberName: row.favorite_barber_name || '',
+  favoriteStylistId: row.favorite_stylist_id || null,
+  favoriteStylistName: row.favorite_stylist_name || '',
   favoriteServiceName: row.favorite_service_name || '',
   statsUpdatedAt: row.stats_updated_at || null,
 });
 
-const toUiBarber = (row) => ({
+const toUiStylist = (row) => ({
   id: row.id,
   name: row.name,
   fullName: row.full_name || row.name,
@@ -203,7 +203,7 @@ const toUiBarber = (row) => ({
   level: row.level || 'Junior',
   phone: row.phone || '',
   email: row.email || '',
-  barbershopId: row.barbershop_id || null,
+  salonId: row.salon_id || null,
   branchId: row.branch_id || null,
   isActive: row.is_active ?? true,
 });
@@ -224,7 +224,7 @@ const toUiService = (row, comboMap) => ({
 const toUiPosSale = (row) => ({
   id: row.id,
   ticketNumber: Number(row.ticket_number ?? row.ticketNumber ?? 0),
-  barbershopId: row.barbershop_id || null,
+  salonId: row.salon_id || null,
   branchId: row.branch_id || null,
   rawSubtotal: Number(row.raw_subtotal ?? row.rawSubtotal ?? row.subtotal ?? 0),
   discountTotal: Number(row.discount_total ?? row.discountTotal ?? 0),
@@ -243,9 +243,9 @@ const toUiPosSale = (row) => ({
 const toUiAppointment = (row) => ({
   id: row.id,
   clientId: row.client_id,
-  barberId: row.barber_id,
-  rawBarberId: row.raw_barber_id || row.barber_id,
-  barberName: row.barber_name || '',
+  stylistId: row.stylist_id,
+  rawStylistId: row.raw_stylist_id || row.stylist_id,
+  stylistName: row.stylist_name || '',
   serviceId: row.service_id,
   service: row.service_name || '',
   price: Number(row.price || 0),
@@ -278,7 +278,7 @@ const toUiRole = (row) => ({
   description: row.description || '',
 });
 
-const toUiBarbershop = (row) => ({
+const toUiSalon = (row) => ({
   id: row.id,
   name: row.name,
   slug: row.slug || normalizeSlug(row.name),
@@ -290,10 +290,10 @@ const toUiBarbershop = (row) => ({
   createdAt: row.created_at,
 });
 
-const toUiBranch = (row, barbershopMap) => ({
+const toUiBranch = (row, salonMap) => ({
   id: row.id,
-  barbershopId: row.barbershop_id,
-  barbershopName: barbershopMap.get(row.barbershop_id)?.name || row.barbershop_name || 'Negocio sin nombre',
+  salonId: row.salon_id,
+  salonName: salonMap.get(row.salon_id)?.name || row.salon_name || 'Negocio sin nombre',
   name: row.name,
   code: row.code || '',
   city: row.city || '',
@@ -302,13 +302,13 @@ const toUiBranch = (row, barbershopMap) => ({
   createdAt: row.created_at,
 });
 
-const toUiProfile = (row, roleMap, barbershopMap, branchMap) => {
+const toUiProfile = (row, roleMap, salonMap, branchMap) => {
   const resolvedBranch = row.branch_id ? branchMap.get(row.branch_id) : null;
-  const resolvedBarbershopId = row.barbershop_id || resolvedBranch?.barbershopId || null;
-  const resolvedBarbershopName = resolvedBarbershopId
-    ? barbershopMap.get(resolvedBarbershopId)?.name
-      || resolvedBranch?.barbershopName
-      || row.barbershop_name
+  const resolvedSalonId = row.salon_id || resolvedBranch?.salonId || null;
+  const resolvedSalonName = resolvedSalonId
+    ? salonMap.get(resolvedSalonId)?.name
+      || resolvedBranch?.salonName
+      || row.salon_name
       || 'Negocio sin nombre'
     : '';
 
@@ -318,29 +318,29 @@ const toUiProfile = (row, roleMap, barbershopMap, branchMap) => {
     fullName: row.full_name || row.name || row.email || 'Usuario',
     createdAt: row.created_at,
     roles: roleMap.get(row.id) || [],
-    barbershopId: resolvedBarbershopId,
-    barbershopName: resolvedBarbershopName,
+    salonId: resolvedSalonId,
+    salonName: resolvedSalonName,
     branchId: row.branch_id || null,
     branchName: row.branch_id ? resolvedBranch?.name || 'Sucursal sin nombre' : '',
   };
 };
 
-const withScopeIds = (payload, barbershopId, branchId = null) => ({
+const withScopeIds = (payload, salonId, branchId = null) => ({
   ...payload,
-  ...(barbershopId ? { barbershop_id: barbershopId } : {}),
+  ...(salonId ? { salon_id: salonId } : {}),
   ...(branchId ? { branch_id: branchId } : {}),
 });
 
-const normalizeLegacyBarberId = (barberId, barbers = []) => {
-  if (barberId === null || barberId === undefined || barberId === '') return barberId;
-  const normalizedBarbers = Array.isArray(barbers) ? barbers : [];
-  const hasExactMatch = normalizedBarbers.some((barber) => String(barber.id) === String(barberId));
-  if (hasExactMatch) return barberId;
+const normalizeLegacyStylistId = (stylistId, stylists = []) => {
+  if (stylistId === null || stylistId === undefined || stylistId === '') return stylistId;
+  const normalizedStylists = Array.isArray(stylists) ? stylists : [];
+  const hasExactMatch = normalizedStylists.some((stylist) => String(stylist.id) === String(stylistId));
+  if (hasExactMatch) return stylistId;
 
-  const legacyIndex = Number.parseInt(String(barberId), 10);
-  if (Number.isNaN(legacyIndex) || legacyIndex < 1) return barberId;
+  const legacyIndex = Number.parseInt(String(stylistId), 10);
+  if (Number.isNaN(legacyIndex) || legacyIndex < 1) return stylistId;
 
-  return normalizedBarbers[legacyIndex - 1]?.id || barberId;
+  return normalizedStylists[legacyIndex - 1]?.id || stylistId;
 };
 
 const normalizeLegacyEntityId = (entityId, items = []) => {
@@ -355,7 +355,7 @@ const normalizeLegacyEntityId = (entityId, items = []) => {
   return normalizedItems[legacyIndex - 1]?.id || entityId;
 };
 
-const toDbClient = (client, barbershopId) =>
+const toDbClient = (client, salonId) =>
   withScopeIds({
     id: client.id,
     name: client.name,
@@ -365,37 +365,37 @@ const toDbClient = (client, barbershopId) =>
     completed_visits: Number(client.completedVisits || 0),
     total_spent: Number(client.totalSpent || 0),
     last_visit_at: client.lastVisitAt || null,
-    favorite_barber_id: client.favoriteBarberId || null,
-    favorite_barber_name: client.favoriteBarberName || null,
+    favorite_stylist_id: client.favoriteStylistId || null,
+    favorite_stylist_name: client.favoriteStylistName || null,
     favorite_service_name: client.favoriteServiceName || null,
     stats_updated_at: client.statsUpdatedAt || null,
-  }, barbershopId, null);
+  }, salonId, null);
 
-const toDbBarber = (barber, barbershopId, branchId = null) => {
-  const resolvedBarbershopId = barber.barbershopId ?? barbershopId ?? null;
-  const resolvedBranchId = barber.branchId ?? branchId ?? null;
+const toDbStylist = (stylist, salonId, branchId = null) => {
+  const resolvedSalonId = stylist.salonId ?? salonId ?? null;
+  const resolvedBranchId = stylist.branchId ?? branchId ?? null;
 
   return withScopeIds({
-    id: barber.id,
-    name: barber.name,
-    full_name: barber.fullName || barber.name || '',
-    cedula: barber.cedula || '',
-    phone: barber.phone || null,
-    email: barber.email || null,
-    payment_mode: barber.paymentMode || 'salario',
-    salary: Number(barber.salary || 0),
-    commission: Number(barber.commission || 0),
-    payment_frequency: barber.paymentFrequency || 'Quincenal',
-    level: barber.level || 'Junior',
-    color: barber.color || null,
-    bg: barber.bg || null,
-    shadow: barber.shadow || null,
-    avatar: barber.avatar || null,
-    is_active: barber.isActive ?? true,
-  }, resolvedBarbershopId, resolvedBranchId);
+    id: stylist.id,
+    name: stylist.name,
+    full_name: stylist.fullName || stylist.name || '',
+    cedula: stylist.cedula || '',
+    phone: stylist.phone || null,
+    email: stylist.email || null,
+    payment_mode: stylist.paymentMode || 'salario',
+    salary: Number(stylist.salary || 0),
+    commission: Number(stylist.commission || 0),
+    payment_frequency: stylist.paymentFrequency || 'Quincenal',
+    level: stylist.level || 'Junior',
+    color: stylist.color || null,
+    bg: stylist.bg || null,
+    shadow: stylist.shadow || null,
+    avatar: stylist.avatar || null,
+    is_active: stylist.isActive ?? true,
+  }, resolvedSalonId, resolvedBranchId);
 };
 
-const toDbService = (service, barbershopId) => ({
+const toDbService = (service, salonId) => ({
   id: service.id,
   name: service.name,
   category: service.category,
@@ -408,24 +408,24 @@ const toDbService = (service, barbershopId) => ({
     : [],
   is_optional: isPromotionService(service) ? (service.isOptional ?? true) : true,
   is_active: service.isActive ?? true,
-  ...(barbershopId ? { barbershop_id: barbershopId } : {}),
+  ...(salonId ? { salon_id: salonId } : {}),
   branch_id: null,
 });
 
-const toDbBarbershop = (barbershop) => ({
-  id: barbershop.id,
-  name: barbershop.name,
-  slug: normalizeSlug(barbershop.slug || barbershop.name),
-  owner_email: barbershop.ownerEmail || '',
-  phone: barbershop.phone || null,
-  city: barbershop.city || null,
-  plan: barbershop.plan || 'starter',
-  is_active: barbershop.isActive ?? true,
+const toDbSalon = (salon) => ({
+  id: salon.id,
+  name: salon.name,
+  slug: normalizeSlug(salon.slug || salon.name),
+  owner_email: salon.ownerEmail || '',
+  phone: salon.phone || null,
+  city: salon.city || null,
+  plan: salon.plan || 'starter',
+  is_active: salon.isActive ?? true,
 });
 
 const toDbBranch = (branch) => ({
   id: branch.id,
-  barbershop_id: branch.barbershopId,
+  salon_id: branch.salonId,
   name: branch.name,
   code: branch.code || null,
   city: branch.city || null,
@@ -433,11 +433,13 @@ const toDbBranch = (branch) => ({
   is_active: branch.isActive ?? true,
 });
 
-const toDbAppointment = (appointment, services = [], barbershopId, branchId = null, barbers = [], clients = []) => {
+const toDbAppointment = (appointment, services = [], salonId, branchId = null, stylists = [], clients = []) => {
   const matchedService = (services || []).find((service) => service.name === appointment.service);
-  const normalizedBarberId = normalizeLegacyBarberId(appointment.barberId, barbers);
-  const matchedBarber = (barbers || []).find((barber) => String(barber.id) === String(normalizedBarberId));
-  const normalizedClientId = normalizeLegacyEntityId(appointment.clientId, clients);
+  const normalizedStylistId = normalizeLegacyStylistId(appointment.stylistId, stylists);
+  const matchedStylist = (stylists || []).find((stylist) => String(stylist.id) === String(normalizedStylistId));
+  const normalizedClientId = appointment.clientId
+    ? normalizeLegacyEntityId(appointment.clientId, clients)
+    : null;
   const normalizedServiceId = matchedService?.id || normalizeLegacyEntityId(appointment.serviceId, services) || null;
   const netPrice = Number(appointment.price || 0);
   const discountAmount = Number(appointment.discountAmount || 0);
@@ -449,8 +451,8 @@ const toDbAppointment = (appointment, services = [], barbershopId, branchId = nu
   return withScopeIds({
     id: appointment.id,
     client_id: normalizedClientId,
-    barber_id: normalizedBarberId,
-    barber_name: appointment.barberName || matchedBarber?.name || null,
+    stylist_id: normalizedStylistId,
+    stylist_name: appointment.stylistName || matchedStylist?.name || null,
     service_id: normalizedServiceId,
     service_name: appointment.service || matchedService?.name || null,
     price: netPrice,
@@ -474,10 +476,10 @@ const toDbAppointment = (appointment, services = [], barbershopId, branchId = nu
     notes: appointment.notes || null,
     created_by: appointment.createdBy || null,
     updated_by: appointment.updatedBy || null,
-  }, barbershopId, branchId);
+  }, salonId, branchId);
 };
 
-const toDbPosSale = (sale, barbershopId, branchId = null, createdBy = null) =>
+const toDbPosSale = (sale, salonId, branchId = null, createdBy = null) =>
   withScopeIds({
     id: sale.id,
     raw_subtotal: Number(sale.rawSubtotal || sale.subtotal || 0),
@@ -491,7 +493,7 @@ const toDbPosSale = (sale, barbershopId, branchId = null, createdBy = null) =>
     discount_label: sale.discountLabel || null,
     notes: sale.notes || null,
     created_by: createdBy || sale.createdBy || null,
-  }, barbershopId, branchId);
+  }, salonId, branchId);
 
 const getComboRows = (services = []) =>
   services
@@ -506,11 +508,11 @@ const getComboRows = (services = []) =>
 const getComboRowKey = (comboServiceId, itemServiceId) => `${comboServiceId}::${itemServiceId}`;
 
 const resolveUserScope = async (currentUserId, scopeOverride = {}) => {
-  if (!currentUserId) return { isSuperAdmin: false, currentBarbershopId: null, currentBranchId: null };
+  if (!currentUserId) return { isSuperAdmin: false, currentSalonId: null, currentBranchId: null };
 
   try {
     const [{ data: profile, error: profileError }, { data: userRoles, error: rolesError }] = await Promise.all([
-      supabase.from('profiles').select('id, barbershop_id, branch_id').eq('id', currentUserId).maybeSingle(),
+      supabase.from('profiles').select('id, salon_id, branch_id').eq('id', currentUserId).maybeSingle(),
       supabase.from('user_roles').select('role_name').eq('user_id', currentUserId),
     ]);
 
@@ -518,17 +520,17 @@ const resolveUserScope = async (currentUserId, scopeOverride = {}) => {
     if (rolesError) throw rolesError;
 
     const currentUserRoles = (userRoles || []).map((row) => row.role_name);
-    const hasBarbershopOverride = Boolean(scopeOverride?.currentBarbershopId);
-    const effectiveBarbershopId = hasBarbershopOverride
-      ? scopeOverride.currentBarbershopId
-      : profile?.barbershop_id || null;
+    const hasSalonOverride = Boolean(scopeOverride?.currentSalonId);
+    const effectiveSalonId = hasSalonOverride
+      ? scopeOverride.currentSalonId
+      : profile?.salon_id || null;
     const effectiveBranchId = Object.prototype.hasOwnProperty.call(scopeOverride || {}, 'currentBranchId')
       ? scopeOverride.currentBranchId
-      : (hasBarbershopOverride ? null : profile?.branch_id || null);
+      : (hasSalonOverride ? null : profile?.branch_id || null);
 
     return {
-      isSuperAdmin: currentUserRoles.includes('super_admin') && !hasBarbershopOverride,
-      currentBarbershopId: effectiveBarbershopId,
+      isSuperAdmin: currentUserRoles.includes('super_admin') && !hasSalonOverride,
+      currentSalonId: effectiveSalonId,
       currentBranchId: effectiveBranchId,
     };
     } catch (error) {
@@ -536,11 +538,11 @@ const resolveUserScope = async (currentUserId, scopeOverride = {}) => {
       currentUserId,
       error,
     });
-    return { isSuperAdmin: false, currentBarbershopId: null, currentBranchId: null };
+    return { isSuperAdmin: false, currentSalonId: null, currentBranchId: null };
   }
 };
 
-export async function fetchBarbershopSnapshot(currentUserId, scopeOverride = {}) {
+export async function fetchSalonSnapshot(currentUserId, scopeOverride = {}) {
   assertSupabase();
   const scope = await resolveUserScope(currentUserId, scopeOverride);
   const appointmentsRange = getOperationalAppointmentsRange();
@@ -549,7 +551,7 @@ export async function fetchBarbershopSnapshot(currentUserId, scopeOverride = {})
     { data: servicesData, error: servicesError },
     { data: comboItemsData, error: comboItemsError },
     { data: clientsData, error: clientsError },
-    { data: barbersData, error: barbersError },
+    { data: stylistsData, error: stylistsError },
     { data: appointmentsData, error: appointmentsError },
     posSalesResult,
   ] = await Promise.all([
@@ -560,7 +562,7 @@ export async function fetchBarbershopSnapshot(currentUserId, scopeOverride = {})
         .eq('is_active', true)
         .order('created_at', { ascending: true }),
       scope,
-      { branchColumn: null, includeLegacyBarbershopRows: true },
+      { branchColumn: null, includeLegacySalonRows: true },
     ),
     supabase
       .from('service_combo_items')
@@ -575,7 +577,7 @@ export async function fetchBarbershopSnapshot(currentUserId, scopeOverride = {})
     ),
     applyTenantScope(
       supabase
-        .from('barbers')
+        .from('stylists')
         .select('*')
         .eq('is_active', true)
         .order('created_at', { ascending: true }),
@@ -604,7 +606,7 @@ export async function fetchBarbershopSnapshot(currentUserId, scopeOverride = {})
 
   if (servicesError) throw normalizeError(servicesError, 'No se pudieron cargar los servicios.');
   if (clientsError) throw normalizeError(clientsError, 'No se pudieron cargar los clientes.');
-  if (barbersError) throw normalizeError(barbersError, 'No se pudo cargar el staff.');
+  if (stylistsError) throw normalizeError(stylistsError, 'No se pudo cargar el equipo.');
   if (appointmentsError) throw normalizeError(appointmentsError, 'No se pudo cargar la agenda.');
   if (comboItemsError) {
     console.warn('No se pudieron cargar los combos para el snapshot principal:', comboItemsError);
@@ -630,19 +632,19 @@ export async function fetchBarbershopSnapshot(currentUserId, scopeOverride = {})
 
   const services = (servicesData || []).map((row) => toUiService(row, comboMap));
   const clients = (clientsData || []).map(toUiClient);
-  const barbers = (barbersData || []).map(toUiBarber);
+  const stylists = (stylistsData || []).map(toUiStylist);
   const appointments = (appointmentsData || []).map((row) =>
     toUiAppointment({
       ...row,
-      raw_barber_id: row.barber_id,
-      barber_id: normalizeLegacyBarberId(row.barber_id, barbers),
+      raw_stylist_id: row.stylist_id,
+      stylist_id: normalizeLegacyStylistId(row.stylist_id, stylists),
     }),
   );
   const posSales = (posSalesData || []).map(toUiPosSale);
   return {
     services,
     clients,
-    barbers,
+    stylists,
     appointments,
     posSales,
     posSalesLoadError,
@@ -676,7 +678,7 @@ export async function fetchScopedServices(currentUserId, scopeOverride = {}) {
       .eq('is_active', true)
       .order('created_at', { ascending: true }),
     scope,
-    { branchColumn: null, includeLegacyBarbershopRows: true },
+    { branchColumn: null, includeLegacySalonRows: true },
   );
 
   const { data: servicesData, error: servicesError } = await servicesQuery;
@@ -700,31 +702,31 @@ export async function fetchScopedServices(currentUserId, scopeOverride = {}) {
   return (servicesData || []).map((row) => toUiService(row, comboMap));
 }
 
-export async function fetchScopedBarbers(currentUserId, scopeOverride = {}) {
+export async function fetchScopedStylists(currentUserId, scopeOverride = {}) {
   assertSupabase();
   const scope = await resolveUserScope(currentUserId, scopeOverride);
 
-  const barbersQuery = applyTenantScope(
-    supabase.from('barbers').select('*').eq('is_active', true).order('created_at', { ascending: true }),
+  const stylistsQuery = applyTenantScope(
+    supabase.from('stylists').select('*').eq('is_active', true).order('created_at', { ascending: true }),
     scope,
   );
 
-  const { data, error } = await barbersQuery;
-  if (error) throw normalizeError(error, 'No se pudieron cargar los barberos.');
+  const { data, error } = await stylistsQuery;
+  if (error) throw normalizeError(error, 'No se pudieron cargar los estilistas.');
 
-  return (data || []).map(toUiBarber);
+  return (data || []).map(toUiStylist);
 }
 
 export async function fetchClientDirectorySnapshot(currentUserId, scopeOverride = {}) {
   assertSupabase();
   const scope = await resolveUserScope(currentUserId, scopeOverride);
-  const barbershopWideScope = { ...scope, currentBranchId: null };
+  const salonWideScope = { ...scope, currentBranchId: null };
   const clientDirectoryRange = getClientDirectoryAppointmentsRange();
   const warnings = [];
 
   const [
     { data: clientsData, error: clientsError },
-    barbersResult,
+    stylistsResult,
     appointmentsResult,
   ] = await Promise.all([
     applyTenantScope(
@@ -732,37 +734,37 @@ export async function fetchClientDirectorySnapshot(currentUserId, scopeOverride 
         .from('clients')
         .select('*')
         .order('created_at', { ascending: true }),
-      barbershopWideScope,
+      salonWideScope,
       { branchColumn: null },
     ),
     settleQuery(applyTenantScope(
       supabase
-        .from('barbers')
+        .from('stylists')
         .select('id, name, full_name')
         .eq('is_active', true)
         .order('created_at', { ascending: true }),
-      barbershopWideScope,
+      salonWideScope,
     ), []),
     settleQuery(applyTenantScope(
       supabase
         .from('appointments')
-        .select('id, client_id, barber_id, barber_name, service_name, price, appointment_date, appointment_time, status')
+        .select('id, client_id, stylist_id, stylist_name, service_name, price, appointment_date, appointment_time, status')
         .eq('status', 'finalizada')
         .gte('appointment_date', clientDirectoryRange.from)
         .lte('appointment_date', clientDirectoryRange.to)
         .order('appointment_date', { ascending: true })
         .order('appointment_time', { ascending: true }),
-      barbershopWideScope,
+      salonWideScope,
     ), []),
   ]);
 
   if (clientsError) throw normalizeError(clientsError, 'No se pudieron cargar los clientes.');
 
-  const barbersData = barbersResult?.data || [];
-  if (barbersResult?.error) {
-    const normalizedError = normalizeError(barbersResult.error, 'No se pudo cargar el staff para la vista de clientes.');
+  const stylistsData = stylistsResult?.data || [];
+  if (stylistsResult?.error) {
+    const normalizedError = normalizeError(stylistsResult.error, 'No se pudo cargar el equipo para la vista de clientes.');
     warnings.push(normalizedError.message);
-    console.error('No se pudo cargar el staff para clientes:', normalizedError);
+    console.error('No se pudo cargar el equipo para clientes:', normalizedError);
   }
 
   const appointmentsData = appointmentsResult?.data || [];
@@ -774,12 +776,12 @@ export async function fetchClientDirectorySnapshot(currentUserId, scopeOverride 
 
   return {
     clients: (clientsData || []).map(toUiClient),
-    barbers: (barbersData || []).map(toUiBarber),
+    stylists: (stylistsData || []).map(toUiStylist),
     appointments: (appointmentsData || []).map((row) =>
       toUiAppointment({
         ...row,
-        raw_barber_id: row.barber_id,
-        barber_id: normalizeLegacyBarberId(row.barber_id, barbersData || []),
+        raw_stylist_id: row.stylist_id,
+        stylist_id: normalizeLegacyStylistId(row.stylist_id, stylistsData || []),
       }),
     ),
     warnings,
@@ -815,19 +817,19 @@ export async function fetchAccessControlSnapshot(currentUserId) {
 
   const currentUserRoles = (currentUserRoleRows || []).map((row) => row.role_name);
   const isSuperAdmin = currentUserRoles.includes('super_admin');
-  const currentBarbershopId = currentProfile?.barbershop_id || null;
+  const currentSalonId = currentProfile?.salon_id || null;
   const currentBranchId = currentProfile?.branch_id || null;
 
-  const barbershopsPromise = isSuperAdmin
+  const salonsPromise = isSuperAdmin
     ? supabase
-      .from('barbershops')
+      .from('salons')
       .select('*')
       .order('created_at', { ascending: true })
-    : currentBarbershopId
+    : currentSalonId
       ? supabase
-        .from('barbershops')
+        .from('salons')
         .select('*')
-        .eq('id', currentBarbershopId)
+        .eq('id', currentSalonId)
         .order('created_at', { ascending: true })
       : Promise.resolve({ data: [], error: null });
 
@@ -837,22 +839,22 @@ export async function fetchAccessControlSnapshot(currentUserId) {
       .select('*')
       .eq('is_active', true)
       .order('created_at', { ascending: true })
-    : currentBarbershopId
+    : currentSalonId
       ? supabase
         .from('branches')
         .select('*')
         .eq('is_active', true)
-        .eq('barbershop_id', currentBarbershopId)
+        .eq('salon_id', currentSalonId)
         .order('created_at', { ascending: true })
       : Promise.resolve({ data: [], error: null });
 
   const [
-    { data: barbershopsData, error: barbershopsError },
+    { data: salonsData, error: salonsError },
     { data: branchesData, error: branchesError },
-  ] = await Promise.all([barbershopsPromise, branchesPromise]);
+  ] = await Promise.all([salonsPromise, branchesPromise]);
 
-  if (barbershopsError) {
-    throw normalizeError(barbershopsError, 'No se pudieron cargar las barber\u00edas visibles para este usuario.');
+  if (salonsError) {
+    throw normalizeError(salonsError, 'No se pudieron cargar los salones visibles para este usuario.');
   }
   if (branchesError) {
     throw normalizeError(branchesError, 'No se pudieron cargar las sucursales visibles para este usuario.');
@@ -866,13 +868,13 @@ export async function fetchAccessControlSnapshot(currentUserId) {
       .order('created_at', { ascending: true });
     if (error) throw normalizeError(error, 'No se pudieron cargar los perfiles.');
     profilesData = data || [];
-  } else if (currentBarbershopId) {
+  } else if (currentSalonId) {
     const branchIds = branchesData.map((branch) => branch.id);
-    const [{ data: profilesByBarbershop, error: profilesByBarbershopError }, { data: profilesByBranch, error: profilesByBranchError }] = await Promise.all([
+    const [{ data: profilesBySalon, error: profilesBySalonError }, { data: profilesByBranch, error: profilesByBranchError }] = await Promise.all([
       supabase
         .from('profiles')
         .select('*')
-        .eq('barbershop_id', currentBarbershopId)
+        .eq('salon_id', currentSalonId)
         .order('created_at', { ascending: true }),
       branchIds.length
         ? supabase
@@ -882,10 +884,10 @@ export async function fetchAccessControlSnapshot(currentUserId) {
           .order('created_at', { ascending: true })
         : Promise.resolve({ data: [], error: null }),
     ]);
-    if (profilesByBarbershopError) throw normalizeError(profilesByBarbershopError, 'No se pudieron cargar los perfiles.');
+    if (profilesBySalonError) throw normalizeError(profilesBySalonError, 'No se pudieron cargar los perfiles.');
     if (profilesByBranchError) throw normalizeError(profilesByBranchError, 'No se pudieron cargar los perfiles.');
 
-    const mergedProfiles = [...(profilesByBarbershop || []), ...(profilesByBranch || []), ...(currentProfile ? [currentProfile] : [])];
+    const mergedProfiles = [...(profilesBySalon || []), ...(profilesByBranch || []), ...(currentProfile ? [currentProfile] : [])];
     profilesData = Array.from(new Map(mergedProfiles.map((profile) => [String(profile.id), profile])).values());
   } else {
     profilesData = currentProfile ? [currentProfile] : [];
@@ -916,31 +918,31 @@ export async function fetchAccessControlSnapshot(currentUserId) {
     roleMap.set(row.user_id, [...current, row.role_name]);
   }
 
-  const barbershopMap = new Map((barbershopsData || []).map((row) => [row.id, toUiBarbershop(row)]));
-  const branchMap = new Map((branchesData || []).map((row) => [row.id, toUiBranch(row, barbershopMap)]));
+  const salonMap = new Map((salonsData || []).map((row) => [row.id, toUiSalon(row)]));
+  const branchMap = new Map((branchesData || []).map((row) => [row.id, toUiBranch(row, salonMap)]));
   const roles = (rolesData || []).map(toUiRole);
-  const users = (profilesData || []).map((row) => toUiProfile(row, roleMap, barbershopMap, branchMap));
-  const barbershops = (barbershopsData || []).map(toUiBarbershop);
-  const branches = (branchesData || []).map((row) => toUiBranch(row, barbershopMap));
+  const users = (profilesData || []).map((row) => toUiProfile(row, roleMap, salonMap, branchMap));
+  const salons = (salonsData || []).map(toUiSalon);
+  const branches = (branchesData || []).map((row) => toUiBranch(row, salonMap));
 
   return {
     roles,
     users,
     currentUserRoles,
-    currentBarbershopId,
+    currentSalonId,
     currentBranchId,
-    barbershops,
+    salons,
     branches,
   };
 }
 
-export async function upsertClients(clients, barbershopId = null) {
+export async function upsertClients(clients, salonId = null) {
   assertSupabase();
   if (!clients?.length) return;
 
   const { error } = await supabase
     .from('clients')
-    .upsert(clients.map((client) => toDbClient(client, barbershopId)), { onConflict: 'id' });
+    .upsert(clients.map((client) => toDbClient(client, salonId)), { onConflict: 'id' });
   if (error) throw normalizeError(error, 'No se pudieron guardar los clientes.');
 }
 
@@ -984,17 +986,17 @@ export async function replaceUserRoles(userId, roleNames = []) {
   }
 }
 
-export async function upsertBarbershop(barbershop) {
+export async function upsertSalon(salon) {
   assertSupabase();
 
   const { data, error } = await supabase
-    .from('barbershops')
-    .upsert([toDbBarbershop(barbershop)], { onConflict: 'id' })
+    .from('salons')
+    .upsert([toDbSalon(salon)], { onConflict: 'id' })
     .select()
     .single();
   if (error) throw normalizeError(error, 'No se pudo guardar el negocio.');
 
-  return toUiBarbershop(data);
+  return toUiSalon(data);
 }
 
 export async function upsertBranch(branch) {
@@ -1010,12 +1012,12 @@ export async function upsertBranch(branch) {
   return data;
 }
 
-export async function assignProfileBarbershop(userId, barbershopId) {
+export async function assignProfileSalon(userId, salonId) {
   assertSupabase();
 
   const { error } = await supabase
     .from('profiles')
-    .update({ barbershop_id: barbershopId || null })
+    .update({ salon_id: salonId || null })
     .eq('id', userId);
   if (error) throw normalizeError(error, 'No se pudo asociar el usuario al negocio.');
 }
@@ -1033,29 +1035,29 @@ export async function assignProfileBranch(userId, branchId) {
 export async function updateManagedUserProfile(userId, payload = {}) {
   assertSupabase();
 
-  let nextBarbershopId = Object.prototype.hasOwnProperty.call(payload, 'barbershopId')
-    ? payload.barbershopId || null
+  let nextSalonId = Object.prototype.hasOwnProperty.call(payload, 'salonId')
+    ? payload.salonId || null
     : undefined;
   const nextBranchId = Object.prototype.hasOwnProperty.call(payload, 'branchId')
     ? payload.branchId || null
     : undefined;
 
-  if (nextBranchId && !nextBarbershopId) {
+  if (nextBranchId && !nextSalonId) {
     const { data: branchData, error: branchError } = await supabase
       .from('branches')
-      .select('id, barbershop_id')
+      .select('id, salon_id')
       .eq('id', nextBranchId)
       .maybeSingle();
 
     if (branchError) throw normalizeError(branchError, 'No se pudo validar la sucursal del usuario.');
     if (!branchData) throw normalizeError(null, 'La sucursal seleccionada no existe.');
 
-    nextBarbershopId = branchData.barbershop_id || null;
+    nextSalonId = branchData.salon_id || null;
   }
 
   if (nextBranchId) {
-    await validateBranchBelongsToBarbershop(
-      nextBarbershopId !== undefined ? nextBarbershopId : null,
+    await validateBranchBelongsToSalon(
+      nextSalonId !== undefined ? nextSalonId : null,
       nextBranchId,
     );
   }
@@ -1064,8 +1066,8 @@ export async function updateManagedUserProfile(userId, payload = {}) {
   if (Object.prototype.hasOwnProperty.call(payload, 'fullName')) {
     updates.full_name = payload.fullName || null;
   }
-  if (Object.prototype.hasOwnProperty.call(payload, 'barbershopId')) {
-    updates.barbershop_id = nextBarbershopId;
+  if (Object.prototype.hasOwnProperty.call(payload, 'salonId')) {
+    updates.salon_id = nextSalonId;
   }
   if (Object.prototype.hasOwnProperty.call(payload, 'branchId')) {
     updates.branch_id = nextBranchId;
@@ -1088,20 +1090,20 @@ export async function createManagedUser(payload, currentUserId = null) {
     const scope = await resolveUserScope(currentUserId);
 
     if (!scope.isSuperAdmin) {
-      if (!scope.currentBarbershopId) {
-        throw normalizeError(null, 'Tu usuario administrador no tiene una barber\u00eda asignada.');
+      if (!scope.currentSalonId) {
+        throw normalizeError(null, 'Tu usuario administrador no tiene un salón asignado.');
       }
 
       normalizedPayload = {
         ...normalizedPayload,
-        barbershopId: scope.currentBarbershopId,
+        salonId: scope.currentSalonId,
       };
 
       if (normalizedPayload.branchId) {
-        await validateBranchBelongsToBarbershop(scope.currentBarbershopId, normalizedPayload.branchId);
+        await validateBranchBelongsToSalon(scope.currentSalonId, normalizedPayload.branchId);
       }
-    } else if (normalizedPayload.branchId && normalizedPayload.barbershopId) {
-      await validateBranchBelongsToBarbershop(normalizedPayload.barbershopId, normalizedPayload.branchId);
+    } else if (normalizedPayload.branchId && normalizedPayload.salonId) {
+      await validateBranchBelongsToSalon(normalizedPayload.salonId, normalizedPayload.branchId);
     }
   }
 
@@ -1184,68 +1186,68 @@ export async function resetManagedUserPassword(payload) {
   return body;
 }
 
-export async function upsertBarbers(barbers, barbershopId = null, branchId = null, currentUserId = null) {
+export async function upsertStylists(stylists, salonId = null, branchId = null, currentUserId = null) {
   assertSupabase();
-  if (!barbers?.length) return;
+  if (!stylists?.length) return;
 
-  let resolvedBarbershopId = barbershopId;
+  let resolvedSalonId = salonId;
   let resolvedBranchId = branchId;
   let scope = null;
 
   if (currentUserId) {
     scope = await resolveUserScope(currentUserId);
-    resolvedBarbershopId = resolvedBarbershopId || scope.currentBarbershopId || null;
+    resolvedSalonId = resolvedSalonId || scope.currentSalonId || null;
     resolvedBranchId = resolvedBranchId ?? scope.currentBranchId ?? null;
   }
 
-  const normalizedBarbers = [];
-  for (const barber of barbers) {
-    const barberBarbershopId = barber.barbershopId || resolvedBarbershopId || null;
-    const barberBranchId = barber.branchId ?? resolvedBranchId ?? null;
-    if (!barberBranchId) {
+  const normalizedStylists = [];
+  for (const stylist of stylists) {
+    const stylistSalonId = stylist.salonId || resolvedSalonId || null;
+    const stylistBranchId = stylist.branchId ?? resolvedBranchId ?? null;
+    if (!stylistBranchId) {
       throw normalizeError(
         null,
-        'Cada barbero debe tener una sucursal asignada antes de guardarse.',
+        'Cada estilista debe tener una sucursal asignada antes de guardarse.',
       );
     }
-    if (barberBranchId && !barberBarbershopId) {
+    if (stylistBranchId && !stylistSalonId) {
       throw normalizeError(
         null,
-        scope?.currentBarbershopId
-          ? 'No se pudo resolver la barber\u00eda del barbero antes de asignar la sucursal.'
-          : 'Tu usuario no tiene una barber\u00eda asignada. Asigna primero la barber\u00eda del administrador.',
+        scope?.currentSalonId
+          ? 'No se pudo resolver el salón del estilista antes de asignar la sucursal.'
+          : 'Tu usuario no tiene un salón asignado. Asigna primero el salón del administrador.',
       );
     }
-    await validateBranchBelongsToBarbershop(barberBarbershopId, barberBranchId);
-    normalizedBarbers.push({
-      ...barber,
-      barbershopId: barberBarbershopId,
-      branchId: barberBranchId,
+    await validateBranchBelongsToSalon(stylistSalonId, stylistBranchId);
+    normalizedStylists.push({
+      ...stylist,
+      salonId: stylistSalonId,
+      branchId: stylistBranchId,
     });
   }
 
   const { error } = await supabase
-    .from('barbers')
+    .from('stylists')
     .upsert(
-      normalizedBarbers.map((barber) => toDbBarber(barber, barber.barbershopId, barber.branchId)),
+      normalizedStylists.map((stylist) => toDbStylist(stylist, stylist.salonId, stylist.branchId)),
       { onConflict: 'id' },
     );
-  if (error) throw normalizeError(error, 'No se pudo guardar el barbero.');
+  if (error) throw normalizeError(error, 'No se pudo guardar el estilista.');
 }
 
-export async function deleteBarberRecord(barberId) {
+export async function deleteStylistRecord(stylistId) {
   assertSupabase();
-  const { error } = await supabase.from('barbers').delete().eq('id', barberId);
-  if (error) throw normalizeError(error, 'No se pudo eliminar el barbero.');
+  const { error } = await supabase.from('stylists').delete().eq('id', stylistId);
+  if (error) throw normalizeError(error, 'No se pudo eliminar el estilista.');
 }
 
-export async function upsertServices(services, barbershopId = null) {
+export async function upsertServices(services, salonId = null) {
   assertSupabase();
   if (!services?.length) return;
 
   const { error } = await supabase
     .from('services')
-    .upsert(services.map((service) => toDbService(service, barbershopId)), { onConflict: 'id' });
+    .upsert(services.map((service) => toDbService(service, salonId)), { onConflict: 'id' });
   if (error) throw normalizeError(error, 'No se pudieron guardar los servicios.');
 }
 
@@ -1293,11 +1295,11 @@ export async function deleteServiceRecord(serviceId) {
   if (error) throw normalizeError(error, 'No se pudo eliminar el servicio.');
 }
 
-export async function upsertAppointments(appointments, services, barbershopId = null, branchId = null, barbers = [], clients = []) {
+export async function upsertAppointments(appointments, services, salonId = null, branchId = null, stylists = [], clients = []) {
   assertSupabase();
   if (!appointments?.length) return;
 
-  const payload = appointments.map((appointment) => toDbAppointment(appointment, services, barbershopId, branchId, barbers, clients));
+  const payload = appointments.map((appointment) => toDbAppointment(appointment, services, salonId, branchId, stylists, clients));
   const { error } = await supabase
     .from('appointments')
     .upsert(payload, { onConflict: 'id' });
@@ -1309,20 +1311,20 @@ export async function createPosSale(sale, currentUserId, scopeOverride = {}) {
   if (!sale) return null;
 
   const scope = await resolveUserScope(currentUserId, scopeOverride);
-  const resolvedBarbershopId = sale.barbershopId || scope.currentBarbershopId || null;
+  const resolvedSalonId = sale.salonId || scope.currentSalonId || null;
   const resolvedBranchId = sale.branchId ?? scope.currentBranchId ?? null;
 
-  if (!resolvedBarbershopId) {
-    throw normalizeError(null, 'No se pudo resolver la barber\u00eda para registrar la venta.');
+  if (!resolvedSalonId) {
+    throw normalizeError(null, 'No se pudo resolver el salón para registrar la venta.');
   }
 
   if (!resolvedBranchId) {
     throw normalizeError(null, 'No se pudo resolver la sucursal para registrar la venta.');
   }
 
-  await validateBranchBelongsToBarbershop(resolvedBarbershopId, resolvedBranchId);
+  await validateBranchBelongsToSalon(resolvedSalonId, resolvedBranchId);
 
-  const payload = toDbPosSale(sale, resolvedBarbershopId, resolvedBranchId, currentUserId);
+  const payload = toDbPosSale(sale, resolvedSalonId, resolvedBranchId, currentUserId);
   const { data, error } = await supabase
     .from('pos_sales')
     .insert(payload)

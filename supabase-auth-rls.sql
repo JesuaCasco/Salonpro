@@ -1,5 +1,5 @@
-alter table public.clients enable row level security;
-alter table public.barbers enable row level security;
+﻿alter table public.clients enable row level security;
+alter table public.stylists enable row level security;
 alter table public.services enable row level security;
 alter table public.service_combo_items enable row level security;
 alter table public.appointments enable row level security;
@@ -12,9 +12,9 @@ to authenticated
 using (true)
 with check (true);
 
-drop policy if exists barbers_authenticated_all on public.barbers;
-create policy barbers_authenticated_all
-on public.barbers
+drop policy if exists stylists_authenticated_all on public.stylists;
+create policy stylists_authenticated_all
+on public.stylists
 for all
 to authenticated
 using (true)

@@ -1,4 +1,4 @@
-alter table public.pos_sales
+﻿alter table public.pos_sales
 add column if not exists ticket_number bigint;
 
 do $$
@@ -44,4 +44,4 @@ create policy pos_sales_delete_scoped
 on public.pos_sales
 for delete
 to authenticated
-using (public.can_manage_branch(barbershop_id));
+using (public.can_manage_branch(salon_id));

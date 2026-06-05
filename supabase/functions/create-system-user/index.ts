@@ -10,7 +10,7 @@ type CreateUserPayload = {
   password?: string;
   fullName?: string;
   roleName?: string;
-  barbershopId?: string | null;
+  salonId?: string | null;
   branchId?: string | null;
 };
 
@@ -76,7 +76,7 @@ Deno.serve(async (req) => {
     const password = `${payload.password || ''}`;
     const fullName = `${payload.fullName || ''}`.trim();
     const roleName = `${payload.roleName || ''}`.trim();
-    const barbershopId = payload.barbershopId || null;
+    const salonId = payload.salonId || null;
     const branchId = payload.branchId || null;
 
     if (!email || !password || !fullName || !roleName) {
@@ -92,29 +92,29 @@ Deno.serve(async (req) => {
 
     const { data: actorProfile, error: actorProfileError } = await admin
       .from('profiles')
-      .select('barbershop_id, branch_id')
+      .select('salon_id, branch_id')
       .eq('id', actor.id)
       .maybeSingle();
 
     if (actorProfileError) {
-      return json({ error: actorProfileError.message || 'No se pudo validar la barber?a del usuario actual.' }, 403);
+      return json({ error: actorProfileError.message || 'No se pudo validar el salón del usuario actual.' }, 403);
     }
 
-    const normalizedBarbershopId = actorIsSuperAdmin ? barbershopId : actorProfile?.barbershop_id || null;
+    const normalizedSalonId = actorIsSuperAdmin ? salonId : actorProfile?.salon_id || null;
     const normalizedBranchId = actorIsSuperAdmin ? branchId : branchId || actorProfile?.branch_id || null;
 
     if (!actorIsSuperAdmin && roleName !== 'cashier') {
-      return json({ error: 'El administrador de barber?a solo puede crear usuarios de caja.' }, 403);
+      return json({ error: 'El administrador de salón solo puede crear usuarios de caja.' }, 403);
     }
 
-    if (!normalizedBarbershopId) {
-      return json({ error: 'Debes asignar una barber?a a este usuario.' }, 400);
+    if (!normalizedSalonId) {
+      return json({ error: 'Debes asignar un salón a este usuario.' }, 400);
     }
 
     if (normalizedBranchId) {
       const { data: branch, error: branchError } = await admin
         .from('branches')
-        .select('id, barbershop_id')
+        .select('id, salon_id')
         .eq('id', normalizedBranchId)
         .maybeSingle();
 
@@ -122,8 +122,8 @@ Deno.serve(async (req) => {
         return json({ error: 'La sucursal seleccionada no existe.' }, 400);
       }
 
-      if (branch.barbershop_id !== normalizedBarbershopId) {
-        return json({ error: 'La sucursal no pertenece a la barbería seleccionada.' }, 400);
+      if (branch.salon_id !== normalizedSalonId) {
+        return json({ error: 'La sucursal no pertenece al salón seleccionado.' }, 400);
       }
     }
 
@@ -148,7 +148,7 @@ Deno.serve(async (req) => {
         id: newUser.id,
         email,
         full_name: fullName,
-        barbershop_id: normalizedBarbershopId,
+        salon_id: normalizedSalonId,
         branch_id: normalizedBranchId,
       }],
       { onConflict: 'id' },
@@ -172,7 +172,7 @@ Deno.serve(async (req) => {
       email,
       fullName,
       roleName,
-      barbershopId: normalizedBarbershopId,
+      salonId: normalizedSalonId,
       branchId: normalizedBranchId,
     });
   } catch (error) {

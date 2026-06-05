@@ -1,4 +1,4 @@
-import { createClient } from 'jsr:@supabase/supabase-js@2';
+﻿import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -81,7 +81,7 @@ Deno.serve(async (req) => {
 
     const { data: targetProfile, error: targetProfileError } = await admin
       .from('profiles')
-      .select('id, barbershop_id')
+      .select('id, salon_id')
       .eq('id', userId)
       .maybeSingle();
 
@@ -104,20 +104,20 @@ Deno.serve(async (req) => {
     if (!actorIsSuperAdmin) {
       const { data: actorProfile, error: actorProfileError } = await admin
         .from('profiles')
-        .select('barbershop_id')
+        .select('salon_id')
         .eq('id', actor.id)
         .maybeSingle();
 
       if (actorProfileError) {
-        return json({ error: actorProfileError.message || 'No se pudo validar la barbería del administrador.' }, 403);
+        return json({ error: actorProfileError.message || 'No se pudo validar el salón del administrador.' }, 403);
       }
 
-      if (!actorProfile?.barbershop_id || actorProfile.barbershop_id !== targetProfile.barbershop_id) {
-        return json({ error: 'Solo puedes gestionar usuarios de tu barbería.' }, 403);
+      if (!actorProfile?.salon_id || actorProfile.salon_id !== targetProfile.salon_id) {
+        return json({ error: 'Solo puedes gestionar usuarios de tu salón.' }, 403);
       }
 
       if (targetIsSuperAdmin || targetIsAdmin) {
-        return json({ error: 'El administrador de barbería solo puede restablecer contraseñas de usuarios Caja.' }, 403);
+        return json({ error: 'El administrador de salón solo puede restablecer contraseñas de usuarios Caja.' }, 403);
       }
     }
 

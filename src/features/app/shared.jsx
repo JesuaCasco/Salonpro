@@ -1,4 +1,4 @@
-export const styleTag = `
+﻿export const styleTag = `
   html {
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
@@ -84,29 +84,29 @@ export const styleTag = `
   .animate-spin-very-slow { animation: spin-very-slow 60s linear infinite; }
 
   input::-webkit-calendar-picker-indicator {
-    filter: invert(48%) sepia(79%) saturate(2476%) hue-rotate(120deg) brightness(118%) contrast(119%);
+    filter: invert(63%) sepia(16%) saturate(832%) hue-rotate(294deg) brightness(92%) contrast(90%);
     cursor: pointer;
   }
 
   .inner-scrollbar::-webkit-scrollbar { width: 4px; }
-  .inner-scrollbar::-webkit-scrollbar-thumb { background: #6366f1; border-radius: 10px; }
+  .inner-scrollbar::-webkit-scrollbar-thumb { background: #c96f8d; border-radius: 10px; }
 
-  .neon-border-indigo { border: 1px solid rgba(99, 102, 241, 0.5); box-shadow: 0 0 15px rgba(99, 102, 241, 0.1); }
-  .neon-border-emerald { border: 1px solid rgba(16, 185, 129, 0.5); box-shadow: 0 0 15px rgba(16, 185, 129, 0.1); }
-  .neon-border-amber { border: 1px solid rgba(245, 158, 11, 0.5); box-shadow: 0 0 15px rgba(245, 158, 11, 0.1); }
-  .gold-gradient { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); }
+  .neon-border-indigo { border: 1px solid rgba(226, 167, 185, 0.48); box-shadow: 0 0 15px rgba(201, 111, 141, 0.12); }
+  .neon-border-emerald { border: 1px solid rgba(168, 201, 183, 0.5); box-shadow: 0 0 15px rgba(127, 169, 149, 0.12); }
+  .neon-border-amber { border: 1px solid rgba(229, 201, 131, 0.5); box-shadow: 0 0 15px rgba(216, 182, 109, 0.12); }
+  .gold-gradient { background: linear-gradient(135deg, #d8b66d 0%, #b98b41 100%); }
 
   .bg-mesh-amber {
-    background-color: #020617;
+    background-color: #1a1317;
     background-image:
-      radial-gradient(at 0% 0%, rgba(245, 158, 11, 0.3) 0px, transparent 50%),
-      radial-gradient(at 100% 100%, rgba(245, 158, 11, 0.2) 0px, transparent 50%),
-      url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 40L40 0H20L0 20M40 40V20L20 40' stroke='%23f59e0b' stroke-opacity='0.08' stroke-width='1' fill='none'/%3E%3C/svg%3E");
+      radial-gradient(at 0% 0%, rgba(216, 182, 109, 0.24) 0px, transparent 50%),
+      radial-gradient(at 100% 100%, rgba(201, 111, 141, 0.18) 0px, transparent 50%),
+      url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 40L40 0H20L0 20M40 40V20L20 40' stroke='%23d8b66d' stroke-opacity='0.08' stroke-width='1' fill='none'/%3E%3C/svg%3E");
     background-size: 100% 100%, 100% 100%, 60px 60px;
   }
 
   .aurora-effect {
-    background: linear-gradient(270deg, rgba(245, 158, 11, 0.2), rgba(0, 0, 0, 0), rgba(245, 158, 11, 0.2));
+    background: linear-gradient(270deg, rgba(216, 182, 109, 0.18), rgba(20, 15, 18, 0), rgba(201, 111, 141, 0.16));
     background-size: 200% 200%;
     animation: aurora 8s ease infinite;
   }
@@ -119,7 +119,7 @@ export const styleTag = `
     background: rgba(0, 0, 0, 0.2);
   }
   .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: #4f46e5;
+    background: #c96f8d;
     border-radius: 10px;
   }
 
@@ -732,58 +732,56 @@ export const styleTag = `
   }
 `;
 
-export const MOCK_BARBERS = [
-  { id: 1, name: 'Juan "El Master"', fullName: 'Juan Carlos Martínez López', cedula: '', avatar: 'JM', color: 'border-indigo-500', bg: 'bg-indigo-600', shadow: 'shadow-indigo-500/50', paymentMode: 'salario', commission: 0, paymentFrequency: 'Quincenal' },
-  { id: 2, name: 'Luis "Barbas"', fullName: 'Luis Alberto García Reyes', cedula: '', avatar: 'LB', color: 'border-amber-500', bg: 'bg-amber-600', shadow: 'shadow-amber-500/50', paymentMode: 'salario', commission: 0, paymentFrequency: 'Mensual' },
-  { id: 3, name: 'Mario "Fade"', fullName: 'Mario José Hernández Ruiz', cedula: '', avatar: 'MF', color: 'border-emerald-500', bg: 'bg-emerald-600', shadow: 'shadow-emerald-500/50', paymentMode: 'porcentaje', commission: 12, paymentFrequency: 'Semanal' },
-  { id: 4, name: 'Alex "Tijeras"', fullName: 'Alex Manuel Torres Silva', cedula: '', avatar: 'AT', color: 'border-rose-500', bg: 'bg-rose-600', shadow: 'shadow-rose-500/50', paymentMode: 'salario', commission: 0, paymentFrequency: 'Mensual' },
-  { id: 5, name: 'Pedro "Style"', fullName: 'Pedro Antonio Castillo Vega', cedula: '', avatar: 'PS', color: 'border-violet-500', bg: 'bg-violet-600', shadow: 'shadow-violet-500/50', paymentMode: 'salario', commission: 0, paymentFrequency: 'Quincenal' },
-  { id: 6, name: 'Dani "Clipper"', fullName: 'Daniel Enrique Morales Soto', cedula: '', avatar: 'DC', color: 'border-cyan-500', bg: 'bg-cyan-600', shadow: 'shadow-cyan-500/50', paymentMode: 'porcentaje', commission: 15, paymentFrequency: 'Diario' },
+export const MOCK_STYLISTS = [
+  { id: 1, name: 'Sofía Color', fullName: 'Sofía Valeria Martínez López', cedula: '', avatar: 'SC', color: 'border-rose-500', bg: 'bg-rose-600', shadow: 'shadow-rose-500/50', paymentMode: 'salario', commission: 0, paymentFrequency: 'Quincenal' },
+  { id: 2, name: 'Camila Nails', fullName: 'Camila Alejandra García Reyes', cedula: '', avatar: 'CN', color: 'border-amber-500', bg: 'bg-amber-600', shadow: 'shadow-amber-500/50', paymentMode: 'salario', commission: 0, paymentFrequency: 'Mensual' },
+  { id: 3, name: 'Valeria Glow', fullName: 'Valeria Fernanda Hernández Ruiz', cedula: '', avatar: 'VG', color: 'border-emerald-500', bg: 'bg-emerald-600', shadow: 'shadow-emerald-500/50', paymentMode: 'porcentaje', commission: 12, paymentFrequency: 'Semanal' },
+  { id: 4, name: 'Isabella Studio', fullName: 'Isabella Mariana Torres Silva', cedula: '', avatar: 'IS', color: 'border-fuchsia-500', bg: 'bg-fuchsia-600', shadow: 'shadow-fuchsia-500/50', paymentMode: 'salario', commission: 0, paymentFrequency: 'Mensual' },
+  { id: 5, name: 'Lucía Bridal', fullName: 'Lucía Antonella Castillo Vega', cedula: '', avatar: 'LB', color: 'border-violet-500', bg: 'bg-violet-600', shadow: 'shadow-violet-500/50', paymentMode: 'salario', commission: 0, paymentFrequency: 'Quincenal' },
+  { id: 6, name: 'Daniela Spa', fullName: 'Daniela Elena Morales Soto', cedula: '', avatar: 'DS', color: 'border-teal-500', bg: 'bg-teal-600', shadow: 'shadow-teal-500/50', paymentMode: 'porcentaje', commission: 15, paymentFrequency: 'Diario' },
 ];
 
-export const BARBER_PAYMENT_MODE_OPTIONS = [
+export const STYLIST_PAYMENT_MODE_OPTIONS = [
   { id: 'salario', label: 'Pago por salario' },
-  { id: 'porcentaje', label: 'Porcentaje por corte' },
+  { id: 'porcentaje', label: 'Porcentaje por servicio' },
   { id: 'mixto', label: 'Pago mixto' },
 ];
 
-export const barberHasBasePay = (paymentMode) => ['salario', 'mixto'].includes(paymentMode || 'salario');
-export const barberHasCommissionPay = (paymentMode) => ['porcentaje', 'mixto'].includes(paymentMode || 'salario');
+export const stylistHasBasePay = (paymentMode) => ['salario', 'mixto'].includes(paymentMode || 'salario');
+export const stylistHasCommissionPay = (paymentMode) => ['porcentaje', 'mixto'].includes(paymentMode || 'salario');
 
-export const getBarberPaymentModeLabel = (paymentMode, commissionRate = 0) => {
+export const getStylistPaymentModeLabel = (paymentMode, commissionRate = 0) => {
   if (paymentMode === 'mixto') return `Mixto · Base + ${Number(commissionRate || 0)}%`;
   if (paymentMode === 'porcentaje') return `Comisión ${Number(commissionRate || 0)}%`;
   return 'Salario fijo';
 };
 
-const LEGACY_BARBER_NAME_BY_ID = {
-  1: 'Juan "El Master"',
-  2: 'Luis "Barbas"',
-  3: 'Mario "Fade"',
-  4: 'Alex "Tijeras"',
-  5: 'Pedro "Style"',
-  6: 'Dani "Clipper"',
-  '3d02d755-7a44-4541-a31e-f71dd64e61a5': 'Juan "El Master"',
-  '7f323064-3103-4ffa-8590-a8796ae8a160': 'Luis "Barbas"',
-  '55659cbb-d06b-4b91-9909-cf0a2ae07947': 'Mario "Fade"',
-  '7e7545df-5e54-4518-9d78-b0ffca124991': 'Alex "Tijeras"',
-  '6e3ca6fa-d800-4114-8170-c4134387d1b8': 'Pedro "Style"',
-  '699c5f2b-512a-455c-a971-bb7aa2b1ab6b': 'Dani "Clipper"',
+const LEGACY_STYLIST_NAME_BY_ID = {
+  1: 'Sofía Color',
+  2: 'Camila Nails',
+  3: 'Valeria Glow',
+  4: 'Isabella Studio',
+  5: 'Lucía Bridal',
+  6: 'Daniela Spa',
+  '3d02d755-7a44-4541-a31e-f71dd64e61a5': 'Sofía Color',
+  '7f323064-3103-4ffa-8590-a8796ae8a160': 'Camila Nails',
+  '55659cbb-d06b-4b91-9909-cf0a2ae07947': 'Valeria Glow',
+  '7e7545df-5e54-4518-9d78-b0ffca124991': 'Isabella Studio',
+  '6e3ca6fa-d800-4114-8170-c4134387d1b8': 'Lucía Bridal',
+  '699c5f2b-512a-455c-a971-bb7aa2b1ab6b': 'Daniela Spa',
 };
 
-export const BARBER_THEME_PALETTE = [
-  { id: 'indigo', label: 'Indigo', color: 'border-indigo-500', bg: 'bg-indigo-600', shadow: 'shadow-indigo-500/50' },
-  { id: 'amber', label: 'Amber', color: 'border-amber-500', bg: 'bg-amber-600', shadow: 'shadow-amber-500/50' },
-  { id: 'emerald', label: 'Emerald', color: 'border-emerald-500', bg: 'bg-emerald-600', shadow: 'shadow-emerald-500/50' },
-  { id: 'rose', label: 'Rose', color: 'border-rose-500', bg: 'bg-rose-600', shadow: 'shadow-rose-500/50' },
-  { id: 'violet', label: 'Violet', color: 'border-violet-500', bg: 'bg-violet-600', shadow: 'shadow-violet-500/50' },
-  { id: 'cyan', label: 'Cyan', color: 'border-cyan-500', bg: 'bg-cyan-600', shadow: 'shadow-cyan-500/50' },
-  { id: 'lime', label: 'Lime', color: 'border-lime-500', bg: 'bg-lime-600', shadow: 'shadow-lime-500/50' },
-  { id: 'teal', label: 'Teal', color: 'border-teal-500', bg: 'bg-teal-600', shadow: 'shadow-teal-500/50' },
-  { id: 'fuchsia', label: 'Fuchsia', color: 'border-fuchsia-500', bg: 'bg-fuchsia-600', shadow: 'shadow-fuchsia-500/50' },
-  { id: 'amber-dark', label: 'Orange', color: 'border-orange-500', bg: 'bg-orange-600', shadow: 'shadow-orange-500/50' },
-  { id: 'sky', label: 'Sky', color: 'border-sky-500', bg: 'bg-sky-600', shadow: 'shadow-sky-500/50' },
-  { id: 'stone', label: 'Stone', color: 'border-stone-500', bg: 'bg-stone-600', shadow: 'shadow-stone-500/50' },
+export const STYLIST_THEME_PALETTE = [
+  { id: 'petal', label: 'Rosa pétalo', color: 'border-rose-500', bg: 'bg-rose-600', shadow: 'shadow-rose-500/50' },
+  { id: 'champagne', label: 'Champagne', color: 'border-amber-500', bg: 'bg-amber-600', shadow: 'shadow-amber-500/50' },
+  { id: 'sage', label: 'Salvia', color: 'border-emerald-500', bg: 'bg-emerald-600', shadow: 'shadow-emerald-500/50' },
+  { id: 'mauve', label: 'Malva', color: 'border-fuchsia-500', bg: 'bg-fuchsia-600', shadow: 'shadow-fuchsia-500/50' },
+  { id: 'orchid', label: 'Orquídea suave', color: 'border-violet-500', bg: 'bg-violet-600', shadow: 'shadow-violet-500/50' },
+  { id: 'mint', label: 'Menta spa', color: 'border-teal-500', bg: 'bg-teal-600', shadow: 'shadow-teal-500/50' },
+  { id: 'blush', label: 'Blush profundo', color: 'border-indigo-500', bg: 'bg-indigo-600', shadow: 'shadow-indigo-500/50' },
+  { id: 'olive', label: 'Oliva suave', color: 'border-lime-500', bg: 'bg-lime-600', shadow: 'shadow-lime-500/50' },
+  { id: 'copper', label: 'Cobre claro', color: 'border-orange-500', bg: 'bg-orange-600', shadow: 'shadow-orange-500/50' },
+  { id: 'pearl', label: 'Perla gris', color: 'border-stone-500', bg: 'bg-stone-600', shadow: 'shadow-stone-500/50' },
 ];
 
 export const standardizeDate = (dateStr) => {
@@ -841,45 +839,45 @@ export const getMatchingClientAppointments = (client, appointments = [], clients
   });
 };
 
-export const normalizeLegacyBarberIdForDirectory = (barberId, barbers = []) => {
-  if (barberId === null || barberId === undefined || barberId === '') return null;
+export const normalizeLegacyStylistIdForDirectory = (stylistId, stylists = []) => {
+  if (stylistId === null || stylistId === undefined || stylistId === '') return null;
 
-  const normalizedBarbers = Array.isArray(barbers) ? barbers : [];
-  const exactMatch = normalizedBarbers.find((barber) => String(barber.id) === String(barberId));
+  const normalizedStylists = Array.isArray(stylists) ? stylists : [];
+  const exactMatch = normalizedStylists.find((stylist) => String(stylist.id) === String(stylistId));
   if (exactMatch) return String(exactMatch.id);
 
-  const legacyIndex = Number.parseInt(String(barberId), 10);
-  if (!Number.isNaN(legacyIndex) && legacyIndex > 0 && normalizedBarbers[legacyIndex - 1]) {
-    return String(normalizedBarbers[legacyIndex - 1].id);
+  const legacyIndex = Number.parseInt(String(stylistId), 10);
+  if (!Number.isNaN(legacyIndex) && legacyIndex > 0 && normalizedStylists[legacyIndex - 1]) {
+    return String(normalizedStylists[legacyIndex - 1].id);
   }
 
-  return String(barberId);
+  return String(stylistId);
 };
 
-export const resolveFavoriteBarberName = (appointments = [], barbers = [], emptyLabel = 'N/A') => {
+export const resolveFavoriteStylistName = (appointments = [], stylists = [], emptyLabel = 'N/A') => {
   if (!appointments.length) return emptyLabel;
 
-  const barberCounts = {};
+  const stylistCounts = {};
   appointments.forEach((appointment) => {
-    const sourceBarberId = appointment?.rawBarberId ?? appointment?.barberId;
-    const normalizedBarberId = normalizeLegacyBarberIdForDirectory(sourceBarberId, barbers);
-    const legacyIndex = Number.parseInt(String(sourceBarberId ?? ''), 10);
+    const sourceStylistId = appointment?.rawStylistId ?? appointment?.stylistId;
+    const normalizedStylistId = normalizeLegacyStylistIdForDirectory(sourceStylistId, stylists);
+    const legacyIndex = Number.parseInt(String(sourceStylistId ?? ''), 10);
     const resolvedName =
-      (barbers || []).find((barber) => String(barber.id) === String(normalizedBarberId))?.name
-      || appointment?.barberName
-      || LEGACY_BARBER_NAME_BY_ID[String(sourceBarberId ?? '')]
-      || ((!Number.isNaN(legacyIndex) && legacyIndex > 0) ? MOCK_BARBERS[legacyIndex - 1]?.name : '')
+      (stylists || []).find((stylist) => String(stylist.id) === String(normalizedStylistId))?.name
+      || appointment?.stylistName
+      || LEGACY_STYLIST_NAME_BY_ID[String(sourceStylistId ?? '')]
+      || ((!Number.isNaN(legacyIndex) && legacyIndex > 0) ? MOCK_STYLISTS[legacyIndex - 1]?.name : '')
       || '';
 
     if (!resolvedName) return;
-    barberCounts[resolvedName] = (barberCounts[resolvedName] || 0) + 1;
+    stylistCounts[resolvedName] = (stylistCounts[resolvedName] || 0) + 1;
   });
 
-  const topBarberName = Object.keys(barberCounts).reduce((bestName, currentName) => (
-    !bestName || barberCounts[currentName] > barberCounts[bestName] ? currentName : bestName
+  const topStylistName = Object.keys(stylistCounts).reduce((bestName, currentName) => (
+    !bestName || stylistCounts[currentName] > stylistCounts[bestName] ? currentName : bestName
   ), null);
 
-  return topBarberName || emptyLabel;
+  return topStylistName || emptyLabel;
 };
 
 export const normalizeFavoriteServiceName = (value = '') => {
@@ -938,11 +936,11 @@ export const getClientInsights = (
   client,
   appointments = [],
   clients = [],
-  barbers = [],
+  stylists = [],
   options = {},
 ) => {
   const {
-    emptyFavoriteBarber = 'N/A',
+    emptyFavoriteStylist = 'N/A',
     emptyFavoriteService = 'N/A',
     historyLimit = 10,
   } = options;
@@ -959,7 +957,7 @@ export const getClientInsights = (
     client?.completedVisits !== undefined
     || client?.totalSpent !== undefined
     || client?.lastVisitAt
-    || client?.favoriteBarberName
+    || client?.favoriteStylistName
     || client?.favoriteServiceName
   );
 
@@ -971,15 +969,15 @@ export const getClientInsights = (
     lastVisitAt: hasStoredInsights
       ? client?.lastVisitAt || null
       : (sortedFinishedAppointments[0]?.date || null),
-    favoriteBarberId: hasStoredInsights
-      ? client?.favoriteBarberId || null
-      : normalizeLegacyBarberIdForDirectory(
-        sortedFinishedAppointments[0]?.rawBarberId ?? sortedFinishedAppointments[0]?.barberId ?? null,
-        barbers,
+    favoriteStylistId: hasStoredInsights
+      ? client?.favoriteStylistId || null
+      : normalizeLegacyStylistIdForDirectory(
+        sortedFinishedAppointments[0]?.rawStylistId ?? sortedFinishedAppointments[0]?.stylistId ?? null,
+        stylists,
       ),
-    favoriteBarberName: hasStoredInsights
-      ? client?.favoriteBarberName || emptyFavoriteBarber
-      : resolveFavoriteBarberName(finishedAppointments, barbers, emptyFavoriteBarber),
+    favoriteStylistName: hasStoredInsights
+      ? client?.favoriteStylistName || emptyFavoriteStylist
+      : resolveFavoriteStylistName(finishedAppointments, stylists, emptyFavoriteStylist),
     favoriteServiceName: hasStoredInsights
       ? normalizeFavoriteServiceName(client?.favoriteServiceName || '') || emptyFavoriteService
       : getFavoriteServiceName(finishedAppointments, emptyFavoriteService),
@@ -999,27 +997,27 @@ export const findClientByPhone = (clients = [], phone = '', excludeId = null) =>
   ) || null;
 };
 
-export const getThemeByIndex = (index) => BARBER_THEME_PALETTE[index % BARBER_THEME_PALETTE.length];
+export const getThemeByIndex = (index) => STYLIST_THEME_PALETTE[index % STYLIST_THEME_PALETTE.length];
 
-export const ensureBarberTheme = (barber, index) => {
-  const theme = barber.color && barber.bg
-    ? { color: barber.color, bg: barber.bg, shadow: barber.shadow || 'shadow-indigo-500/50' }
+export const ensureStylistTheme = (stylist, index) => {
+  const theme = stylist.color && stylist.bg
+    ? { color: stylist.color, bg: stylist.bg, shadow: stylist.shadow || 'shadow-rose-500/50' }
     : getThemeByIndex(index);
 
   return {
-    ...barber,
+    ...stylist,
     color: theme.color,
     bg: theme.bg,
     shadow: theme.shadow,
-    avatar: barber.avatar || barber.name?.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase() || '?',
-    fullName: barber.fullName || barber.name || '',
-    cedula: barber.cedula || '',
-    salary: Number(barber.salary || 0),
-    commission: Number(barber.commission || 0),
-    paymentMode: barber.paymentMode || 'salario',
-    paymentFrequency: barber.paymentFrequency || 'Quincenal',
-    level: barber.level || 'Junior',
-    phone: formatPhoneNumber(barber.phone || ''),
+    avatar: stylist.avatar || stylist.name?.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase() || '?',
+    fullName: stylist.fullName || stylist.name || '',
+    cedula: stylist.cedula || '',
+    salary: Number(stylist.salary || 0),
+    commission: Number(stylist.commission || 0),
+    paymentMode: stylist.paymentMode || 'salario',
+    paymentFrequency: stylist.paymentFrequency || 'Quincenal',
+    level: stylist.level || 'Junior',
+    phone: formatPhoneNumber(stylist.phone || ''),
   };
 };
 
@@ -1027,11 +1025,13 @@ export const makeId = () => globalThis.crypto?.randomUUID?.() || Math.random().t
 
 export const PROMOTION_CATEGORY = 'Promocion';
 
-export const CATEGORIES = ['Cortes', 'Barba', 'Producto', 'Combo', PROMOTION_CATEGORY];
+export const CATEGORIES = ['Cabello', 'Tratamientos', 'Facial', 'Uñas', 'Combo', PROMOTION_CATEGORY];
 
 export const CATEGORY_LABELS = {
-  Cortes: 'Cortes',
-  Barba: 'Barba',
+  Cabello: 'Cabello',
+  Tratamientos: 'Tratamientos',
+  Facial: 'Facial',
+  Uñas: 'Uñas',
   Producto: 'Producto',
   Combo: 'Combo',
   [PROMOTION_CATEGORY]: 'Promociones',
@@ -1161,14 +1161,14 @@ export const getCurrentTimeHHmm = () => {
   return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 };
 
-export const getBarberNominaData = (barber, appointments = []) => {
+export const getStylistNominaData = (stylist, appointments = []) => {
   const finishedApts = (appointments || []).filter(
-    (a) => String(a.barberId) === String(barber.id) && a.status === 'Finalizada' && !a.isPaid
+    (a) => String(a.stylistId) === String(stylist.id) && a.status === 'Finalizada' && !a.isPaid
   );
   const totalComissionSales = finishedApts.reduce((sum, a) => sum + (Number(a.price) || 0), 0);
-  const commissionRate = Number(barber.commission || 0);
-  const comission = barberHasCommissionPay(barber.paymentMode) ? totalComissionSales * (commissionRate / 100) : 0;
-  const base = barberHasBasePay(barber.paymentMode) ? Number(barber.salary || 0) : 0;
+  const commissionRate = Number(stylist.commission || 0);
+  const comission = stylistHasCommissionPay(stylist.paymentMode) ? totalComissionSales * (commissionRate / 100) : 0;
+  const base = stylistHasBasePay(stylist.paymentMode) ? Number(stylist.salary || 0) : 0;
 
   return {
     base,
@@ -1177,6 +1177,6 @@ export const getBarberNominaData = (barber, appointments = []) => {
     pendingServices: finishedApts.length,
     salesTotal: totalComissionSales,
     commissionRate,
-    modalityLabel: getBarberPaymentModeLabel(barber.paymentMode, commissionRate),
+    modalityLabel: getStylistPaymentModeLabel(stylist.paymentMode, commissionRate),
   };
 };

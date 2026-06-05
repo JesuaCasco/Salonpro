@@ -1,15 +1,15 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { Loader2, Printer, HandCoins } from 'lucide-react';
-import { getBarberPaymentModeLabel } from './shared';
+import { getStylistPaymentModeLabel } from './shared';
 
 const noopConfirm = async () => false;
 
 export function PaymentReceiptModal({ data, onClose, onConfirmPayment, confirmAction = noopConfirm }) {
   if (!data) return null;
-  const { barber, nomina } = data;
+  const { stylist, nomina } = data;
   const hoy = new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' });
-  const legalName = barber.fullName || barber.name;
-  const legalId = barber.cedula?.trim() || `ID STAFF ${barber.id}`;
+  const legalName = stylist.fullName || stylist.name;
+  const legalId = stylist.cedula?.trim() || `ID STAFF ${stylist.id}`;
 
   const handlePrint = () => {
     window.print();
@@ -20,7 +20,7 @@ export function PaymentReceiptModal({ data, onClose, onConfirmPayment, confirmAc
       <div className="bg-white text-black w-full max-w-lg rounded-[2.5rem] overflow-hidden shadow-2xl animate-in zoom-in-95 flex flex-col max-h-[95vh]">
         <div className="p-10 overflow-y-auto custom-scrollbar" id="printable-receipt">
           <div className="text-center mb-8">
-            <h2 className="text-3xl font-black italic tracking-widest text-slate-900">BarberPro</h2>
+            <h2 className="text-3xl font-black italic tracking-widest text-slate-900">SalonPro</h2>
             <p className="text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em] mt-2">Comprobante Oficial de Pago de Nómina</p>
             <div className="h-0.5 w-16 bg-indigo-600 mx-auto mt-4"></div>
           </div>
@@ -36,7 +36,7 @@ export function PaymentReceiptModal({ data, onClose, onConfirmPayment, confirmAc
             </div>
             <div className="flex justify-between border-b border-slate-100 pb-2">
               <span className="text-slate-500 text-[10px] font-black uppercase">Nombre Comercial:</span>
-              <span className="font-bold text-sm text-right">{barber.name}</span>
+              <span className="font-bold text-sm text-right">{stylist.name}</span>
             </div>
             <div className="flex justify-between border-b border-slate-100 pb-2">
               <span className="text-slate-500 text-[10px] font-black uppercase">Fecha de Emisión:</span>
@@ -64,13 +64,13 @@ export function PaymentReceiptModal({ data, onClose, onConfirmPayment, confirmAc
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Administración</p>
             </div>
             <div className="border-t border-slate-300 pt-4">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Firma del Barbero</p>
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Firma del Estilista</p>
             </div>
           </div>
 
           <div className="mt-10 text-center">
             <p className="text-[8px] text-slate-400 italic font-medium leading-relaxed">
-              Al firmar este documento, el barbero acepta que ha recibido la cantidad estipulada <br />
+              Al firmar este documento, el estilista acepta que ha recibido la cantidad estipulada <br />
               en concepto de sus honorarios por el periodo correspondiente.
             </p>
           </div>
@@ -85,7 +85,7 @@ export function PaymentReceiptModal({ data, onClose, onConfirmPayment, confirmAc
                 confirmLabel: 'Confirmar pago',
               });
               if (confirmed) {
-                onConfirmPayment(barber.id);
+                onConfirmPayment(stylist.id);
               }
             }}
             className="w-full px-6 py-4 bg-indigo-600 text-white font-black uppercase italic text-[11px] rounded-2xl shadow-xl shadow-indigo-900/20 hover:bg-indigo-700 transition-all flex items-center justify-center gap-2"
@@ -108,7 +108,7 @@ export function PosSaleReceiptModal({ data, onClose, onCancelSale, confirmAction
   const [isCancelling, setIsCancelling] = useState(false);
   if (!data?.sale) return null;
 
-  const { sale, barbershopName, branchName } = data;
+  const { sale, salonName, branchName } = data;
   const saleDate = sale.createdAt ? new Date(sale.createdAt) : new Date();
   const issuedDate = saleDate.toLocaleDateString('es-ES', {
     day: '2-digit',
@@ -146,15 +146,15 @@ export function PosSaleReceiptModal({ data, onClose, onCancelSale, confirmAction
       <div className="bg-white text-black w-full max-w-lg rounded-[2.5rem] overflow-hidden shadow-2xl animate-in zoom-in-95 flex flex-col max-h-[95vh]">
         <div className="p-10 overflow-y-auto custom-scrollbar" id="printable-receipt">
           <div className="text-center mb-8">
-            <h2 className="text-3xl font-black italic tracking-widest text-slate-900">{barbershopName || 'BarberPro'}</h2>
+            <h2 className="text-3xl font-black italic tracking-widest text-slate-900">{salonName || 'SalonPro'}</h2>
             <p className="text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em] mt-2">Ticket de Venta POS</p>
             <div className="h-0.5 w-16 bg-emerald-600 mx-auto mt-4"></div>
           </div>
 
           <div className="space-y-4 mb-8">
             <div className="flex justify-between border-b border-slate-100 pb-2">
-              <span className="text-slate-500 text-[10px] font-black uppercase">Barbería:</span>
-              <span className="font-black uppercase italic text-sm text-right">{barbershopName || 'Sin nombre'}</span>
+              <span className="text-slate-500 text-[10px] font-black uppercase">Salón:</span>
+              <span className="font-black uppercase italic text-sm text-right">{salonName || 'Sin nombre'}</span>
             </div>
             <div className="flex justify-between border-b border-slate-100 pb-2">
               <span className="text-slate-500 text-[10px] font-black uppercase">Sucursal:</span>
@@ -265,11 +265,11 @@ export function StaffSettlementModal({ data, onClose, onConfirmSettlement, confi
     if (!rows.length) return;
     const confirmed = await confirmAction({
       title: 'Liquidar planilla',
-      message: `¿Confirmas que deseas liquidar C$ ${summary.total.toLocaleString()} a todo el staff? Esta acción marcará como pagadas todas las citas finalizadas pendientes.`,
+      message: `¿Confirmas que deseas liquidar C$ ${summary.total.toLocaleString()} a todo el equipo? Esta acción marcará como pagadas todas las citas finalizadas pendientes.`,
       confirmLabel: 'Liquidar',
     });
     if (confirmed) {
-      onConfirmSettlement(rows.map((row) => row.barber.id));
+      onConfirmSettlement(rows.map((row) => row.stylist.id));
     }
   };
 
@@ -279,13 +279,13 @@ export function StaffSettlementModal({ data, onClose, onConfirmSettlement, confi
         <div className="p-4 md:p-10 overflow-y-auto custom-scrollbar" id="printable-staff-settlement">
           <div className="flex items-start justify-between gap-6 mb-8">
             <div>
-              <h2 className="text-3xl font-black italic tracking-widest text-slate-900">BarberPro</h2>
+              <h2 className="text-3xl font-black italic tracking-widest text-slate-900">SalonPro</h2>
               <p className="text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em] mt-2">Planilla Consolidada de Liquidación de Nómina</p>
             </div>
             <div className="text-right">
               <p className="text-[10px] font-black uppercase text-slate-400">Fecha de Emisión</p>
               <p className="text-sm font-bold">{hoy}</p>
-              <p className="text-[10px] font-black uppercase text-slate-400 mt-4">Staff Incluido</p>
+              <p className="text-[10px] font-black uppercase text-slate-400 mt-4">Equipo incluido</p>
               <p className="text-sm font-bold">{summary.staffCount}</p>
             </div>
           </div>
@@ -313,7 +313,7 @@ export function StaffSettlementModal({ data, onClose, onConfirmSettlement, confi
             <table className="min-w-[1100px] w-full">
               <thead className="bg-slate-100">
                 <tr className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
-                  <th className="px-5 py-4 text-left">Barbero</th>
+                  <th className="px-5 py-4 text-left">Estilista</th>
                   <th className="px-5 py-4 text-left">Desglose</th>
                   <th className="px-5 py-4 text-center">Base</th>
                   <th className="px-5 py-4 text-center">Comisiones</th>
@@ -322,21 +322,21 @@ export function StaffSettlementModal({ data, onClose, onConfirmSettlement, confi
                 </tr>
               </thead>
               <tbody>
-                {rows.map(({ barber, nomina }) => (
-                  <tr key={barber.id} className="border-t border-slate-200">
+                {rows.map(({ stylist, nomina }) => (
+                  <tr key={stylist.id} className="border-t border-slate-200">
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-4">
-                        <div className={`w-11 h-11 ${barber.bg} rounded-xl flex items-center justify-center font-black italic text-white`}>
-                          {barber.avatar}
+                        <div className={`w-11 h-11 ${stylist.bg} rounded-xl flex items-center justify-center font-black italic text-white`}>
+                          {stylist.avatar}
                         </div>
                         <div>
-                          <p className="text-sm font-black uppercase italic text-slate-900">{barber.fullName || barber.name}</p>
-                          <p className="text-[10px] font-bold uppercase text-slate-400 mt-1">{barber.cedula?.trim() || `ID STAFF ${barber.id}`}</p>
+                          <p className="text-sm font-black uppercase italic text-slate-900">{stylist.fullName || stylist.name}</p>
+                          <p className="text-[10px] font-bold uppercase text-slate-400 mt-1">{stylist.cedula?.trim() || `ID STAFF ${stylist.id}`}</p>
                         </div>
                       </div>
                     </td>
                     <td className="px-5 py-4">
-                      <p className="text-[11px] font-black uppercase text-slate-700">{getBarberPaymentModeLabel(barber.paymentMode, nomina.commissionRate)}</p>
+                      <p className="text-[11px] font-black uppercase text-slate-700">{getStylistPaymentModeLabel(stylist.paymentMode, nomina.commissionRate)}</p>
                       <p className="text-[11px] text-slate-500 mt-2">Servicios: {nomina.pendingServices}</p>
                       <p className="text-[11px] text-slate-500">Ventas base comisión: C$ {nomina.salesTotal.toLocaleString()}</p>
                     </td>

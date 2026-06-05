@@ -1,4 +1,4 @@
-alter table public.services
+﻿alter table public.services
   add column if not exists applies_to text,
   add column if not exists discount_type text,
   add column if not exists discount_value numeric(12,2) not null default 0,
@@ -43,5 +43,5 @@ alter table public.services
 alter table public.services
   add constraint services_category_check
   check (
-    category in ('Cortes', 'Barba', 'Producto', 'Combo', 'Promocion')
+    category in ('Cabello', 'Color', 'Uñas', 'Tratamiento', 'Producto', 'Combo', 'Promocion')
   );

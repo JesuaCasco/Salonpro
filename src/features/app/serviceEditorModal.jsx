@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import { Gift, Scissors, X, Zap } from 'lucide-react';
+﻿import React, { useMemo, useState } from 'react';
+import { Gift, Scissors, Sparkles, X, Zap } from 'lucide-react';
 
 import {
   CATEGORY_LABELS,
@@ -12,7 +12,7 @@ export function ServiceEditorModal({ services, onClose, onSave, initial }) {
   const [formData, setFormData] = useState({
     name: initial?.name || '',
     price: initial?.price || '',
-    category: initial?.category || 'Cortes',
+    category: initial?.category || 'Cabello',
     items: initial?.items || [],
     appliesTo: initial?.appliesTo || 'General',
     discountType: initial?.discountType || 'percentage',
@@ -57,7 +57,7 @@ export function ServiceEditorModal({ services, onClose, onSave, initial }) {
         <div className="px-12 py-8 bg-gradient-to-br from-indigo-600/20 border-b border-slate-900 flex justify-between items-center text-white">
           <div className="flex items-center gap-6 text-white">
             <div className="w-14 h-14 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-lg">
-              {formData.category === 'Combo' ? <Zap size={28} /> : formData.category === 'Promocion' ? <Gift size={28} /> : <Scissors size={28} />}
+              {formData.category === 'Combo' ? <Zap size={28} /> : formData.category === 'Promocion' ? <Gift size={28} /> : ['Uñas', 'Facial', 'Tratamientos'].includes(formData.category) ? <Sparkles size={28} /> : <Scissors size={28} />}
             </div>
             <div>
               <h3 className="text-2xl font-black uppercase italic text-white leading-none">{initial?.id ? 'Editar' : 'Nuevo'} Registro</h3>
@@ -110,7 +110,7 @@ export function ServiceEditorModal({ services, onClose, onSave, initial }) {
               <label className="text-[10px] font-black text-slate-500 uppercase italic px-1 leading-none">Nombre</label>
               <input
                 required
-                placeholder={isPromotion ? 'Ej. Corte gratis por fidelidad' : 'Ej. Combo Pro'}
+                placeholder={isPromotion ? 'Ej. Servicio gratis por fidelidad' : 'Ej. Tinte, manicure o tratamiento'}
                 className="w-full bg-black border border-slate-800 rounded-2xl px-6 py-4 text-sm font-bold uppercase italic text-white outline-none focus:border-indigo-600 italic leading-none"
                 value={formData.name}
                 onChange={(event) => setFormData({ ...formData, name: event.target.value })}

@@ -1,0 +1,5 @@
+.tools
+.codex-logs
+node_modules
+dist
+*.sql

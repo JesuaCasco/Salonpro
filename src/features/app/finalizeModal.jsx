@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+﻿import React, { useMemo, useState } from 'react';
 import {
   CheckCircle2,
   ChevronDown,
@@ -46,19 +46,19 @@ export function FinalizeModal({ onClose, onConfirm, services, clients, initial }
   const loyaltyPromotion = useMemo(() => {
     if (!billingClient || projectedVisitCount <= 0 || projectedVisitCount % LOYALTY_REWARD_VISITS !== 0) return null;
 
-    const eligibleCuts = billItems.filter((item) => item?.category === 'Cortes');
-    if (!eligibleCuts.length) return null;
+    const eligibleServices = billItems.filter((item) => item?.category && !['Producto', 'Combo', 'Promocion'].includes(item.category));
+    if (!eligibleServices.length) return null;
 
-    const loyaltyCutValue = Math.max(...eligibleCuts.map((item) => Number(item.price || 0)), 0);
-    if (loyaltyCutValue <= 0) return null;
+    const loyaltyServiceValue = Math.max(...eligibleServices.map((item) => Number(item.price || 0)), 0);
+    if (loyaltyServiceValue <= 0) return null;
 
     return {
       id: `loyalty-${billingClient.id}-${projectedVisitCount}`,
-      name: `Corte gratis por ${LOYALTY_REWARD_VISITS} visitas`,
+      name: `Servicio gratis por ${LOYALTY_REWARD_VISITS} visitas`,
       appliesTo: 'Servicio',
-      eligibleCategories: ['Cortes'],
+      eligibleCategories: ['Cabello', 'Tratamientos', 'Facial', 'Uñas'],
       discountType: 'fixed',
-      discountValue: loyaltyCutValue,
+      discountValue: loyaltyServiceValue,
       isOptional: true,
       isLoyaltyReward: true,
     };
@@ -375,7 +375,7 @@ export function FinalizeModal({ onClose, onConfirm, services, clients, initial }
 
               {loyaltyPromotion && billingClient ? (
                 <div className="mt-3 rounded-[1.2rem] border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-[11px] font-bold text-amber-100">
-                  {billingClient.name} está completando su visita #{projectedVisitCount}. Puedes aplicar el beneficio opcional de corte gratis en este cobro.
+                  {billingClient.name} está completando su visita #{projectedVisitCount}. Puedes aplicar el beneficio opcional de servicio gratis en este cobro.
                 </div>
               ) : null}
             </div>

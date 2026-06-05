@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+﻿import React, { useEffect, useMemo, useState } from 'react';
 import {
   Edit2,
   Eye,
@@ -64,59 +64,33 @@ export function LoginScreen({ onSignIn, authBusy, authError }) {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white flex items-center justify-center p-4 md:p-6 overflow-hidden">
+    <div className="min-h-screen bg-[#171012] text-white flex items-center justify-center p-3 md:p-5 overflow-y-auto">
       <style>{styleTag}</style>
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.16),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.18),transparent_28%),linear-gradient(180deg,#02030a_0%,#050816_100%)] pointer-events-none" />
-      <div className="relative w-full max-w-6xl grid lg:grid-cols-[1.04fr_0.96fr] rounded-[2.6rem] overflow-hidden border border-cyan-400/10 shadow-[0_30px_90px_rgba(0,0,0,0.78)]">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_8%,rgba(216,181,106,0.22),transparent_28%),radial-gradient(circle_at_88%_18%,rgba(209,111,146,0.2),transparent_26%),radial-gradient(circle_at_50%_95%,rgba(133,170,148,0.16),transparent_30%),linear-gradient(145deg,#171012_0%,#24181e_52%,#151012_100%)] pointer-events-none" />
+      <div className="absolute inset-0 opacity-[0.16] pointer-events-none bg-[linear-gradient(90deg,rgba(251,245,239,0.08)_1px,transparent_1px),linear-gradient(rgba(251,245,239,0.06)_1px,transparent_1px)] bg-[size:54px_54px]" />
+      <div className="relative w-full max-w-6xl grid lg:grid-cols-[1.02fr_0.98fr] rounded-[2.2rem] overflow-hidden border border-[#efb5c8]/25 shadow-[0_30px_90px_rgba(15,8,11,0.78)] lg:h-[min(860px,calc(100vh-2.5rem))]">
         <div
-          className="relative min-h-[760px] overflow-hidden bg-[#090c1f] bg-cover bg-center"
-          style={{ backgroundImage: "url('/login-neon-bg.png')" }}
+          className="relative min-h-[420px] sm:min-h-[540px] lg:min-h-0 lg:h-full overflow-hidden bg-[#140c10] bg-contain bg-center bg-no-repeat"
+          style={{ backgroundImage: "url('/salon-login-bg.png')" }}
         >
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_48%_52%,rgba(5,7,15,0.04)_0%,rgba(5,7,15,0.08)_24%,rgba(5,7,15,0.18)_42%,rgba(5,7,15,0.56)_78%,rgba(5,7,15,0.82)_100%)]" />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_22%,rgba(34,211,238,0.12),transparent_22%),radial-gradient(circle_at_80%_20%,rgba(217,70,239,0.12),transparent_24%),radial-gradient(circle_at_50%_70%,rgba(99,102,241,0.12),transparent_32%)]" />
-          <div
-            className="absolute inset-0 opacity-[0.12]"
-            style={{
-              backgroundImage: 'linear-gradient(rgba(99,102,241,0.14) 1px, transparent 1px), linear-gradient(90deg, rgba(99,102,241,0.1) 1px, transparent 1px)',
-              backgroundSize: '40px 40px',
-            }}
-          />
-
-          <div className="absolute z-10 top-16 left-14 md:top-20 md:left-16 w-28 h-28 md:w-32 md:h-32 flex items-center justify-center rounded-[1.75rem] p-3">
-            <img
-              src="/barberpro-logo-ui.png"
-              alt="Logo BarberPro"
-              className="h-full w-full object-contain drop-shadow-[0_0_18px_rgba(168,85,247,0.35)]"
-            />
-          </div>
-
-          <div className="relative z-10 h-full p-10 md:p-14 flex flex-col justify-end">
-            <div className="max-w-md">
-              <div className="mt-8 flex items-center gap-3">
-                <div className="h-[3px] w-16 rounded-full bg-cyan-300 shadow-[0_0_18px_rgba(34,211,238,0.85)]" />
-                <p className="text-[11px] font-black uppercase tracking-[0.3em] text-fuchsia-300 italic">
-                  Enterprise Edition v3.0
-                </p>
-              </div>
-            </div>
-          </div>
+          <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(20,12,16,0)_0%,rgba(20,12,16,0.04)_55%,rgba(20,12,16,0.72)_100%)]" />
         </div>
 
-        <div className="relative bg-[#05070f] flex items-center">
+        <div className="relative bg-[#181113] flex items-center overflow-y-auto custom-scrollbar">
           <div
             className="absolute inset-0 opacity-[0.18]"
             style={{
-              backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(148,163,184,0.35) 1px, transparent 0)',
+              backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(232,219,224,0.26) 1px, transparent 0)',
               backgroundSize: '14px 14px',
             }}
           />
-          <div className="absolute inset-y-0 left-0 w-px bg-gradient-to-b from-transparent via-cyan-400/35 to-transparent" />
-          <div className="relative z-10 w-full p-10 md:p-14 lg:p-16">
-            <form onSubmit={handleSubmit} className="w-full max-w-xl mx-auto space-y-8">
+          <div className="absolute inset-y-0 left-0 w-px bg-gradient-to-b from-transparent via-[#d8b56a]/55 to-transparent" />
+          <div className="relative z-10 w-full p-7 md:p-10 lg:p-12">
+            <form onSubmit={handleSubmit} className="w-full max-w-xl mx-auto space-y-6">
               <div>
-                <p className="text-[11px] font-black uppercase tracking-[0.34em] text-cyan-200/85 italic">Acceso del sistema</p>
-                <h2 className="text-5xl md:text-6xl font-black uppercase italic tracking-[-0.05em] mt-4 text-white drop-shadow-[0_0_22px_rgba(96,165,250,0.45)]">
-                  Iniciar sesión
+                <p className="text-[11px] font-black uppercase tracking-[0.34em] text-[#ead49a] italic">SalonPro Studio</p>
+                <h2 className="text-4xl md:text-5xl font-black uppercase italic tracking-[-0.05em] mt-3 text-white drop-shadow-[0_0_22px_rgba(209,111,146,0.34)]">
+                  Bienvenida
                 </h2>
               </div>
 
@@ -127,13 +101,13 @@ export function LoginScreen({ onSignIn, authBusy, authError }) {
               )}
 
               <div className="space-y-3">
-                <label className="text-[11px] font-black uppercase tracking-[0.24em] text-cyan-200/90 italic flex items-center gap-2">
-                  <Mail size={14} className="text-cyan-300" /> Correo
+                <label className="text-[11px] font-black uppercase tracking-[0.24em] text-[#ead49a] italic flex items-center gap-2">
+                  <Mail size={14} className="text-[#d8b66d]" /> Correo
                 </label>
                 <input
                   type="email"
                   autoComplete="email"
-                  className="w-full bg-white border border-cyan-300/70 rounded-[1.9rem] px-6 py-5 text-lg font-black text-slate-900 outline-none placeholder:text-slate-400 shadow-[0_0_28px_rgba(34,211,238,0.34)] focus:border-cyan-200 focus:shadow-[0_0_38px_rgba(34,211,238,0.55)]"
+                  className="w-full bg-[#fbf5ef] border border-[#d8b56a]/60 rounded-[1.6rem] px-6 py-4 text-base font-black text-[#24191f] outline-none placeholder:text-[#9b8790] shadow-[0_16px_34px_rgba(10,6,8,0.2)] focus:border-[#efb5c8] focus:shadow-[0_0_38px_rgba(209,111,146,0.24)]"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="tu-correo@ejemplo.com"
@@ -141,14 +115,14 @@ export function LoginScreen({ onSignIn, authBusy, authError }) {
               </div>
 
               <div className="space-y-3">
-                <label className="text-[11px] font-black uppercase tracking-[0.24em] text-cyan-200/90 italic flex items-center gap-2">
-                  <Lock size={14} className="text-cyan-300" /> Contraseña
+                <label className="text-[11px] font-black uppercase tracking-[0.24em] text-[#ead49a] italic flex items-center gap-2">
+                  <Lock size={14} className="text-[#d8b66d]" /> Contraseña
                 </label>
                 <div className="relative">
                   <input
                     type={showPassword ? 'text' : 'password'}
                     autoComplete="current-password"
-                    className="w-full bg-white border border-cyan-300/70 rounded-[1.9rem] pl-6 pr-16 py-5 text-lg font-black text-slate-900 outline-none placeholder:text-slate-400 shadow-[0_0_28px_rgba(34,211,238,0.34)] focus:border-cyan-200 focus:shadow-[0_0_38px_rgba(34,211,238,0.55)]"
+                    className="w-full bg-[#fbf5ef] border border-[#d8b56a]/60 rounded-[1.6rem] pl-6 pr-16 py-4 text-base font-black text-[#24191f] outline-none placeholder:text-[#9b8790] shadow-[0_16px_34px_rgba(10,6,8,0.2)] focus:border-[#efb5c8] focus:shadow-[0_0_38px_rgba(209,111,146,0.24)]"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Tu contraseña"
@@ -156,7 +130,7 @@ export function LoginScreen({ onSignIn, authBusy, authError }) {
                   <button
                     type="button"
                     onClick={() => setShowPassword((prev) => !prev)}
-                    className="absolute right-5 top-1/2 -translate-y-1/2 text-cyan-400 hover:text-cyan-300 transition-all"
+                    className="absolute right-5 top-1/2 -translate-y-1/2 text-[#a94f70] hover:text-[#c96f8d] transition-all"
                   >
                     {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                   </button>
@@ -166,15 +140,15 @@ export function LoginScreen({ onSignIn, authBusy, authError }) {
               <button
                 type="submit"
                 disabled={authBusy}
-                className="w-full bg-gradient-to-r from-fuchsia-600 via-violet-600 to-indigo-500 hover:from-fuchsia-500 hover:via-violet-500 hover:to-indigo-400 disabled:opacity-60 text-white py-5 rounded-[2rem] font-black uppercase italic text-sm tracking-[0.32em] transition-all shadow-[0_0_38px_rgba(147,51,234,0.45)] flex items-center justify-center gap-3"
+                className="w-full bg-gradient-to-r from-[#f27dad] via-[#e66fa2] to-[#d85f97] hover:from-[#ee73a7] hover:via-[#dc6399] hover:to-[#cc548d] disabled:opacity-60 text-white py-4 rounded-[1.75rem] font-black uppercase italic text-sm tracking-[0.32em] transition-all shadow-[0_18px_38px_rgba(216,95,151,0.28)] flex items-center justify-center gap-3"
               >
                 {authBusy ? <Loader2 size={18} className="animate-spin" /> : <UserCheck size={18} />}
                 {authBusy ? 'Validando acceso' : 'Entrar al sistema'}
               </button>
 
-              <div className="pt-8 border-t border-white/8">
+              <div className="pt-5 border-t border-white/8">
                 <p className="text-sm text-slate-500 leading-relaxed">
-                  Si una cuenta nueva no aparece aquí, primero debe iniciar sesión una vez para que puedas asignarle su rol y barbería.
+                  Si una cuenta nueva no aparece aquí, primero debe iniciar sesión una vez para que puedas asignarle su rol y salón.
                 </p>
               </div>
             </form>
@@ -262,7 +236,7 @@ export function PasswordActionModal({
       <div className="w-full max-w-xl bg-slate-950 border border-white/10 rounded-[2.6rem] overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.7)]">
         <div className="px-8 py-7 border-b border-white/5 flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-[1.3rem] bg-indigo-600 flex items-center justify-center text-white shadow-[0_0_24px_rgba(99,102,241,0.35)]">
+            <div className="w-12 h-12 rounded-[1.3rem] bg-indigo-600 flex items-center justify-center text-white shadow-[0_0_24px_rgba(201,111,141,0.32)]">
               <ShieldCheck size={20} />
             </div>
             <div>
@@ -368,7 +342,7 @@ export function PasswordActionModal({
 export function UserEditorModal({
   user,
   roleOptions,
-  barbershops,
+  salons,
   branches,
   isSuperAdmin,
   busy,
@@ -378,16 +352,16 @@ export function UserEditorModal({
   const buildInitialForm = () => ({
     fullName: user?.fullName || '',
     roleName: getPrimaryRole(user) || 'cashier',
-    barbershopId: user?.barbershopId || '',
+    salonId: user?.salonId || '',
     branchId: user?.branchId || '',
   });
   const [form, setForm] = useState(buildInitialForm);
   const [localError, setLocalError] = useState('');
 
   const branchOptions = useMemo(() => {
-    if (!form.barbershopId) return [];
-    return (branches || []).filter((branch) => String(branch.barbershopId || '') === String(form.barbershopId));
-  }, [branches, form.barbershopId]);
+    if (!form.salonId) return [];
+    return (branches || []).filter((branch) => String(branch.salonId || '') === String(form.salonId));
+  }, [branches, form.salonId]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -403,8 +377,8 @@ export function UserEditorModal({
       return;
     }
 
-    if (isSuperAdmin && !form.barbershopId) {
-      setLocalError('Selecciona la barbería del usuario.');
+    if (isSuperAdmin && !form.salonId) {
+      setLocalError('Selecciona el salón del usuario.');
       return;
     }
 
@@ -412,7 +386,7 @@ export function UserEditorModal({
       const success = await onSubmit({
         fullName: form.fullName.trim(),
         roleName: form.roleName,
-        barbershopId: form.barbershopId || null,
+        salonId: form.salonId || null,
         branchId: form.branchId || null,
       });
       if (success) onClose();
@@ -426,7 +400,7 @@ export function UserEditorModal({
       <div className="w-full max-w-4xl bg-slate-950 border border-white/10 rounded-[3rem] overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.8)] text-white max-h-[88vh] overflow-y-auto custom-scrollbar">
         <div className="px-8 py-7 border-b border-white/5 flex items-center justify-between gap-6">
           <div className="flex items-center gap-5">
-            <div className="w-14 h-14 rounded-[1.6rem] bg-indigo-600 flex items-center justify-center text-white shadow-[0_0_30px_rgba(99,102,241,0.35)]">
+            <div className="w-14 h-14 rounded-[1.6rem] bg-indigo-600 flex items-center justify-center text-white shadow-[0_0_30px_rgba(201,111,141,0.32)]">
               <Edit2 size={24} />
             </div>
             <div>
@@ -456,7 +430,7 @@ export function UserEditorModal({
 
           <div className="grid grid-cols-1 md:grid-cols-[320px_1fr] gap-8">
             <div className="rounded-[2.2rem] border border-white/5 bg-black/20 px-7 py-8 text-center">
-              <div className="w-24 h-24 mx-auto rounded-[2rem] bg-indigo-600 flex items-center justify-center text-white text-4xl font-black shadow-[0_0_30px_rgba(99,102,241,0.35)]">
+              <div className="w-24 h-24 mx-auto rounded-[2rem] bg-indigo-600 flex items-center justify-center text-white text-4xl font-black shadow-[0_0_30px_rgba(201,111,141,0.32)]">
                 {(form.fullName || user?.email || 'U').trim().slice(0, 1).toUpperCase()}
               </div>
               <h4 className="mt-6 text-3xl font-black uppercase italic tracking-tighter text-white break-words">
@@ -508,14 +482,14 @@ export function UserEditorModal({
 
               {isSuperAdmin && (
                 <div className="space-y-3 md:col-span-2">
-                  <label className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500">Barbería</label>
+                  <label className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500">Salón</label>
                   <select
-                    value={form.barbershopId}
-                    onChange={(e) => setForm((prev) => ({ ...prev, barbershopId: e.target.value, branchId: '' }))}
+                    value={form.salonId}
+                    onChange={(e) => setForm((prev) => ({ ...prev, salonId: e.target.value, branchId: '' }))}
                     className="w-full bg-black border border-slate-800 rounded-[1.4rem] px-6 py-4 text-sm font-bold text-white outline-none focus:border-indigo-500 italic"
                   >
-                    <option value="">Selecciona una barbería</option>
-                    {(barbershops || []).map((shop) => (
+                    <option value="">Selecciona un salón</option>
+                    {(salons || []).map((shop) => (
                       <option key={shop.id} value={shop.id}>{shop.name}</option>
                     ))}
                   </select>
@@ -542,7 +516,7 @@ export function UserEditorModal({
             <button
               type="submit"
               disabled={busy}
-              className="flex-1 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 text-white py-4.5 rounded-[1.6rem] font-black uppercase italic text-[11px] tracking-[0.22em] transition-all flex items-center justify-center gap-3 shadow-[0_12px_30px_rgba(99,102,241,0.24)]"
+              className="flex-1 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 text-white py-4.5 rounded-[1.6rem] font-black uppercase italic text-[11px] tracking-[0.22em] transition-all flex items-center justify-center gap-3 shadow-[0_12px_30px_rgba(201,111,141,0.24)]"
             >
               {busy ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
               Guardar cambios

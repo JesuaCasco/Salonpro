@@ -1,8 +1,8 @@
-create extension if not exists pgcrypto;
+﻿create extension if not exists pgcrypto;
 
 create table if not exists public.branches (
   id uuid primary key default gen_random_uuid(),
-  barbershop_id uuid not null references public.barbershops(id) on delete cascade,
+  salon_id uuid not null references public.salons(id) on delete cascade,
   name text not null,
   code text,
   city text,
@@ -12,11 +12,11 @@ create table if not exists public.branches (
   updated_at timestamptz not null default now()
 );
 
-create index if not exists idx_branches_barbershop_id
-on public.branches (barbershop_id);
+create index if not exists idx_branches_salon_id
+on public.branches (salon_id);
 
-create unique index if not exists idx_branches_barbershop_name
-on public.branches (barbershop_id, lower(name));
+create unique index if not exists idx_branches_salon_name
+on public.branches (salon_id, lower(name));
 
 alter table public.profiles
 add column if not exists branch_id uuid references public.branches(id) on delete set null;
@@ -24,7 +24,7 @@ add column if not exists branch_id uuid references public.branches(id) on delete
 alter table public.clients
 add column if not exists branch_id uuid references public.branches(id) on delete set null;
 
-alter table public.barbers
+alter table public.stylists
 add column if not exists branch_id uuid references public.branches(id) on delete set null;
 
 alter table public.services
@@ -35,7 +35,7 @@ add column if not exists branch_id uuid references public.branches(id) on delete
 
 create index if not exists idx_profiles_branch_id on public.profiles (branch_id);
 create index if not exists idx_clients_branch_id on public.clients (branch_id);
-create index if not exists idx_barbers_branch_id on public.barbers (branch_id);
+create index if not exists idx_stylists_branch_id on public.stylists (branch_id);
 create index if not exists idx_services_branch_id on public.services (branch_id);
 create index if not exists idx_appointments_branch_id on public.appointments (branch_id);
 
@@ -62,7 +62,7 @@ as $$
   select public.has_role('super_admin');
 $$;
 
-create or replace function public.can_access_barbershop(target_barbershop_id uuid)
+create or replace function public.can_access_salon(target_salon_id uuid)
 returns boolean
 language sql
 security definer
@@ -74,11 +74,11 @@ as $$
       select 1
       from public.profiles p
       where p.id = auth.uid()
-        and p.barbershop_id = target_barbershop_id
+        and p.salon_id = target_salon_id
     );
 $$;
 
-create or replace function public.can_manage_branch(target_barbershop_id uuid)
+create or replace function public.can_manage_branch(target_salon_id uuid)
 returns boolean
 language sql
 security definer
@@ -91,14 +91,14 @@ as $$
       from public.profiles p
       join public.user_roles ur on ur.user_id = p.id
       where p.id = auth.uid()
-        and p.barbershop_id = target_barbershop_id
+        and p.salon_id = target_salon_id
         and ur.role_name = 'admin'
     );
 $$;
 
 grant execute on function public.has_role(text) to authenticated;
 grant execute on function public.is_super_admin_user() to authenticated;
-grant execute on function public.can_access_barbershop(uuid) to authenticated;
+grant execute on function public.can_access_salon(uuid) to authenticated;
 grant execute on function public.can_manage_branch(uuid) to authenticated;
 
 alter table public.branches enable row level security;
@@ -108,26 +108,26 @@ create policy branches_scoped_read
 on public.branches
 for select
 to authenticated
-using (public.can_access_barbershop(barbershop_id));
+using (public.can_access_salon(salon_id));
 
 drop policy if exists branches_manage_insert on public.branches;
 create policy branches_manage_insert
 on public.branches
 for insert
 to authenticated
-with check (public.can_manage_branch(barbershop_id));
+with check (public.can_manage_branch(salon_id));
 
 drop policy if exists branches_manage_update on public.branches;
 create policy branches_manage_update
 on public.branches
 for update
 to authenticated
-using (public.can_manage_branch(barbershop_id))
-with check (public.can_manage_branch(barbershop_id));
+using (public.can_manage_branch(salon_id))
+with check (public.can_manage_branch(salon_id));
 
 drop policy if exists branches_manage_delete on public.branches;
 create policy branches_manage_delete
 on public.branches
 for delete
 to authenticated
-using (public.can_manage_branch(barbershop_id));
+using (public.can_manage_branch(salon_id));

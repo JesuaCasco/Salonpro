@@ -1,9 +1,9 @@
-alter table public.clients
+﻿alter table public.clients
 add column if not exists completed_visits integer not null default 0,
 add column if not exists total_spent numeric(12, 2) not null default 0,
 add column if not exists last_visit_at date,
-add column if not exists favorite_barber_id uuid references public.barbers(id) on delete set null,
-add column if not exists favorite_barber_name text,
+add column if not exists favorite_stylist_id uuid references public.stylists(id) on delete set null,
+add column if not exists favorite_stylist_name text,
 add column if not exists favorite_service_name text,
 add column if not exists stats_updated_at timestamptz;
 
@@ -24,14 +24,14 @@ begin
   with completed_appointments as (
     select
       a.client_id,
-      a.barber_id,
-      coalesce(nullif(trim(a.barber_name), ''), nullif(trim(b.name), ''), nullif(trim(b.full_name), '')) as barber_display_name,
+      a.stylist_id,
+      coalesce(nullif(trim(a.stylist_name), ''), nullif(trim(b.name), ''), nullif(trim(b.full_name), '')) as stylist_display_name,
       nullif(trim(a.service_name), '') as service_name,
       coalesce(a.price, 0)::numeric(12, 2) as price,
       a.appointment_date,
       a.appointment_time
     from public.appointments a
-    left join public.barbers b on b.id = a.barber_id
+    left join public.stylists b on b.id = a.stylist_id
     where a.client_id = target_client_id
       and a.status = 'finalizada'
   ),
@@ -42,13 +42,13 @@ begin
       max(appointment_date) as last_visit_at
     from completed_appointments
   ),
-  favorite_barber as (
+  favorite_stylist as (
     select
-      barber_id,
-      barber_display_name
+      stylist_id,
+      stylist_display_name
     from completed_appointments
-    where barber_id is not null or barber_display_name is not null
-    group by barber_id, barber_display_name
+    where stylist_id is not null or stylist_display_name is not null
+    group by stylist_id, stylist_display_name
     order by count(*) desc, max(appointment_date) desc, max(appointment_time) desc
     limit 1
   ),
@@ -66,8 +66,8 @@ begin
     completed_visits = coalesce((select summary.completed_visits from summary), 0),
     total_spent = coalesce((select summary.total_spent from summary), 0),
     last_visit_at = (select summary.last_visit_at from summary),
-    favorite_barber_id = (select favorite_barber.barber_id from favorite_barber),
-    favorite_barber_name = (select favorite_barber.barber_display_name from favorite_barber),
+    favorite_stylist_id = (select favorite_stylist.stylist_id from favorite_stylist),
+    favorite_stylist_name = (select favorite_stylist.stylist_display_name from favorite_stylist),
     favorite_service_name = (select favorite_service.service_name from favorite_service),
     stats_updated_at = now()
   where c.id = target_client_id;

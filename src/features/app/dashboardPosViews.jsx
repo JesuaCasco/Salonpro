@@ -41,13 +41,6 @@ const ProductCard = memo(function ProductCard({ service, onAdd }) {
       chip: 'bg-indigo-400/12 border-indigo-300/25 text-indigo-200',
       button: 'bg-indigo-600 text-white shadow-indigo-500/25 group-hover:bg-indigo-500',
     },
-    Color: {
-      border: 'border-fuchsia-400/25 hover:border-fuchsia-300/70',
-      bg: 'from-fuchsia-500/10 via-white to-rose-50',
-      accent: 'text-fuchsia-300',
-      chip: 'bg-fuchsia-400/12 border-fuchsia-300/25 text-fuchsia-200',
-      button: 'bg-fuchsia-600 text-white shadow-fuchsia-500/25 group-hover:bg-fuchsia-500',
-    },
     Uñas: {
       border: 'border-amber-400/25 hover:border-amber-300/70',
       bg: 'from-amber-500/10 via-white to-rose-50',
@@ -55,12 +48,19 @@ const ProductCard = memo(function ProductCard({ service, onAdd }) {
       chip: 'bg-amber-400/12 border-amber-300/25 text-amber-200',
       button: 'bg-amber-500 text-white shadow-amber-500/25 group-hover:bg-amber-400',
     },
-    Tratamiento: {
+    Tratamientos: {
       border: 'border-emerald-400/25 hover:border-emerald-300/70',
       bg: 'from-emerald-500/10 via-white to-rose-50',
       accent: 'text-emerald-300',
       chip: 'bg-emerald-400/12 border-emerald-300/25 text-emerald-200',
       button: 'bg-emerald-600 text-white shadow-emerald-500/25 group-hover:bg-emerald-500',
+    },
+    Facial: {
+      border: 'border-rose-400/25 hover:border-rose-300/70',
+      bg: 'from-rose-500/10 via-white to-rose-50',
+      accent: 'text-rose-300',
+      chip: 'bg-rose-400/12 border-rose-300/25 text-rose-200',
+      button: 'bg-rose-500 text-white shadow-rose-500/25 group-hover:bg-rose-400',
     },
     Combo: {
       border: 'border-fuchsia-400/25 hover:border-fuchsia-300/70',
@@ -204,31 +204,35 @@ export function DashboardView({ appointments, clients, onUpdate, onOpenAppointme
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-6 gap-4 md:gap-6">
-        <div className="bg-white border border-[#ff9fc1] p-6 rounded-[2rem] flex flex-col justify-center shadow-[0_14px_30px_rgba(225,79,138,0.10)] hover:border-[#e14f8a] hover:bg-[#fff7fb] hover:shadow-[0_18px_38px_rgba(225,79,138,0.22)] transition-all">
+        <div className="bg-white border border-[#f4a7c5] p-6 rounded-[2rem] flex flex-col justify-center shadow-[0_14px_30px_rgba(225,79,138,0.10)] hover:border-[#e14f8a] hover:bg-[#fff7fb] hover:shadow-[0_18px_38px_rgba(225,79,138,0.20)] transition-all">
           <p className="text-[9px] font-black uppercase text-[#9b6076] tracking-widest italic leading-none mb-3">Reservaciones</p>
-          <h4 className="text-4xl font-black italic tracking-tighter text-[#e14f8a]">{plannedCount}</h4>
+          <h4 className="text-4xl font-black italic tracking-tighter text-[#d84f8b]">{plannedCount}</h4>
         </div>
         <div className="bg-white border border-[#f5a8c5] p-6 rounded-[2rem] flex flex-col justify-center shadow-[0_14px_30px_rgba(225,79,138,0.10)] hover:border-[#e14f8a] hover:bg-[#fff7fb] hover:shadow-[0_18px_38px_rgba(225,79,138,0.22)] transition-all">
           <p className="text-[9px] font-black uppercase text-[#9b6076] tracking-widest italic leading-none mb-3">En Espera</p>
-          <h4 className="text-4xl font-black italic tracking-tighter text-[#bd2f68]">{waitCount}</h4>
+          <h4 className="text-4xl font-black italic tracking-tighter text-[#b8822d]">{waitCount}</h4>
         </div>
         <div className="bg-white border border-[#f5a8c5] p-6 rounded-[2rem] flex flex-col justify-center shadow-[0_14px_30px_rgba(225,79,138,0.10)] hover:border-[#e14f8a] hover:bg-[#fff7fb] hover:shadow-[0_18px_38px_rgba(225,79,138,0.22)] transition-all">
           <p className="text-[9px] font-black uppercase text-[#9b6076] tracking-widest italic leading-none mb-3">Finalizadas</p>
-          <h4 className="text-4xl font-black italic tracking-tighter text-[#d75f91]">{finishedCount}</h4>
+          <h4 className="text-4xl font-black italic tracking-tighter text-[#9f7ccf]">{finishedCount}</h4>
         </div>
         <div className="bg-white border border-[#ff9fc1] p-6 rounded-[2rem] flex flex-col justify-center shadow-[0_14px_30px_rgba(225,79,138,0.10)] hover:border-[#e14f8a] hover:bg-[#fff7fb] hover:shadow-[0_18px_38px_rgba(225,79,138,0.22)] transition-all">
           <p className="text-[9px] font-black uppercase text-[#9b6076] tracking-widest italic leading-none mb-3">Total Turnos</p>
-          <h4 className="text-4xl font-black italic tracking-tighter text-[#5a3442]">{totalTodayCount}</h4>
+          <h4 className="text-4xl font-black italic tracking-tighter text-[#8f536a]">{totalTodayCount}</h4>
         </div>
-        <div className="bg-[#e14f8a] p-6 rounded-[2rem] shadow-[0_18px_36px_rgba(225,79,138,0.28)] relative overflow-hidden group hover:bg-[#bd2f68] hover:shadow-[0_22px_46px_rgba(225,79,138,0.34)] transition-all duration-500 text-white flex flex-col justify-center">
-          <DollarSign className="absolute -right-2 -bottom-2 w-20 h-20 text-white/16 rotate-12" />
-          <p className="text-[9px] font-black uppercase text-white tracking-widest italic leading-none mb-3 relative z-10">Ingresos Servicios Hoy</p>
-          <h4 className="text-3xl font-black italic tracking-tighter relative z-10">C$ {(Number(todayRevenue) || 0).toLocaleString()}</h4>
+        <div
+          className="dashboard-money-card dashboard-money-card--services p-6 rounded-[2rem] shadow-[0_18px_38px_rgba(47,143,127,0.34)] relative overflow-hidden group hover:shadow-[0_22px_48px_rgba(47,143,127,0.46)] transition-all duration-300 flex flex-col justify-center"
+        >
+          <DollarSign className="dashboard-money-card__mark absolute -right-2 -bottom-2 w-20 h-20 rotate-12" />
+          <p className="dashboard-money-card__label text-[9px] font-black uppercase tracking-widest italic leading-none mb-3 relative z-10 drop-shadow-sm">Ingresos Servicios Hoy</p>
+          <h4 className="dashboard-money-card__value text-3xl font-black italic tracking-tighter relative z-10 drop-shadow-[0_2px_8px_rgba(90,20,54,0.35)]">C$ {(Number(todayRevenue) || 0).toLocaleString()}</h4>
         </div>
-        <div className="bg-[#d75f91] p-6 rounded-[2rem] shadow-[0_18px_36px_rgba(215,95,145,0.26)] relative overflow-hidden group hover:bg-[#bd2f68] hover:shadow-[0_22px_46px_rgba(225,79,138,0.34)] transition-all duration-500 text-white flex flex-col justify-center">
-          <ShoppingBag className="absolute -right-2 -bottom-2 w-20 h-20 text-white/16 rotate-12" />
-          <p className="text-[9px] font-black uppercase text-white tracking-widest italic leading-none mb-3 relative z-10">Ventas Productos Hoy</p>
-          <h4 className="text-3xl font-black italic tracking-tighter relative z-10">C$ {(Number(todayProductRevenue) || 0).toLocaleString()}</h4>
+        <div
+          className="dashboard-money-card dashboard-money-card--products p-6 rounded-[2rem] shadow-[0_18px_38px_rgba(59,157,131,0.32)] relative overflow-hidden group hover:shadow-[0_22px_48px_rgba(59,157,131,0.44)] transition-all duration-300 flex flex-col justify-center"
+        >
+          <ShoppingBag className="dashboard-money-card__mark absolute -right-2 -bottom-2 w-20 h-20 rotate-12" />
+          <p className="dashboard-money-card__label text-[9px] font-black uppercase tracking-widest italic leading-none mb-3 relative z-10 drop-shadow-sm">Ventas Productos Hoy</p>
+          <h4 className="dashboard-money-card__value text-3xl font-black italic tracking-tighter relative z-10 drop-shadow-[0_2px_8px_rgba(90,20,54,0.35)]">C$ {(Number(todayProductRevenue) || 0).toLocaleString()}</h4>
         </div>
       </div>
 
@@ -282,7 +286,7 @@ export function DashboardView({ appointments, clients, onUpdate, onOpenAppointme
                         <div className="flex flex-col min-w-0">
                           <div className="flex items-center gap-3">
                             <h4 className="text-lg md:text-xl font-black uppercase italic text-white tracking-tighter leading-none group-hover:text-indigo-400 transition-colors truncate">
-                              {index + 1}-{client?.name || 'Cliente desconocido'}
+                              {index + 1}-{client?.name || appointment.clientName || 'Cliente genérico'}
                             </h4>
                             {inService && <span className="animate-pulse flex items-center gap-1 text-[8px] font-black text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 italic">EN PROCESO</span>}
                           </div>

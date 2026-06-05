@@ -1,7 +1,7 @@
-create table if not exists public.pos_sales (
+﻿create table if not exists public.pos_sales (
   id uuid primary key,
   ticket_number bigint generated always as identity unique,
-  barbershop_id uuid not null references public.barbershops(id) on delete cascade,
+  salon_id uuid not null references public.salons(id) on delete cascade,
   branch_id uuid null references public.branches(id) on delete set null,
   raw_subtotal numeric(12,2) not null default 0,
   discount_total numeric(12,2) not null default 0,
@@ -17,8 +17,8 @@ create table if not exists public.pos_sales (
   created_at timestamptz not null default timezone('utc', now())
 );
 
-create index if not exists idx_pos_sales_barbershop_created_at
-  on public.pos_sales (barbershop_id, created_at desc);
+create index if not exists idx_pos_sales_salon_created_at
+  on public.pos_sales (salon_id, created_at desc);
 
 create index if not exists idx_pos_sales_branch_created_at
   on public.pos_sales (branch_id, created_at desc);
@@ -32,18 +32,18 @@ create policy pos_sales_read_scoped
 on public.pos_sales
 for select
 to authenticated
-using (public.can_access_barbershop(barbershop_id));
+using (public.can_access_salon(salon_id));
 
 drop policy if exists pos_sales_insert_scoped on public.pos_sales;
 create policy pos_sales_insert_scoped
 on public.pos_sales
 for insert
 to authenticated
-with check (public.can_manage_branch(barbershop_id));
+with check (public.can_manage_branch(salon_id));
 
 drop policy if exists pos_sales_delete_scoped on public.pos_sales;
 create policy pos_sales_delete_scoped
 on public.pos_sales
 for delete
 to authenticated
-using (public.can_manage_branch(barbershop_id));
+using (public.can_manage_branch(salon_id));

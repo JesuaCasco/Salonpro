@@ -1,25 +1,6 @@
 import { useEffect, useState } from 'react';
 import { AlertCircle, Clock, History, Timer } from 'lucide-react';
 
-export const BeardIcon = ({ size = 24, className = '' }) => (
-  <svg
-    width={size}
-    height={size}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className={className}
-  >
-    <path d="M7 11c0 4 2 7 5 7s5-3 5-7" />
-    <path d="M8 14c0 3 1.5 5 4 5s4-2 4-5" />
-    <path d="M10 17c0 2 1 3 2 3s2-1 2-3" />
-    <path d="M6 9c0-1 1-2 2-2h8c1 0 2 1 2 2v2H6V9z" />
-  </svg>
-);
-
 export const ServiceTimer = ({ startedAt }) => {
   const [elapsed, setElapsed] = useState(0);
 
