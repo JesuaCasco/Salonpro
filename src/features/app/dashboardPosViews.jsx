@@ -11,6 +11,7 @@ import {
   CreditCard,
   DollarSign,
   Plus,
+  ListChecks,
   ReceiptText,
   RotateCcw,
   Search,
@@ -407,6 +408,7 @@ export function POSView({
   const [promotionPickerOpen, setPromotionPickerOpen] = useState(false);
   const [ticketOpen, setTicketOpen] = useState(false);
   const [closingModalOpen, setClosingModalOpen] = useState(false);
+  const [movementsModalOpen, setMovementsModalOpen] = useState(false);
   const [openingModalSuppressed, setOpeningModalSuppressed] = useState(false);
   const [openingBreakdown, setOpeningBreakdown] = useState({
     nioBills: {},
@@ -561,6 +563,11 @@ export function POSView({
         detail: itemCount > 1 ? `${itemCount} ítems` : (firstItem?.category || 'Cobro'),
         method: sale.paymentMethod || 'cash',
         amount: Number(sale.subtotal || 0),
+        productTotal: Number(sale.productTotal || 0),
+        serviceTotal: Number(sale.serviceTotal || 0),
+        discountTotal: Number(sale.discountTotal || 0),
+        ticketNumber: sale.ticketNumber || 0,
+        items: Array.isArray(sale.items) ? sale.items : [],
         createdAt: sale.createdAt,
         canCancel: Boolean(cashSession),
       };
@@ -578,6 +585,7 @@ export function POSView({
         : (movement.type === 'out' ? 'Salida de efectivo' : 'Entrada de efectivo'),
       method: movement.paymentMethod || 'cash',
       amount: Number(movement.amount || 0),
+      notes: movement.notes || '',
       createdAt: movement.createdAt,
       canCancel: Boolean(cashSession && movement.movementKind === 'manual'),
     }));
@@ -799,7 +807,7 @@ export function POSView({
           </div>
 
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="relative overflow-hidden rounded-[1.7rem] border border-rose-200 bg-white px-5 py-4 shadow-[0_12px_28px_rgba(120,78,93,0.08)]">
+              <div className="relative overflow-hidden rounded-[1.7rem] border border-rose-200 bg-white px-5 py-4 shadow-[0_12px_28px_rgba(120,78,93,0.08)]">
               <div className="absolute inset-x-0 top-0 h-px bg-rose-100" />
               <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-500 text-white shadow-lg shadow-emerald-500/25">
                 <ShoppingBag size={18} />
@@ -807,6 +815,17 @@ export function POSView({
               <p className="text-[10px] font-black uppercase tracking-[0.22em] italic text-emerald-400 leading-none">Catálogo de productos</p>
             </div>
             <div className="flex items-center gap-3">
+              {cashSession ? (
+                <button
+                  type="button"
+                  onClick={() => setMovementsModalOpen(true)}
+                  className="flex items-center gap-3 rounded-[1.6rem] border border-[#efabc7] bg-white px-5 py-4 text-[10px] font-black uppercase tracking-[0.18em] text-[#8f2d5b] transition-all hover:bg-[#fff0f6] active:scale-95"
+                >
+                  <ListChecks size={16} />
+                  Movimientos
+                  <span className="rounded-full bg-[#fff0f6] px-2 py-0.5 text-[8px] text-[#c24f82]">{dayMovements.length}</span>
+                </button>
+              ) : null}
               <div className="relative">
                 <Search className="absolute right-6 top-1/2 -translate-y-1/2 text-[#9b6076]" size={18} />
                 <input type="text" placeholder="Buscar producto" className="w-full rounded-2xl border border-[#efabc7] bg-white py-4 pl-8 pr-16 text-sm font-black text-[#34242b] outline-none transition-all placeholder:text-[#b4899c] focus:border-[#d94f83] md:w-80" value={search} onChange={(event) => setSearch(event.target.value)} />
@@ -824,64 +843,6 @@ export function POSView({
           </div>
         </div>
         <div className="flex-1 overflow-y-auto p-3 md:p-8 custom-scrollbar">
-          {cashSession ? (
-            <section className="mb-5 rounded-[2rem] border border-[#f0a6c3] bg-white p-4 shadow-[0_16px_38px_rgba(196,74,126,0.10)]">
-              <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#c24f82]">Movimientos del día</p>
-                  <h4 className="mt-1 text-xl font-black uppercase italic tracking-tighter text-[#34242b]">Caja actual</h4>
-                </div>
-                <span className="rounded-2xl border border-[#f2c1d4] bg-[#fff7fb] px-4 py-2 text-[9px] font-black uppercase tracking-[0.16em] text-[#9b6076]">
-                  {dayMovements.length} registros
-                </span>
-              </div>
-
-              <div className="max-h-72 space-y-2 overflow-y-auto pr-1 custom-scrollbar">
-                {dayMovements.length === 0 ? (
-                  <div className="rounded-[1.5rem] border border-dashed border-[#efabc7] bg-[#fff9fc] p-5 text-center">
-                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#9b6076]">Sin movimientos todavía</p>
-                  </div>
-                ) : dayMovements.map((entry) => {
-                  const isOut = entry.type === 'out';
-                  const isSale = entry.kind === 'sale';
-                  const isOpening = entry.kind === 'opening';
-                  const methodLabel = entry.method === 'card'
-                    ? 'POS'
-                    : (entry.method === 'transfer' ? 'Transferencia' : 'Efectivo');
-                  return (
-                    <div key={entry.id} className="grid gap-3 rounded-[1.5rem] border border-[#f2c1d4] bg-[#fff9fc] p-3 sm:grid-cols-[auto_minmax(0,1fr)_auto_auto] sm:items-center">
-                      <div className={`flex h-11 w-11 items-center justify-center rounded-2xl text-white shadow-lg ${isSale ? 'bg-[#d94f83] shadow-[#d94f83]/20' : (isOut ? 'bg-[#b35a7b] shadow-[#b35a7b]/20' : 'bg-[#72b79b] shadow-[#72b79b]/20')}`}>
-                        {isSale ? <ReceiptText size={18} /> : (isOut ? <ArrowDown size={18} /> : <ArrowUp size={18} />)}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-black uppercase italic text-[#34242b]">{entry.title}</p>
-                        <p className="mt-1 text-[9px] font-black uppercase tracking-[0.14em] text-[#9b6076]">
-                          {entry.createdAt ? new Date(entry.createdAt).toLocaleTimeString('es-NI', { hour: '2-digit', minute: '2-digit' }) : '--:--'} · {entry.detail} · {methodLabel}
-                        </p>
-                      </div>
-                      <p className={`text-right text-lg font-black italic ${isOut ? 'text-[#b35a7b]' : 'text-[#426f64]'}`}>
-                        {isOut ? '-' : '+'}{formatCurrency(entry.amount)}
-                      </p>
-                      {entry.canCancel ? (
-                        <button
-                          type="button"
-                          onClick={() => handleCancelMovementEntry(entry)}
-                          className="flex items-center justify-center gap-2 rounded-2xl border border-[#f0a6c3] bg-white px-4 py-3 text-[9px] font-black uppercase tracking-[0.14em] text-[#8f2d5b] transition-all hover:bg-[#fff0f6] active:scale-95"
-                        >
-                          <RotateCcw size={14} /> Anular
-                        </button>
-                      ) : (
-                        <span className="rounded-2xl border border-[#f2c1d4] bg-white px-4 py-3 text-center text-[9px] font-black uppercase tracking-[0.14em] text-[#b4899c]">
-                          {isOpening ? 'Base' : 'Bloqueado'}
-                        </span>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-          ) : null}
-
           <div className="grid grid-cols-2 content-start gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 md:gap-6">
             {filtered.length === 0 && (
               <div className="col-span-full rounded-[2rem] border border-dashed border-[#efabc7] bg-white/70 p-10 text-center text-[#9b6076]">
@@ -1076,6 +1037,123 @@ export function POSView({
                   <Check size={18} /> Cerrar caja
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      ), document.body) : null}
+
+      {movementsModalOpen && cashSession ? createPortal((
+        <div className="fixed inset-0 z-[235] flex min-h-screen items-center justify-center bg-[#211720]/85 p-3 backdrop-blur-xl md:p-5">
+          <div className="flex max-h-[calc(100vh-1rem)] w-full max-w-6xl flex-col overflow-hidden rounded-[2rem] border border-[#efabc7] bg-gradient-to-br from-white via-[#fff7fb] to-[#ffe3ef] text-[#34242b] shadow-[0_35px_120px_rgba(33,23,32,0.55)]">
+            <div className="border-b border-[#f5cddd] px-5 py-4 md:px-7">
+              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.24em] text-[#c24f82]">Caja actual</p>
+                  <h3 className="mt-1 text-3xl font-black uppercase italic tracking-tighter text-[#34242b]">Movimientos del día</h3>
+                  <p className="mt-0.5 text-[10px] font-black uppercase tracking-[0.16em] text-[#9b6076]">Ventas, servicios cobrados, entradas y salidas</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setMovementsModalOpen(false)}
+                  className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[#efabc7] bg-white text-[#8f2d5b] transition-all hover:bg-[#fff0f6]"
+                  aria-label="Cerrar movimientos"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+
+            <div className="grid gap-3 border-b border-[#f5cddd] bg-white/65 px-5 py-3 md:grid-cols-4 md:px-7">
+              <div className="rounded-[1.3rem] border border-[#f2c1d4] bg-white px-4 py-3">
+                <p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#9b6076]">Esperado efectivo</p>
+                <p className="mt-1 text-xl font-black italic text-[#426f64]">{formatCurrency(cashSummary.expectedCash)}</p>
+              </div>
+              <div className="rounded-[1.3rem] border border-[#f2c1d4] bg-white px-4 py-3">
+                <p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#9b6076]">Ventas efectivo</p>
+                <p className="mt-1 text-xl font-black italic text-[#c24f82]">{formatCurrency(cashSummary.sales)}</p>
+              </div>
+              <div className="rounded-[1.3rem] border border-[#f2c1d4] bg-white px-4 py-3">
+                <p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#9b6076]">POS / tarjeta</p>
+                <p className="mt-1 text-xl font-black italic text-[#426f64]">{formatCurrency(systemPaymentSummary.card)}</p>
+              </div>
+              <div className="rounded-[1.3rem] border border-[#f2c1d4] bg-white px-4 py-3">
+                <p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#9b6076]">Transferencia</p>
+                <p className="mt-1 text-xl font-black italic text-[#426f64]">{formatCurrency(systemPaymentSummary.transfer)}</p>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-3 custom-scrollbar md:p-5">
+              {dayMovements.length === 0 ? (
+                <div className="rounded-[1.8rem] border border-dashed border-[#efabc7] bg-white/70 p-10 text-center">
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#9b6076]">Sin movimientos registrados</p>
+                </div>
+              ) : (
+                <div className="overflow-hidden rounded-[1.8rem] border border-[#f0a6c3] bg-white">
+                  <div className="grid grid-cols-[5rem_minmax(0,1.2fr)_minmax(0,1fr)_9rem_8rem_8rem] border-b border-[#f5cddd] bg-[#fff7fb] px-4 py-3 text-[9px] font-black uppercase tracking-[0.16em] text-[#9b6076] max-lg:hidden">
+                    <span>Hora</span>
+                    <span>Concepto</span>
+                    <span>Detalle</span>
+                    <span>Método</span>
+                    <span className="text-right">Monto</span>
+                    <span className="text-right">Acción</span>
+                  </div>
+
+                  <div className="divide-y divide-[#f5cddd]">
+                    {dayMovements.map((entry) => {
+                      const isOut = entry.type === 'out';
+                      const isSale = entry.kind === 'sale';
+                      const isOpening = entry.kind === 'opening';
+                      const methodLabel = entry.method === 'card'
+                        ? 'POS / tarjeta'
+                        : (entry.method === 'transfer' ? 'Transferencia' : 'Efectivo');
+                      const timeLabel = entry.createdAt
+                        ? new Date(entry.createdAt).toLocaleTimeString('es-NI', { hour: '2-digit', minute: '2-digit' })
+                        : '--:--';
+                      const detailText = isSale
+                        ? `Ticket ${String(Number(entry.ticketNumber || 0)).padStart(6, '0')} · Servicios ${formatCurrency(entry.serviceTotal)} · Productos ${formatCurrency(entry.productTotal)}`
+                        : (entry.notes || entry.detail);
+                      return (
+                        <div key={entry.id} className="grid gap-3 px-4 py-3 text-sm max-lg:grid-cols-[auto_minmax(0,1fr)] lg:grid-cols-[5rem_minmax(0,1.2fr)_minmax(0,1fr)_9rem_8rem_8rem] lg:items-center">
+                          <div className="flex items-center gap-3 max-lg:col-span-2">
+                            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-white shadow-lg ${isSale ? 'bg-[#d94f83] shadow-[#d94f83]/20' : (isOut ? 'bg-[#b35a7b] shadow-[#b35a7b]/20' : 'bg-[#72b79b] shadow-[#72b79b]/20')}`}>
+                              {isSale ? <ReceiptText size={17} /> : (isOut ? <ArrowDown size={17} /> : <ArrowUp size={17} />)}
+                            </div>
+                            <div className="lg:hidden">
+                              <p className="font-black uppercase italic text-[#34242b]">{entry.title}</p>
+                              <p className="mt-1 text-[9px] font-black uppercase tracking-[0.14em] text-[#9b6076]">{timeLabel} · {methodLabel}</p>
+                            </div>
+                          </div>
+                          <p className="font-black text-[#34242b] max-lg:hidden">{timeLabel}</p>
+                          <div className="min-w-0 max-lg:col-span-2 lg:min-w-0">
+                            <p className="truncate font-black uppercase italic text-[#34242b] max-lg:hidden">{entry.title}</p>
+                            <p className="mt-1 line-clamp-2 text-[10px] font-bold uppercase tracking-[0.08em] text-[#9b6076] lg:hidden">{detailText}</p>
+                          </div>
+                          <p className="line-clamp-2 text-[10px] font-bold uppercase tracking-[0.08em] text-[#9b6076] max-lg:hidden">{detailText}</p>
+                          <span className="rounded-full border border-[#f2c1d4] bg-[#fff7fb] px-3 py-1.5 text-center text-[9px] font-black uppercase tracking-[0.12em] text-[#8f2d5b] max-lg:w-fit">
+                            {methodLabel}
+                          </span>
+                          <p className={`text-right text-lg font-black italic ${isOut ? 'text-[#b35a7b]' : 'text-[#426f64]'}`}>
+                            {isOut ? '-' : '+'}{formatCurrency(entry.amount)}
+                          </p>
+                          {entry.canCancel ? (
+                            <button
+                              type="button"
+                              onClick={() => handleCancelMovementEntry(entry)}
+                              className="flex items-center justify-center gap-2 rounded-2xl border border-[#f0a6c3] bg-white px-4 py-3 text-[9px] font-black uppercase tracking-[0.14em] text-[#8f2d5b] transition-all hover:bg-[#fff0f6] active:scale-95"
+                            >
+                              <RotateCcw size={14} /> Anular
+                            </button>
+                          ) : (
+                            <span className="rounded-2xl border border-[#f2c1d4] bg-[#fff7fb] px-4 py-3 text-center text-[9px] font-black uppercase tracking-[0.14em] text-[#b4899c]">
+                              {isOpening ? 'Base' : 'Bloqueado'}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
