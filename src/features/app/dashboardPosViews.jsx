@@ -569,6 +569,7 @@ export function POSView({
       .join(' · ');
   };
   const dayMovements = useMemo(() => {
+    const saleReferenceIds = new Set((posSales || []).map((sale) => String(sale.id)));
     const saleRows = (posSales || []).map((sale) => {
       const firstItem = Array.isArray(sale.items) && sale.items.length ? sale.items[0] : null;
       const itemCount = Array.isArray(sale.items) ? sale.items.length : 0;
@@ -592,7 +593,11 @@ export function POSView({
       };
     });
     const movementRows = (cashMovements || [])
-      .filter((movement) => movement.movementKind !== 'sale')
+      .filter((movement) => (
+        movement.movementKind !== 'sale'
+        || !movement.referenceId
+        || !saleReferenceIds.has(String(movement.referenceId))
+      ))
       .map((movement) => ({
         id: `movement-${movement.id}`,
         rawId: movement.id,
@@ -600,13 +605,19 @@ export function POSView({
         type: movement.type || 'in',
         title: movement.movementKind === 'opening'
           ? 'Apertura de caja'
-          : (movement.notes || (movement.type === 'out' ? 'Salida manual' : 'Entrada manual')),
+          : (movement.movementKind === 'sale'
+            ? (movement.notes || 'Venta sin detalle')
+            : (movement.notes || (movement.type === 'out' ? 'Salida manual' : 'Entrada manual'))),
         detail: movement.movementKind === 'opening'
           ? 'Fondo inicial'
-          : (movement.type === 'out' ? 'Salida de efectivo' : 'Entrada de efectivo'),
+          : (movement.movementKind === 'sale'
+            ? 'Venta registrada en caja'
+            : (movement.type === 'out' ? 'Salida de efectivo' : 'Entrada de efectivo')),
         sourceDetail: movement.movementKind === 'opening'
           ? 'Fondo inicial de caja'
-          : (movement.notes || (movement.type === 'out' ? 'Salida manual de efectivo' : 'Entrada manual de efectivo')),
+          : (movement.movementKind === 'sale'
+            ? 'Sin detalle guardado'
+            : (movement.notes || (movement.type === 'out' ? 'Salida manual de efectivo' : 'Entrada manual de efectivo'))),
         method: movement.paymentMethod || 'cash',
         amount: Number(movement.amount || 0),
         notes: movement.notes || '',
