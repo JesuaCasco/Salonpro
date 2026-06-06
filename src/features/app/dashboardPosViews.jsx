@@ -389,6 +389,19 @@ export function DashboardView({ appointments, clients, onUpdate, onOpenAppointme
   );
 }
 
+const summarizeMovementItems = (items = []) => {
+  if (!Array.isArray(items) || items.length === 0) return 'Sin detalle guardado';
+  return items
+    .map((item) => `${item.name || 'Item'} x${Number(item.qty || 1)}`)
+    .join(' · ');
+};
+
+const summarizeSaleMovementSource = (sale) => {
+  const itemSummary = summarizeMovementItems(sale.items);
+  const clientLabel = sale.clientName ? `Cliente: ${sale.clientName}` : '';
+  return [itemSummary, clientLabel].filter(Boolean).join(' · ');
+};
+
 export function POSView({
   services,
   onSale,
@@ -562,12 +575,6 @@ export function POSView({
     if (!userId) return 'Sistema';
     return userNameById.get(String(userId)) || 'Usuario';
   };
-  const summarizeItems = (items = []) => {
-    if (!Array.isArray(items) || items.length === 0) return 'Sin detalle guardado';
-    return items
-      .map((item) => `${item.name || 'Item'} x${Number(item.qty || 1)}`)
-      .join(' · ');
-  };
   const dayMovements = useMemo(() => {
     const saleReferenceIds = new Set((posSales || []).map((sale) => String(sale.id)));
     const saleRows = (posSales || []).map((sale) => {
@@ -579,7 +586,7 @@ export function POSView({
         kind: 'sale',
         title: firstItem?.name || 'Venta POS',
         detail: itemCount > 1 ? `${itemCount} ítems` : (firstItem?.category || 'Cobro'),
-        sourceDetail: summarizeItems(sale.items),
+        sourceDetail: summarizeSaleMovementSource(sale),
         method: sale.paymentMethod || 'cash',
         amount: Number(sale.subtotal || 0),
         productTotal: Number(sale.productTotal || 0),
@@ -587,6 +594,8 @@ export function POSView({
         discountTotal: Number(sale.discountTotal || 0),
         ticketNumber: sale.ticketNumber || 0,
         items: Array.isArray(sale.items) ? sale.items : [],
+        clientId: sale.clientId || null,
+        clientName: sale.clientName || '',
         createdBy: sale.createdBy || null,
         createdAt: sale.createdAt,
         canCancel: Boolean(cashSession),
@@ -1281,8 +1290,8 @@ export function POSView({
                   <div className="flex justify-between items-center text-white"><span className="text-slate-500 text-[10px] font-black uppercase tracking-widest leading-none">Monto Total</span><span className="text-4xl font-black italic tracking-tighter leading-none text-white shadow-[0_0_15px_rgba(201,111,141,0.16)]">C$ {totalToCharge.toLocaleString('es-NI')}</span></div>
                 </div>
 
-                <div className="mb-5 rounded-[1.7rem] border border-slate-800 bg-black/45 p-3">
-                  <p className="mb-3 text-[9px] font-black uppercase tracking-[0.18em] text-slate-500">Método de pago</p>
+                <div className="mb-5 rounded-[1.7rem] border border-[#efabc7] bg-[#fff7fb] p-3 shadow-[0_12px_28px_rgba(196,74,126,0.08)]">
+                  <p className="mb-3 text-[9px] font-black uppercase tracking-[0.18em] text-[#9b6076]">Método de pago</p>
                   <div className="grid grid-cols-3 gap-2">
                     {[
                       { id: 'cash', label: 'Efectivo', icon: DollarSign },
@@ -1296,7 +1305,7 @@ export function POSView({
                           key={method.id}
                           type="button"
                           onClick={() => setPaymentMethod(method.id)}
-                          className={`flex flex-col items-center justify-center gap-1 rounded-2xl border px-2 py-3 text-[8px] font-black uppercase tracking-[0.12em] transition-all ${active ? 'border-[#72b79b] bg-[#72b79b] text-white' : 'border-slate-800 bg-slate-900 text-slate-400 hover:text-white'}`}
+                          className={`flex flex-col items-center justify-center gap-1 rounded-2xl border px-2 py-3 text-[8px] font-black uppercase tracking-[0.12em] transition-all active:scale-95 ${active ? 'border-[#6eb293] bg-[#72b79b] text-white shadow-[0_10px_20px_rgba(114,183,155,0.24)]' : 'border-[#f2c1d4] bg-white text-[#8f5d71] hover:border-[#d94f83] hover:bg-[#fff0f6] hover:text-[#8f2d5b]'}`}
                         >
                           <Icon size={14} />
                           {method.label}
