@@ -1158,13 +1158,16 @@ export function POSView({
                       const detailText = entry.sourceDetail || entry.detail;
                       const userLabel = resolveUserName(entry.createdBy);
                       const rowTone = isOpening
-                        ? 'border-l-[#72b79b] bg-[#f4fbf8]'
+                        ? 'border-l-[#75a7b8] bg-[#f3f9fb]'
                         : (isOut ? 'border-l-[#d65f7f] bg-[#fff6f8]' : 'border-l-[#72b79b] bg-[#f8fffb]');
+                      const iconTone = isOpening
+                        ? 'bg-[#75a7b8] shadow-[#75a7b8]/20'
+                        : (isOut ? 'bg-[#d65f7f] shadow-[#d65f7f]/20' : 'bg-[#72b79b] shadow-[#72b79b]/20');
                       return (
                         <div key={entry.id} className={`grid gap-3 border-l-4 px-5 py-3 text-sm transition-colors max-xl:grid-cols-[minmax(0,1fr)] xl:grid-cols-[5.5rem_minmax(13rem,1fr)_minmax(18rem,1.5fr)_minmax(9rem,0.8fr)_8rem_8rem_8rem] xl:items-center ${rowTone}`}>
                           <p className="font-black text-[#34242b] max-xl:hidden">{timeLabel}</p>
                           <div className="flex min-w-0 items-center gap-3">
-                            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-white shadow-lg ${isOut ? 'bg-[#d65f7f] shadow-[#d65f7f]/20' : 'bg-[#72b79b] shadow-[#72b79b]/20'}`}>
+                            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-white shadow-lg ${iconTone}`}>
                               {isSale ? <ReceiptText size={17} /> : (isOut ? <ArrowDown size={17} /> : <ArrowUp size={17} />)}
                             </div>
                             <div className="min-w-0">
@@ -1174,8 +1177,8 @@ export function POSView({
                           </div>
                           <p className="line-clamp-2 text-[10px] font-bold uppercase tracking-[0.08em] text-[#9b6076] max-xl:rounded-2xl max-xl:border max-xl:border-[#f2c1d4] max-xl:bg-[#fff7fb] max-xl:px-3 max-xl:py-2">{detailText}</p>
                           <p className="truncate text-[10px] font-black uppercase tracking-[0.1em] text-[#8f2d5b] max-xl:hidden">{userLabel}</p>
-                          <span className={`rounded-full border px-3 py-1.5 text-center text-[9px] font-black uppercase tracking-[0.12em] max-lg:w-fit ${isOut ? 'border-[#f3b8c8] bg-white text-[#b84868]' : 'border-[#cdeadd] bg-white text-[#426f64]'}`}>
-                            {methodLabel}
+                          <span className={`rounded-full border px-3 py-1.5 text-center text-[9px] font-black uppercase tracking-[0.12em] max-lg:w-fit ${isOpening ? 'border-[#c4dce4] bg-white text-[#4f7b8b]' : (isOut ? 'border-[#f3b8c8] bg-white text-[#b84868]' : 'border-[#cdeadd] bg-white text-[#426f64]')}`}>
+                            {isOpening ? 'Fondo inicial' : methodLabel}
                           </span>
                           <p className={`text-right text-lg font-black italic max-xl:text-left ${isOut ? 'text-[#b35a7b]' : 'text-[#426f64]'}`}>
                             {isOut ? '-' : '+'}{formatCurrency(entry.amount)}
