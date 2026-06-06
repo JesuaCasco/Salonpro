@@ -563,7 +563,7 @@ export function POSView({
     return userNameById.get(String(userId)) || 'Usuario';
   };
   const summarizeItems = (items = []) => {
-    if (!Array.isArray(items) || items.length === 0) return 'Venta sin detalle';
+    if (!Array.isArray(items) || items.length === 0) return 'Sin detalle guardado';
     return items
       .map((item) => `${item.name || 'Item'} x${Number(item.qty || 1)}`)
       .join(' · ');
@@ -591,27 +591,29 @@ export function POSView({
         canCancel: Boolean(cashSession),
       };
     });
-    const movementRows = (cashMovements || []).map((movement) => ({
-      id: `movement-${movement.id}`,
-      rawId: movement.id,
-      kind: movement.movementKind || 'manual',
-      type: movement.type || 'in',
-      title: movement.movementKind === 'opening'
-        ? 'Apertura de caja'
-        : (movement.notes || (movement.type === 'out' ? 'Salida manual' : 'Entrada manual')),
-      detail: movement.movementKind === 'opening'
-        ? 'Fondo inicial'
-        : (movement.type === 'out' ? 'Salida de efectivo' : 'Entrada de efectivo'),
-      sourceDetail: movement.movementKind === 'opening'
-        ? 'Fondo inicial de caja'
-        : (movement.notes || (movement.type === 'out' ? 'Salida manual de efectivo' : 'Entrada manual de efectivo')),
-      method: movement.paymentMethod || 'cash',
-      amount: Number(movement.amount || 0),
-      notes: movement.notes || '',
-      createdBy: movement.createdBy || null,
-      createdAt: movement.createdAt,
-      canCancel: Boolean(cashSession && movement.movementKind === 'manual'),
-    }));
+    const movementRows = (cashMovements || [])
+      .filter((movement) => movement.movementKind !== 'sale')
+      .map((movement) => ({
+        id: `movement-${movement.id}`,
+        rawId: movement.id,
+        kind: movement.movementKind || 'manual',
+        type: movement.type || 'in',
+        title: movement.movementKind === 'opening'
+          ? 'Apertura de caja'
+          : (movement.notes || (movement.type === 'out' ? 'Salida manual' : 'Entrada manual')),
+        detail: movement.movementKind === 'opening'
+          ? 'Fondo inicial'
+          : (movement.type === 'out' ? 'Salida de efectivo' : 'Entrada de efectivo'),
+        sourceDetail: movement.movementKind === 'opening'
+          ? 'Fondo inicial de caja'
+          : (movement.notes || (movement.type === 'out' ? 'Salida manual de efectivo' : 'Entrada manual de efectivo')),
+        method: movement.paymentMethod || 'cash',
+        amount: Number(movement.amount || 0),
+        notes: movement.notes || '',
+        createdBy: movement.createdBy || null,
+        createdAt: movement.createdAt,
+        canCancel: Boolean(cashSession && movement.movementKind === 'manual'),
+      }));
 
     return [...saleRows, ...movementRows]
       .sort((left, right) => new Date(right.createdAt || 0) - new Date(left.createdAt || 0));
