@@ -228,6 +228,8 @@ const toUiPosSale = (row) => ({
   branchId: row.branch_id || null,
   cashSessionId: row.cash_session_id || row.cashSessionId || null,
   paymentMethod: row.payment_method || row.paymentMethod || 'cash',
+  clientId: row.client_id || row.clientId || null,
+  clientName: row.client_name || row.clientName || '',
   rawSubtotal: Number(row.raw_subtotal ?? row.rawSubtotal ?? row.subtotal ?? 0),
   discountTotal: Number(row.discount_total ?? row.discountTotal ?? 0),
   subtotal: Number(row.subtotal || 0),
@@ -519,6 +521,8 @@ const toDbPosSale = (sale, salonId, branchId = null, createdBy = null) =>
     id: sale.id,
     cash_session_id: sale.cashSessionId || null,
     payment_method: sale.paymentMethod || 'cash',
+    client_id: sale.clientId || null,
+    client_name: sale.clientName || null,
     raw_subtotal: Number(sale.rawSubtotal || sale.subtotal || 0),
     discount_total: Number(sale.discountTotal || 0),
     subtotal: Number(sale.subtotal || 0),
@@ -1568,6 +1572,8 @@ export async function createPosSale(sale, currentUserId, scopeOverride = {}) {
     p_promotion_name: payload.promotion_name || null,
     p_discount_label: payload.discount_label || null,
     p_notes: payload.notes || null,
+    p_client_id: payload.client_id || null,
+    p_client_name: payload.client_name || null,
     p_created_by: currentUserId || null,
   });
 

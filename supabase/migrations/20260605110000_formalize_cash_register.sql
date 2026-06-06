@@ -35,7 +35,9 @@ alter table if exists public.cash_movements
 
 alter table if exists public.pos_sales
   add column if not exists cash_session_id uuid references public.cash_sessions(id) on delete set null,
-  add column if not exists payment_method text not null default 'cash';
+  add column if not exists payment_method text not null default 'cash',
+  add column if not exists client_id uuid references public.clients(id) on delete set null,
+  add column if not exists client_name text;
 
 alter table if exists public.pos_sales drop constraint if exists pos_sales_payment_method_check;
 alter table if exists public.pos_sales
@@ -140,6 +142,8 @@ create or replace function public.register_pos_sale_atomic(
   p_promotion_name text default null,
   p_discount_label text default null,
   p_notes text default null,
+  p_client_id uuid default null,
+  p_client_name text default null,
   p_created_by uuid default null
 )
 returns jsonb
@@ -183,6 +187,8 @@ begin
     promotion_name,
     discount_label,
     notes,
+    client_id,
+    client_name,
     created_by
   )
   values (
@@ -201,6 +207,8 @@ begin
     p_promotion_name,
     p_discount_label,
     p_notes,
+    p_client_id,
+    p_client_name,
     p_created_by
   )
   returning * into v_sale;

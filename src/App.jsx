@@ -2747,7 +2747,10 @@ export default function App() {
 
     let serviceSaleRecord = null;
     if (status === 'Finalizada' && apt.status !== 'Finalizada' && extra) {
+      const appointmentClient = clients.find((client) => String(client.id) === String(updatedAppointment.clientId || ''));
       serviceSaleRecord = await handleRegisterPosSale({
+        clientId: updatedAppointment.clientId || null,
+        clientName: appointmentClient?.name || updatedAppointment.clientName || 'Cliente genérico',
         items: Array.isArray(extra.items) && extra.items.length
           ? extra.items
           : [{
@@ -3522,6 +3525,8 @@ export default function App() {
           : ''),
       cashSessionId: activeCashSession.id,
       paymentMethod: saleDraft?.paymentMethod || 'cash',
+      clientId: saleDraft?.clientId || null,
+      clientName: saleDraft?.clientName || '',
       salonId: currentSalonId || null,
       branchId: currentBranchId || null,
       createdAt: new Date().toISOString(),
