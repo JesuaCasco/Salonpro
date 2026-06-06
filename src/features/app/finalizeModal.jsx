@@ -2,11 +2,14 @@
 import {
   CheckCircle2,
   ChevronDown,
+  CreditCard,
+  DollarSign,
   Package,
   Plus,
   Search,
   ShoppingBag,
   Star,
+  Wallet,
   X,
 } from 'lucide-react';
 
@@ -35,6 +38,7 @@ export function FinalizeModal({ onClose, onConfirm, services, clients, initial }
   const [selectedPromotionId, setSelectedPromotionId] = useState('');
   const [promotionPickerOpen, setPromotionPickerOpen] = useState(false);
   const [mobilePanel, setMobilePanel] = useState('catalog');
+  const [paymentMethod, setPaymentMethod] = useState('cash');
 
   const billingClient = useMemo(
     () => (clients || []).find((client) => String(client.id) === String(initial?.clientId || initial?.client?.id || '')) || null,
@@ -110,6 +114,14 @@ export function FinalizeModal({ onClose, onConfirm, services, clients, initial }
       grossAmount: subtotal,
       promotionName: selectedPromotion?.name || '',
       discountAmount: promotionDiscount,
+      paymentMethod,
+      items: billItems.map((item) => ({
+        id: item.id,
+        name: item.name,
+        category: item.category,
+        price: Number(item.price || 0),
+        qty: 1,
+      })),
     });
   };
 
@@ -454,6 +466,27 @@ export function FinalizeModal({ onClose, onConfirm, services, clients, initial }
             </div>
 
             <div className="flex w-full flex-col gap-2 md:h-full">
+              <div className="grid grid-cols-3 gap-1.5 rounded-[1.15rem] border border-slate-800 bg-slate-950/70 p-1.5">
+                {[
+                  { id: 'cash', label: 'Efectivo', icon: DollarSign },
+                  { id: 'card', label: 'Tarjeta', icon: CreditCard },
+                  { id: 'transfer', label: 'Transfer', icon: Wallet },
+                ].map((method) => {
+                  const Icon = method.icon;
+                  const active = paymentMethod === method.id;
+                  return (
+                    <button
+                      key={method.id}
+                      type="button"
+                      onClick={() => setPaymentMethod(method.id)}
+                      className={`flex flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 text-[7px] font-black uppercase tracking-[0.08em] transition-all ${active ? 'bg-emerald-600 text-white' : 'text-slate-500 hover:bg-slate-900 hover:text-white'}`}
+                    >
+                      <Icon size={13} />
+                      {method.label}
+                    </button>
+                  );
+                })}
+              </div>
               <button
                 disabled={billItems.length === 0}
                 onClick={confirmFinalCharge}

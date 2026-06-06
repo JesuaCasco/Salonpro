@@ -1,5 +1,7 @@
 ﻿import React, { Suspense, createContext, useContext, useState, useEffect, useMemo, useRef } from 'react';
 import {
+  closeCashSession,
+  createCashMovement,
   createManagedUser,
   createPosSale,
   assignProfileSalon,
@@ -12,6 +14,7 @@ import {
   fetchClientDirectorySnapshot,
   fetchScopedStylists,
   fetchScopedClients,
+  openCashSession,
   resetManagedUserPassword,
   replaceUserRoles,
   syncServiceComboItems,
@@ -132,7 +135,7 @@ import { DashboardView, POSView } from './features/app/dashboardPosViews';
 import { ClientDetailModal, ClientsTableView } from './features/app/clientViews';
 import { FinalizeModal } from './features/app/finalizeModal';
 import { ServiceEditorModal } from './features/app/serviceEditorModal';
-import { PaymentReceiptModal, PosSaleReceiptModal, StaffSettlementModal } from './features/app/receiptModals';
+import { CashClosureReceiptModal, PaymentReceiptModal, PosSaleReceiptModal, StaffSettlementModal } from './features/app/receiptModals';
 import { LoginScreen, PasswordActionModal, UserEditorModal } from './features/system/accessUi';
 
 const { useCallback } = React;
@@ -1580,6 +1583,14 @@ export default function App() {
     const saved = localDevStorage?.getItem('sp_dev_pos_sales') || null;
     return saved ? JSON.parse(saved) : [];
   });
+  const [cashSessions, setCashSessions] = useState(() => {
+    const saved = localDevStorage?.getItem('sp_dev_cash_sessions') || null;
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [cashMovements, setCashMovements] = useState(() => {
+    const saved = localDevStorage?.getItem('sp_dev_cash_movements') || null;
+    return saved ? JSON.parse(saved) : [];
+  });
   
   const [viewDate, setViewDate] = useState(getTodayString());
   const bootstrapCompletedRef = useRef(false);
@@ -1675,6 +1686,8 @@ export default function App() {
     setClients([]);
     setStylists([]);
     setPosSales([]);
+    setCashSessions([]);
+    setCashMovements([]);
     setOperationalWarnings([]);
     setClientDirectoryData({ clients: [], appointments: [], stylists: [] });
     setClientDirectoryLoaded(false);
@@ -1704,6 +1717,8 @@ export default function App() {
     );
     setAppointments(Array.isArray(cached.appointments) ? cached.appointments : []);
     setPosSales(Array.isArray(cached.posSales) ? cached.posSales : []);
+    setCashSessions(Array.isArray(cached.cashSessions) ? cached.cashSessions : []);
+    setCashMovements(Array.isArray(cached.cashMovements) ? cached.cashMovements : []);
     setOperationalWarnings(Array.isArray(cached.operationalWarnings) ? cached.operationalWarnings : []);
     setClientDirectoryData(cached.clientDirectoryData || { clients: [], appointments: [], stylists: [] });
     setClientDirectoryLoaded(Boolean(cached.clientDirectoryLoaded));
@@ -1754,14 +1769,22 @@ export default function App() {
   }, [posSales, useBrowserCache, localDevStorage]);
   useEffect(() => {
     if (!useBrowserCache) return;
+    localDevStorage?.setItem('sp_dev_cash_sessions', JSON.stringify(cashSessions));
+  }, [cashSessions, useBrowserCache, localDevStorage]);
+  useEffect(() => {
+    if (!useBrowserCache) return;
+    localDevStorage?.setItem('sp_dev_cash_movements', JSON.stringify(cashMovements));
+  }, [cashMovements, useBrowserCache, localDevStorage]);
+  useEffect(() => {
+    if (!useBrowserCache) return;
     localDevStorage?.removeItem('sp_dev_revenue');
   }, [useBrowserCache, localDevStorage]);
   const [modals, setModals] = useState({ 
-    appointment: false, service: false, finalize: false, client: false, clientDetail: false, appointmentActions: false, rescheduleAppointment: false, transferAppointment: false, paymentReceipt: false, staffSettlement: false, posSaleReceipt: false
+    appointment: false, service: false, finalize: false, client: false, clientDetail: false, appointmentActions: false, rescheduleAppointment: false, transferAppointment: false, paymentReceipt: false, staffSettlement: false, posSaleReceipt: false, cashClosureReceipt: false
   });
   
   const [selectedData, setSelectedData] = useState({ 
-    appointment: null, service: null, finalize: null, client: null, appointmentActions: null, rescheduleAppointment: null, transferAppointment: null, paymentReceipt: null, staffSettlement: null, posSaleReceipt: null
+    appointment: null, service: null, finalize: null, client: null, appointmentActions: null, rescheduleAppointment: null, transferAppointment: null, paymentReceipt: null, staffSettlement: null, posSaleReceipt: null, cashClosureReceipt: null
   });
 
   useEffect(() => {
@@ -1895,9 +1918,15 @@ export default function App() {
           setStylists(snapshot.stylists.map((stylist, index) => ensureStylistTheme(stylist, index)));
           setAppointments(snapshot.appointments);
           setPosSales(snapshot.posSales || []);
-          setOperationalWarnings(snapshot.posSalesLoadError ? [snapshot.posSalesLoadError] : []);
-          if (snapshot.posSalesLoadError) {
-            notify(`Advertencia de POS\n\n${snapshot.posSalesLoadError}`, 'warning');
+          setCashSessions(snapshot.cashSessions || []);
+          setCashMovements(snapshot.cashMovements || []);
+          const nextOperationalWarnings = [
+            snapshot.posSalesLoadError,
+            snapshot.cashLoadError,
+          ].filter(Boolean);
+          setOperationalWarnings(nextOperationalWarnings);
+          if (nextOperationalWarnings.length) {
+            notify(`Advertencia operativa\n\n${nextOperationalWarnings.join('\n')}`, 'warning');
           }
         }
       } catch (error) {
@@ -1940,6 +1969,8 @@ export default function App() {
       stylists,
       appointments,
       posSales,
+      cashSessions,
+      cashMovements,
       operationalWarnings,
       clientDirectoryData,
       clientDirectoryLoaded,
@@ -1962,6 +1993,8 @@ export default function App() {
     stylists,
     appointments,
     posSales,
+    cashSessions,
+    cashMovements,
     operationalWarnings,
     clientDirectoryData,
     clientDirectoryLoaded,
@@ -2342,6 +2375,24 @@ export default function App() {
     || availableSalons[0]
     || null;
   const currentBranch = availableBranches.find((branch) => String(branch.id) === String(currentBranchId || '')) || null;
+  const activeCashSession = useMemo(() => (
+    (cashSessions || []).find((cashSession) => (
+      cashSession.status !== 'closed'
+      && !cashSession.closedAt
+      && String(cashSession.salonId || '') === String(currentSalonId || '')
+      && String(cashSession.branchId || '') === String(currentBranchId || '')
+    )) || null
+  ), [cashSessions, currentSalonId, currentBranchId]);
+  const activeCashMovements = useMemo(() => (
+    activeCashSession
+      ? (cashMovements || []).filter((movement) => String(movement.cashSessionId || '') === String(activeCashSession.id || ''))
+      : []
+  ), [cashMovements, activeCashSession]);
+  const activeCashPosSales = useMemo(() => (
+    activeCashSession
+      ? (posSales || []).filter((sale) => String(sale.cashSessionId || '') === String(activeCashSession.id || ''))
+      : []
+  ), [posSales, activeCashSession]);
   const isAdmin = isSuperAdmin || currentUserRoles.includes('admin');
   const isCashier = currentUserRoles.includes('cashier');
   const effectiveClientDirectory = useMemo(() => ({
@@ -2362,7 +2413,7 @@ export default function App() {
     { id: 'clientes', label: 'Clientes', icon: Users, allow: isAdmin || isCashier },
     { id: 'estilistas', label: 'Estilista', icon: UserCheck, allow: isAdmin },
     { id: 'services', label: 'Servicios', icon: Scissors, allow: isAdmin },
-    { id: 'caja', label: 'Venta / POS', icon: ShoppingBag, allow: isAdmin || isCashier },
+    { id: 'caja', label: 'Caja', icon: ShoppingBag, allow: isAdmin || isCashier },
     { id: 'reportes', label: 'Reportes', icon: BarChart3, allow: isAdmin },
     { id: 'sistema', label: 'Sistema', icon: Layers, allow: isAdmin },
   ].filter((item) => {
@@ -2639,6 +2690,10 @@ export default function App() {
       setModals({ ...modals, finalize: true });
       return;
     }
+    if (status === 'Finalizada' && apt.status !== 'Finalizada' && extra && !activeCashSession) {
+      notify('Debes abrir caja antes de cobrar y finalizar servicios.', 'warning');
+      return;
+    }
 
     const updatedAppointment = {
       ...apt,
@@ -2675,7 +2730,7 @@ export default function App() {
     setAppointments(prev => prev.map(a => (a.id === id ? updatedAppointment : a)));
 
     if (status === 'Finalizada') {
-      setModals({ ...modals, finalize: false });
+      setModals((prev) => ({ ...prev, finalize: false }));
     }
 
     if (hasSupabaseConfig && bootstrapCompletedRef.current) {
@@ -2684,6 +2739,31 @@ export default function App() {
         await refreshClientsAfterAppointmentSync();
       } catch (error) {
         handleSyncError(error, 'No pude guardar el cambio de estado en Supabase.');
+        setAppointments(prev => prev.map(a => (a.id === id ? apt : a)));
+        return;
+      }
+    }
+
+    let serviceSaleRecord = null;
+    if (status === 'Finalizada' && apt.status !== 'Finalizada' && extra) {
+      serviceSaleRecord = await handleRegisterPosSale({
+        items: Array.isArray(extra.items) && extra.items.length
+          ? extra.items
+          : [{
+              id: updatedAppointment.serviceId || updatedAppointment.id,
+              name: updatedAppointment.service || 'Servicio',
+              category: 'Servicio',
+              price: Number(updatedAppointment.grossAmount || updatedAppointment.price || 0),
+              qty: 1,
+            }],
+        rawSubtotal: Number(extra.grossAmount ?? extra.price ?? 0),
+        discountTotal: Number(extra.discountAmount || 0),
+        subtotal: Number(extra.price || 0),
+        paymentMethod: extra.paymentMethod || 'cash',
+        promotion: extra.promotionName ? { id: null, name: extra.promotionName } : null,
+      });
+      if (!serviceSaleRecord) {
+        setAppointments(prev => prev.map(a => (a.id === id ? apt : a)));
       }
     }
   };
@@ -3204,6 +3284,183 @@ export default function App() {
     }
   };
 
+  const handleOpenCashSession = async ({ openingAmount = 0, notes = '' } = {}) => {
+    if (!currentSalonId) {
+      notify('No se puede abrir caja porque no hay un salón activo.', 'error');
+      return null;
+    }
+    if (!currentBranchId) {
+      notify('Debes seleccionar una sucursal antes de abrir caja.', 'warning');
+      return null;
+    }
+    if (activeCashSession) {
+      notify('Ya hay una caja abierta en esta sucursal.', 'warning');
+      return activeCashSession;
+    }
+
+    if (!hasSupabaseConfig || !session?.user?.id) {
+      const sessionRecord = {
+        id: makeId(),
+        salonId: currentSalonId,
+        branchId: currentBranchId,
+        openedBy: session?.user?.id || null,
+        closedBy: null,
+        openedAt: new Date().toISOString(),
+        closedAt: null,
+        openingAmount: Number(openingAmount || 0),
+        closingAmount: 0,
+        expectedCashAmount: Number(openingAmount || 0),
+        countedCashAmount: 0,
+        differenceAmount: 0,
+        status: 'open',
+        notes,
+      };
+      const movementRecord = {
+        id: makeId(),
+        cashSessionId: sessionRecord.id,
+        salonId: currentSalonId,
+        branchId: currentBranchId,
+        type: 'in',
+        movementKind: 'opening',
+        paymentMethod: 'cash',
+        amount: Number(openingAmount || 0),
+        notes: notes || 'Apertura de caja',
+        createdBy: session?.user?.id || null,
+        createdAt: new Date().toISOString(),
+      };
+      setCashSessions((prev) => [sessionRecord, ...prev]);
+      setCashMovements((prev) => [...prev, movementRecord]);
+      notify('Caja abierta correctamente.', 'success');
+      return sessionRecord;
+    }
+
+    try {
+      const result = await openCashSession(
+        { openingAmount, notes, salonId: currentSalonId, branchId: currentBranchId },
+        session.user.id,
+        superAdminScopeOverride,
+      );
+      setCashSessions((prev) => [result.session, ...prev]);
+      setCashMovements((prev) => [...prev, result.movement]);
+      notify('Caja abierta correctamente.', 'success');
+      return result.session;
+    } catch (error) {
+      handleSyncError(error, 'No pude abrir la caja.');
+      return null;
+    }
+  };
+
+  const handleCreateCashMovement = async ({ type = 'in', amount = 0, notes = '' } = {}) => {
+    if (!activeCashSession) {
+      notify('Debes abrir caja antes de registrar movimientos.', 'warning');
+      return null;
+    }
+
+    if (!hasSupabaseConfig || !session?.user?.id) {
+      const movementRecord = {
+        id: makeId(),
+        cashSessionId: activeCashSession.id,
+        salonId: currentSalonId,
+        branchId: currentBranchId,
+        type: type === 'out' ? 'out' : 'in',
+        movementKind: 'manual',
+        paymentMethod: 'cash',
+        amount: Number(amount || 0),
+        notes,
+        createdBy: session?.user?.id || null,
+        createdAt: new Date().toISOString(),
+      };
+      setCashMovements((prev) => [...prev, movementRecord]);
+      notify('Movimiento de caja registrado.', 'success');
+      return movementRecord;
+    }
+
+    try {
+      const movement = await createCashMovement(
+        { cashSessionId: activeCashSession.id, type, amount, notes, salonId: currentSalonId, branchId: currentBranchId },
+        session.user.id,
+        superAdminScopeOverride,
+      );
+      setCashMovements((prev) => [...prev, movement]);
+      notify('Movimiento de caja registrado.', 'success');
+      return movement;
+    } catch (error) {
+      handleSyncError(error, 'No pude registrar el movimiento de caja.');
+      return null;
+    }
+  };
+
+  const calculateLocalExpectedCash = (movements = activeCashMovements) =>
+    (movements || []).reduce((total, movement) => {
+      if ((movement.paymentMethod || 'cash') !== 'cash') return total;
+      const amount = Number(movement.amount || 0);
+      return movement.type === 'out' ? total - amount : total + amount;
+    }, 0);
+
+  const handleCloseCashSession = async ({ countedCashAmount = 0, notes = '' } = {}) => {
+    if (!activeCashSession) {
+      notify('No hay una caja abierta para cerrar.', 'warning');
+      return null;
+    }
+    const receiptMovements = activeCashMovements;
+    const receiptSales = activeCashPosSales;
+
+    if (!hasSupabaseConfig || !session?.user?.id) {
+      const expectedCashAmount = calculateLocalExpectedCash();
+      const counted = Number(countedCashAmount || 0);
+      const closedSession = {
+        ...activeCashSession,
+        closedBy: session?.user?.id || null,
+        closedAt: new Date().toISOString(),
+        closingAmount: counted,
+        countedCashAmount: counted,
+        expectedCashAmount,
+        differenceAmount: counted - expectedCashAmount,
+        status: 'closed',
+        notes,
+      };
+      setCashSessions((prev) => prev.map((cashSession) => String(cashSession.id) === String(activeCashSession.id) ? closedSession : cashSession));
+      setSelectedData((prev) => ({
+        ...prev,
+        cashClosureReceipt: {
+          cashSession: closedSession,
+          cashMovements: receiptMovements,
+          posSales: receiptSales,
+          salonName: currentSalon?.name || 'SalonPro',
+          branchName: currentBranch?.name || 'General',
+        },
+      }));
+      setModals((prev) => ({ ...prev, cashClosureReceipt: true }));
+      notify('Caja cerrada correctamente.', 'success');
+      return closedSession;
+    }
+
+    try {
+      const closedSession = await closeCashSession(
+        { cashSessionId: activeCashSession.id, countedCashAmount, notes, salonId: currentSalonId, branchId: currentBranchId },
+        session.user.id,
+        superAdminScopeOverride,
+      );
+      setCashSessions((prev) => prev.map((cashSession) => String(cashSession.id) === String(closedSession.id) ? closedSession : cashSession));
+      setSelectedData((prev) => ({
+        ...prev,
+        cashClosureReceipt: {
+          cashSession: closedSession,
+          cashMovements: receiptMovements,
+          posSales: receiptSales,
+          salonName: currentSalon?.name || 'SalonPro',
+          branchName: currentBranch?.name || 'General',
+        },
+      }));
+      setModals((prev) => ({ ...prev, cashClosureReceipt: true }));
+      notify('Caja cerrada correctamente.', 'success');
+      return closedSession;
+    } catch (error) {
+      handleSyncError(error, 'No pude cerrar la caja.');
+      return null;
+    }
+  };
+
   const handleRegisterPosSale = async (saleDraft) => {
     const normalizedItems = Array.isArray(saleDraft?.items) ? saleDraft.items : [];
     if (!currentSalonId) {
@@ -3214,11 +3471,23 @@ export default function App() {
       notify('Debes seleccionar una sucursal antes de registrar una venta POS.', 'warning');
       return null;
     }
+    if (!activeCashSession) {
+      notify('Debes abrir caja antes de registrar ventas.', 'warning');
+      return null;
+    }
     const rawSubtotal = Number(saleDraft?.rawSubtotal) || normalizedItems.reduce((sum, item) => sum + ((Number(item.price) || 0) * (Number(item.qty) || 0)), 0);
     const discountTotal = Number(saleDraft?.discountTotal || 0);
     const subtotal = Number(saleDraft?.subtotal) || Math.max(rawSubtotal - discountTotal, 0);
-    const productTotal = subtotal;
-    const serviceTotal = 0;
+    const rawProductTotal = normalizedItems
+      .filter((item) => item.category === 'Producto')
+      .reduce((sum, item) => sum + ((Number(item.price) || 0) * (Number(item.qty) || 0)), 0);
+    const rawServiceTotal = Math.max(rawSubtotal - rawProductTotal, 0);
+    const productTotal = Number.isFinite(Number(saleDraft?.productTotal))
+      ? Number(saleDraft.productTotal)
+      : (rawServiceTotal > 0 ? rawProductTotal : subtotal);
+    const serviceTotal = Number.isFinite(Number(saleDraft?.serviceTotal))
+      ? Number(saleDraft.serviceTotal)
+      : (rawServiceTotal > 0 ? Math.max(subtotal - productTotal, 0) : 0);
     const nextLocalTicketNumber = (posSales || []).reduce(
       (max, sale) => Math.max(max, Number(sale.ticketNumber || 0)),
       0,
@@ -3250,6 +3519,8 @@ export default function App() {
         : (saleDraft?.manualDiscount
           ? `Descuento manual aplicado: ${saleDraft.manualDiscount.type === 'percentage' ? `${saleDraft.manualDiscount.value}%` : `C$ ${Number(saleDraft.manualDiscount.value || 0).toLocaleString('es-NI')}`}`
           : ''),
+      cashSessionId: activeCashSession.id,
+      paymentMethod: saleDraft?.paymentMethod || 'cash',
       salonId: currentSalonId || null,
       branchId: currentBranchId || null,
       createdAt: new Date().toISOString(),
@@ -3257,6 +3528,26 @@ export default function App() {
     };
 
     setPosSales((prev) => [...prev, saleRecord]);
+    if ((!hasSupabaseConfig || !session?.user?.id) && saleRecord.paymentMethod === 'cash') {
+      setCashMovements((prev) => ([
+        ...prev,
+        {
+          id: makeId(),
+          cashSessionId: activeCashSession.id,
+          salonId: currentSalonId,
+          branchId: currentBranchId,
+          type: 'in',
+          movementKind: 'sale',
+          paymentMethod: 'cash',
+          amount: saleRecord.subtotal,
+          notes: `Venta POS #${saleRecord.ticketNumber}`,
+          referenceType: 'pos_sale',
+          referenceId: saleRecord.id,
+          createdBy: session?.user?.id || null,
+          createdAt: saleRecord.createdAt,
+        },
+      ]));
+    }
 
     if (!hasSupabaseConfig || !session?.user?.id) {
       setSelectedData((prev) => ({
@@ -3275,6 +3566,12 @@ export default function App() {
     try {
       const persistedSale = await createPosSale(saleRecord, session.user.id, superAdminScopeOverride);
       setPosSales((prev) => prev.map((sale) => String(sale.id) === String(saleRecord.id) ? persistedSale : sale));
+      if (persistedSale.paymentMethod === 'cash' && persistedSale.cashMovement) {
+        setCashMovements((prev) => ([
+          ...prev.filter((movement) => String(movement.referenceId || '') !== String(saleRecord.id)),
+          persistedSale.cashMovement,
+        ]));
+      }
       setSelectedData((prev) => ({
         ...prev,
         posSaleReceipt: {
@@ -3298,6 +3595,7 @@ export default function App() {
 
     if (!hasSupabaseConfig || !session?.user?.id) {
       setPosSales((prev) => prev.filter((sale) => String(sale.id) !== String(saleId)));
+      setCashMovements((prev) => prev.filter((movement) => String(movement.referenceId || '') !== String(saleId)));
       setModals((prev) => ({ ...prev, posSaleReceipt: false }));
       setSelectedData((prev) => ({ ...prev, posSaleReceipt: null }));
       notify('Venta cancelada.', 'success');
@@ -3305,8 +3603,18 @@ export default function App() {
     }
 
     try {
-      await deletePosSaleRecord(saleId);
+      const saleToCancel = (posSales || []).find((sale) => String(sale.id) === String(saleId));
+      await deletePosSaleRecord(
+        saleId,
+        session.user.id,
+        superAdminScopeOverride,
+        {
+          salonId: saleToCancel?.salonId || currentSalonId,
+          branchId: saleToCancel?.branchId || currentBranchId,
+        },
+      );
       setPosSales((prev) => prev.filter((sale) => String(sale.id) !== String(saleId)));
+      setCashMovements((prev) => prev.filter((movement) => String(movement.referenceId || '') !== String(saleId)));
       setModals((prev) => ({ ...prev, posSaleReceipt: false }));
       setSelectedData((prev) => ({ ...prev, posSaleReceipt: null }));
       notify('Venta cancelada.', 'success');
@@ -3530,7 +3838,18 @@ export default function App() {
             />
           )}
           {activeTab === 'services' && <ServicesView services={services} onAdd={(cat) => { setSelectedData({...selectedData, service: { category: cat }}); setModals({...modals, service: true}); }} onEdit={(s) => { setSelectedData({...selectedData, service: s}); setModals({...modals, service: true}); }} onDelete={handleDeleteService} />}
-          {activeTab === 'caja' && <POSView services={services} onSale={handleRegisterPosSale} />}
+          {activeTab === 'caja' && (
+            <POSView
+              services={services}
+              onSale={handleRegisterPosSale}
+              cashSession={activeCashSession}
+              cashMovements={activeCashMovements}
+              posSales={activeCashPosSales}
+              onOpenCashSession={handleOpenCashSession}
+              onCloseCashSession={handleCloseCashSession}
+              onCashMovement={handleCreateCashMovement}
+            />
+          )}
           {activeTab === 'reportes' && (
             <ReportsView
               appointments={appointments}
@@ -3571,6 +3890,7 @@ export default function App() {
       {modals.service && <ServiceEditorModal services={services} onClose={() => setModals({...modals, service: false})} onSave={handleSaveService} initial={selectedData.service} />}
       {modals.paymentReceipt && <PaymentReceiptModal data={selectedData.paymentReceipt} onClose={() => setModals({...modals, paymentReceipt: false})} onConfirmPayment={handleConfirmPayment} confirmAction={confirmAction} />}
       {modals.posSaleReceipt && <PosSaleReceiptModal data={selectedData.posSaleReceipt} onClose={() => setModals({...modals, posSaleReceipt: false})} onCancelSale={handleCancelPosSale} confirmAction={confirmAction} />}
+      {modals.cashClosureReceipt && <CashClosureReceiptModal data={selectedData.cashClosureReceipt} onClose={() => setModals({...modals, cashClosureReceipt: false})} />}
       {modals.staffSettlement && <StaffSettlementModal data={selectedData.staffSettlement} onClose={() => setModals({...modals, staffSettlement: false})} onConfirmSettlement={handleConfirmStaffSettlement} confirmAction={confirmAction} />}
       {showSelfPasswordModal && (
         <Suspense fallback={accessUiFallback}>
