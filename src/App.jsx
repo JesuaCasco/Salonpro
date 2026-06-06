@@ -4,6 +4,7 @@ import {
   createCashMovement,
   createManagedUser,
   createPosSale,
+  deleteCashMovementRecord,
   assignProfileSalon,
   deleteStylistRecord,
   deleteClientRecord,
@@ -3625,6 +3626,35 @@ export default function App() {
     }
   };
 
+  const handleCancelCashMovement = async (movementId) => {
+    if (!movementId) return false;
+
+    if (!hasSupabaseConfig || !session?.user?.id) {
+      setCashMovements((prev) => prev.filter((movement) => String(movement.id) !== String(movementId)));
+      notify('Movimiento anulado.', 'success');
+      return true;
+    }
+
+    try {
+      const movementToCancel = (cashMovements || []).find((movement) => String(movement.id) === String(movementId));
+      await deleteCashMovementRecord(
+        movementId,
+        session.user.id,
+        superAdminScopeOverride,
+        {
+          salonId: movementToCancel?.salonId || currentSalonId,
+          branchId: movementToCancel?.branchId || currentBranchId,
+        },
+      );
+      setCashMovements((prev) => prev.filter((movement) => String(movement.id) !== String(movementId)));
+      notify('Movimiento anulado.', 'success');
+      return true;
+    } catch (error) {
+      handleSyncError(error, 'No pude anular el movimiento de caja.');
+      return false;
+    }
+  };
+
   const getNextWalkinQueueTime = (stylistId, date = getTodayString()) => {
     return resolveWalkinQueueTime({ appointments, stylistId, date });
   };
@@ -3848,6 +3878,9 @@ export default function App() {
               onOpenCashSession={handleOpenCashSession}
               onCloseCashSession={handleCloseCashSession}
               onCashMovement={handleCreateCashMovement}
+              onCancelSale={handleCancelPosSale}
+              onCancelCashMovement={handleCancelCashMovement}
+              confirmAction={confirmAction}
             />
           )}
           {activeTab === 'reportes' && (

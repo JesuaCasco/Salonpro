@@ -348,6 +348,52 @@ begin
 end;
 $$;
 
+create or replace function public.cancel_cash_movement_atomic(
+  p_movement_id uuid,
+  p_salon_id uuid,
+  p_branch_id uuid
+)
+returns jsonb
+language plpgsql
+security invoker
+set search_path = public
+as $$
+declare
+  v_movement public.cash_movements%rowtype;
+  v_session public.cash_sessions%rowtype;
+begin
+  select *
+  into v_movement
+  from public.cash_movements
+  where id = p_movement_id
+    and salon_id = p_salon_id
+    and branch_id = p_branch_id
+    and movement_kind = 'manual'
+  for update;
+
+  if not found then
+    raise exception 'No se encontró el movimiento manual para anular.';
+  end if;
+
+  select *
+  into v_session
+  from public.cash_sessions
+  where id = v_movement.cash_session_id
+    and salon_id = p_salon_id
+    and branch_id = p_branch_id
+  for update;
+
+  if not found or v_session.status <> 'open' or v_session.closed_at is not null then
+    raise exception 'No se puede anular un movimiento de una caja cerrada.';
+  end if;
+
+  delete from public.cash_movements
+  where id = v_movement.id;
+
+  return to_jsonb(v_movement);
+end;
+$$;
+
 notify pgrst, 'reload schema';
 
 commit;

@@ -1598,3 +1598,21 @@ export async function deletePosSaleRecord(saleId, currentUserId, scopeOverride =
   });
   if (error) throw normalizeError(error, 'No se pudo cancelar la venta de POS.');
 }
+
+export async function deleteCashMovementRecord(movementId, currentUserId, scopeOverride = {}, movementScope = {}) {
+  assertSupabase();
+  const scope = await resolveUserScope(currentUserId, scopeOverride);
+  const resolvedSalonId = movementScope.salonId || scope.currentSalonId || null;
+  const resolvedBranchId = movementScope.branchId ?? scope.currentBranchId ?? null;
+
+  if (!resolvedSalonId) throw normalizeError(null, 'No se pudo resolver el salón para anular el movimiento.');
+  if (!resolvedBranchId) throw normalizeError(null, 'No se pudo resolver la sucursal para anular el movimiento.');
+  await validateBranchBelongsToSalon(resolvedSalonId, resolvedBranchId);
+
+  const { error } = await supabase.rpc('cancel_cash_movement_atomic', {
+    p_movement_id: movementId,
+    p_salon_id: resolvedSalonId,
+    p_branch_id: resolvedBranchId,
+  });
+  if (error) throw normalizeError(error, 'No se pudo anular el movimiento de caja.');
+}

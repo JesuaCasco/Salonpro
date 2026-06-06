@@ -11,6 +11,8 @@ import {
   CreditCard,
   DollarSign,
   Plus,
+  ReceiptText,
+  RotateCcw,
   Search,
   ShoppingBag,
   Sparkles,
@@ -395,6 +397,9 @@ export function POSView({
   onOpenCashSession,
   onCloseCashSession,
   onCashMovement,
+  onCancelSale,
+  onCancelCashMovement,
+  confirmAction,
 }) {
   const [cart, setCart] = useState([]);
   const [search, setSearch] = useState('');
@@ -544,6 +549,61 @@ export function POSView({
     ),
     [savedPromotions, cart],
   );
+  const dayMovements = useMemo(() => {
+    const saleRows = (posSales || []).map((sale) => {
+      const firstItem = Array.isArray(sale.items) && sale.items.length ? sale.items[0] : null;
+      const itemCount = Array.isArray(sale.items) ? sale.items.length : 0;
+      return {
+        id: `sale-${sale.id}`,
+        rawId: sale.id,
+        kind: 'sale',
+        title: firstItem?.name || 'Venta POS',
+        detail: itemCount > 1 ? `${itemCount} ítems` : (firstItem?.category || 'Cobro'),
+        method: sale.paymentMethod || 'cash',
+        amount: Number(sale.subtotal || 0),
+        createdAt: sale.createdAt,
+        canCancel: Boolean(cashSession),
+      };
+    });
+    const movementRows = (cashMovements || []).map((movement) => ({
+      id: `movement-${movement.id}`,
+      rawId: movement.id,
+      kind: movement.movementKind || 'manual',
+      type: movement.type || 'in',
+      title: movement.movementKind === 'opening'
+        ? 'Apertura de caja'
+        : (movement.notes || (movement.type === 'out' ? 'Salida manual' : 'Entrada manual')),
+      detail: movement.movementKind === 'opening'
+        ? 'Fondo inicial'
+        : (movement.type === 'out' ? 'Salida de efectivo' : 'Entrada de efectivo'),
+      method: movement.paymentMethod || 'cash',
+      amount: Number(movement.amount || 0),
+      createdAt: movement.createdAt,
+      canCancel: Boolean(cashSession && movement.movementKind === 'manual'),
+    }));
+
+    return [...saleRows, ...movementRows]
+      .sort((left, right) => new Date(right.createdAt || 0) - new Date(left.createdAt || 0));
+  }, [cashMovements, cashSession, posSales]);
+
+  const handleCancelMovementEntry = async (entry) => {
+    if (!entry?.canCancel) return;
+    const confirmed = await confirmAction?.({
+      title: entry.kind === 'sale' ? 'Anular venta' : 'Anular movimiento',
+      message: entry.kind === 'sale'
+        ? `¿Deseas anular esta venta por ${formatCurrency(entry.amount)}? Se eliminará también su movimiento de caja.`
+        : `¿Deseas anular este movimiento por ${formatCurrency(entry.amount)}?`,
+      confirmLabel: 'Anular',
+      cancelLabel: 'Volver',
+    });
+    if (!confirmed) return;
+
+    if (entry.kind === 'sale') {
+      await onCancelSale?.(entry.rawId);
+      return;
+    }
+    await onCancelCashMovement?.(entry.rawId);
+  };
 
 
   const addItem = (item) => {
@@ -763,15 +823,75 @@ export function POSView({
             </div>
           </div>
         </div>
-        <div className="flex-1 p-3 md:p-8 overflow-y-auto grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 md:gap-6 content-start custom-scrollbar">
-          {filtered.length === 0 && (
-            <div className="col-span-full rounded-[2rem] border border-dashed border-slate-700 bg-slate-950/70 p-10 text-center text-slate-500">
-              <p className="text-[10px] font-black uppercase tracking-[0.22em]">No se encontraron productos</p>
+        <div className="flex-1 overflow-y-auto p-3 md:p-8 custom-scrollbar">
+          {cashSession ? (
+            <section className="mb-5 rounded-[2rem] border border-[#f0a6c3] bg-white p-4 shadow-[0_16px_38px_rgba(196,74,126,0.10)]">
+              <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#c24f82]">Movimientos del día</p>
+                  <h4 className="mt-1 text-xl font-black uppercase italic tracking-tighter text-[#34242b]">Caja actual</h4>
+                </div>
+                <span className="rounded-2xl border border-[#f2c1d4] bg-[#fff7fb] px-4 py-2 text-[9px] font-black uppercase tracking-[0.16em] text-[#9b6076]">
+                  {dayMovements.length} registros
+                </span>
+              </div>
+
+              <div className="max-h-72 space-y-2 overflow-y-auto pr-1 custom-scrollbar">
+                {dayMovements.length === 0 ? (
+                  <div className="rounded-[1.5rem] border border-dashed border-[#efabc7] bg-[#fff9fc] p-5 text-center">
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#9b6076]">Sin movimientos todavía</p>
+                  </div>
+                ) : dayMovements.map((entry) => {
+                  const isOut = entry.type === 'out';
+                  const isSale = entry.kind === 'sale';
+                  const isOpening = entry.kind === 'opening';
+                  const methodLabel = entry.method === 'card'
+                    ? 'POS'
+                    : (entry.method === 'transfer' ? 'Transferencia' : 'Efectivo');
+                  return (
+                    <div key={entry.id} className="grid gap-3 rounded-[1.5rem] border border-[#f2c1d4] bg-[#fff9fc] p-3 sm:grid-cols-[auto_minmax(0,1fr)_auto_auto] sm:items-center">
+                      <div className={`flex h-11 w-11 items-center justify-center rounded-2xl text-white shadow-lg ${isSale ? 'bg-[#d94f83] shadow-[#d94f83]/20' : (isOut ? 'bg-[#b35a7b] shadow-[#b35a7b]/20' : 'bg-[#72b79b] shadow-[#72b79b]/20')}`}>
+                        {isSale ? <ReceiptText size={18} /> : (isOut ? <ArrowDown size={18} /> : <ArrowUp size={18} />)}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-black uppercase italic text-[#34242b]">{entry.title}</p>
+                        <p className="mt-1 text-[9px] font-black uppercase tracking-[0.14em] text-[#9b6076]">
+                          {entry.createdAt ? new Date(entry.createdAt).toLocaleTimeString('es-NI', { hour: '2-digit', minute: '2-digit' }) : '--:--'} · {entry.detail} · {methodLabel}
+                        </p>
+                      </div>
+                      <p className={`text-right text-lg font-black italic ${isOut ? 'text-[#b35a7b]' : 'text-[#426f64]'}`}>
+                        {isOut ? '-' : '+'}{formatCurrency(entry.amount)}
+                      </p>
+                      {entry.canCancel ? (
+                        <button
+                          type="button"
+                          onClick={() => handleCancelMovementEntry(entry)}
+                          className="flex items-center justify-center gap-2 rounded-2xl border border-[#f0a6c3] bg-white px-4 py-3 text-[9px] font-black uppercase tracking-[0.14em] text-[#8f2d5b] transition-all hover:bg-[#fff0f6] active:scale-95"
+                        >
+                          <RotateCcw size={14} /> Anular
+                        </button>
+                      ) : (
+                        <span className="rounded-2xl border border-[#f2c1d4] bg-white px-4 py-3 text-center text-[9px] font-black uppercase tracking-[0.14em] text-[#b4899c]">
+                          {isOpening ? 'Base' : 'Bloqueado'}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          ) : null}
+
+          <div className="grid grid-cols-2 content-start gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 md:gap-6">
+            {filtered.length === 0 && (
+              <div className="col-span-full rounded-[2rem] border border-dashed border-[#efabc7] bg-white/70 p-10 text-center text-[#9b6076]">
+                <p className="text-[10px] font-black uppercase tracking-[0.22em]">No se encontraron productos</p>
+              </div>
+            )}
+            {filtered.map((service) => (
+              <ProductCard key={service.id} service={service} onAdd={addItem} />
+            ))}
             </div>
-          )}
-          {filtered.map((service) => (
-            <ProductCard key={service.id} service={service} onAdd={addItem} />
-          ))}
         </div>
       </div>
 
