@@ -1,5 +1,5 @@
 ﻿import React, { useMemo, useState } from 'react';
-import { Gift, Scissors, Sparkles, X, Zap } from 'lucide-react';
+import { Gift, Package, Scissors, Sparkles, X, Zap } from 'lucide-react';
 
 import {
   CATEGORY_LABELS,
@@ -57,7 +57,7 @@ export function ServiceEditorModal({ services, onClose, onSave, initial }) {
         <div className="px-12 py-8 bg-gradient-to-br from-indigo-600/20 border-b border-slate-900 flex justify-between items-center text-white">
           <div className="flex items-center gap-6 text-white">
             <div className="w-14 h-14 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-lg">
-              {formData.category === 'Combo' ? <Zap size={28} /> : formData.category === 'Promocion' ? <Gift size={28} /> : ['Uñas', 'Facial', 'Tratamientos'].includes(formData.category) ? <Sparkles size={28} /> : <Scissors size={28} />}
+              {formData.category === 'Combo' ? <Zap size={28} /> : formData.category === 'Promocion' ? <Gift size={28} /> : formData.category === 'Producto' ? <Package size={28} /> : ['Uñas', 'Facial', 'Tratamientos'].includes(formData.category) ? <Sparkles size={28} /> : <Scissors size={28} />}
             </div>
             <div>
               <h3 className="text-2xl font-black uppercase italic text-white leading-none">{initial?.id ? 'Editar' : 'Nuevo'} Registro</h3>

@@ -4282,6 +4282,7 @@ function ServicesView({ services, onAdd, onEdit, onDelete }) {
   const getNewServiceLabel = (category) => {
     if (category === 'Promocion') return 'Nueva Promoción';
     if (category === 'Combo') return 'Nuevo Combo';
+    if (category === 'Producto') return 'Nuevo Producto';
     if (category === 'Tratamientos') return 'Nuevo Tratamiento';
     if (['Facial', 'Uñas'].includes(category)) return 'Nuevo Servicio';
     return `Nuevo ${CATEGORY_LABELS[category] || 'Servicio'}`;
