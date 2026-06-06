@@ -1089,7 +1089,7 @@ export function POSView({
                 </div>
               ) : (
                 <div className="overflow-hidden rounded-[1.8rem] border border-[#f0a6c3] bg-white">
-                  <div className="grid grid-cols-[5rem_minmax(0,1.15fr)_minmax(0,1fr)_8.5rem_8rem_9rem] border-b border-[#f5cddd] bg-[#fff7fb] px-4 py-3 text-[9px] font-black uppercase tracking-[0.16em] text-[#9b6076] max-lg:hidden">
+                  <div className="grid grid-cols-[6rem_minmax(13rem,1.2fr)_minmax(12rem,1fr)_8.5rem_8rem_8rem] gap-3 border-b border-[#f5cddd] bg-[#fff7fb] px-5 py-3 text-[9px] font-black uppercase tracking-[0.16em] text-[#9b6076] max-lg:hidden">
                     <span>Hora</span>
                     <span>Concepto</span>
                     <span>Detalle</span>
@@ -1113,38 +1113,35 @@ export function POSView({
                         ? `Ticket ${String(Number(entry.ticketNumber || 0)).padStart(6, '0')} · Servicios ${formatCurrency(entry.serviceTotal)} · Productos ${formatCurrency(entry.productTotal)}`
                         : (entry.notes || entry.detail);
                       return (
-                        <div key={entry.id} className="grid gap-3 px-4 py-3 text-sm max-lg:grid-cols-[auto_minmax(0,1fr)] lg:grid-cols-[5rem_minmax(0,1.15fr)_minmax(0,1fr)_8.5rem_8rem_9rem] lg:items-center">
-                          <div className="flex items-center gap-3 max-lg:col-span-2">
+                        <div key={entry.id} className="grid gap-3 px-5 py-3 text-sm max-lg:grid-cols-[minmax(0,1fr)] lg:grid-cols-[6rem_minmax(13rem,1.2fr)_minmax(12rem,1fr)_8.5rem_8rem_8rem] lg:items-center">
+                          <p className="font-black text-[#34242b] max-lg:hidden">{timeLabel}</p>
+                          <div className="flex min-w-0 items-center gap-3">
                             <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-white shadow-lg ${isSale ? 'bg-[#d94f83] shadow-[#d94f83]/20' : (isOut ? 'bg-[#b35a7b] shadow-[#b35a7b]/20' : 'bg-[#72b79b] shadow-[#72b79b]/20')}`}>
                               {isSale ? <ReceiptText size={17} /> : (isOut ? <ArrowDown size={17} /> : <ArrowUp size={17} />)}
                             </div>
-                            <div className="lg:hidden">
-                              <p className="font-black uppercase italic text-[#34242b]">{entry.title}</p>
-                              <p className="mt-1 text-[9px] font-black uppercase tracking-[0.14em] text-[#9b6076]">{timeLabel} · {methodLabel}</p>
+                            <div className="min-w-0">
+                              <p className="truncate font-black uppercase italic text-[#34242b]">{entry.title}</p>
+                              <p className="mt-1 text-[9px] font-black uppercase tracking-[0.14em] text-[#9b6076] lg:hidden">{timeLabel} · {methodLabel}</p>
                             </div>
-                          </div>
-                          <p className="font-black text-[#34242b] max-lg:hidden">{timeLabel}</p>
-                          <div className="min-w-0 max-lg:col-span-2 lg:min-w-0">
-                            <p className="truncate font-black uppercase italic text-[#34242b] max-lg:hidden">{entry.title}</p>
                             <p className="mt-1 line-clamp-2 text-[10px] font-bold uppercase tracking-[0.08em] text-[#9b6076] lg:hidden">{detailText}</p>
                           </div>
                           <p className="line-clamp-2 text-[10px] font-bold uppercase tracking-[0.08em] text-[#9b6076] max-lg:hidden">{detailText}</p>
                           <span className="rounded-full border border-[#f2c1d4] bg-[#fff7fb] px-3 py-1.5 text-center text-[9px] font-black uppercase tracking-[0.12em] text-[#8f2d5b] max-lg:w-fit">
                             {methodLabel}
                           </span>
-                          <p className={`text-right text-lg font-black italic ${isOut ? 'text-[#b35a7b]' : 'text-[#426f64]'}`}>
+                          <p className={`text-right text-lg font-black italic max-lg:text-left ${isOut ? 'text-[#b35a7b]' : 'text-[#426f64]'}`}>
                             {isOut ? '-' : '+'}{formatCurrency(entry.amount)}
                           </p>
                           {entry.canCancel ? (
                             <button
                               type="button"
                               onClick={() => handleCancelMovementEntry(entry)}
-                              className="flex min-w-[7.5rem] items-center justify-center gap-2 justify-self-end rounded-2xl border border-[#f0a6c3] bg-white px-4 py-3 text-[9px] font-black uppercase tracking-[0.12em] text-[#8f2d5b] transition-all hover:bg-[#fff0f6] active:scale-95"
+                              className="flex min-w-[6.8rem] items-center justify-center gap-2 justify-self-end rounded-2xl border border-[#f0a6c3] bg-white px-3 py-2.5 text-[9px] font-black uppercase tracking-[0.1em] text-[#8f2d5b] transition-all hover:bg-[#fff0f6] active:scale-95 max-lg:justify-self-start"
                             >
                               <RotateCcw size={14} /> Anular
                             </button>
                           ) : (
-                            <span className="inline-flex min-w-[7.5rem] items-center justify-center justify-self-end rounded-2xl border border-[#f2c1d4] bg-[#fff7fb] px-3 py-2 text-center text-[8px] font-black uppercase tracking-[0.1em] text-[#b4899c]">
+                            <span className="inline-flex min-w-[6.8rem] items-center justify-center justify-self-end rounded-2xl border border-[#f2c1d4] bg-[#fff7fb] px-3 py-2 text-center text-[8px] font-black uppercase tracking-[0.08em] text-[#b4899c] max-lg:justify-self-start">
                               {isOpening ? 'Base' : 'Bloqueado'}
                             </span>
                           )}
