@@ -3881,6 +3881,7 @@ export default function App() {
               onCancelSale={handleCancelPosSale}
               onCancelCashMovement={handleCancelCashMovement}
               confirmAction={confirmAction}
+              users={accessControl.users}
             />
           )}
           {activeTab === 'reportes' && (

@@ -401,6 +401,7 @@ export function POSView({
   onCancelSale,
   onCancelCashMovement,
   confirmAction,
+  users = [],
 }) {
   const [cart, setCart] = useState([]);
   const [search, setSearch] = useState('');
@@ -551,6 +552,22 @@ export function POSView({
     ),
     [savedPromotions, cart],
   );
+  const userNameById = useMemo(() => (
+    new Map((users || []).map((user) => [
+      String(user.id),
+      user.fullName || user.email || 'Usuario',
+    ]))
+  ), [users]);
+  const resolveUserName = (userId) => {
+    if (!userId) return 'Sistema';
+    return userNameById.get(String(userId)) || 'Usuario';
+  };
+  const summarizeItems = (items = []) => {
+    if (!Array.isArray(items) || items.length === 0) return 'Venta sin detalle';
+    return items
+      .map((item) => `${item.name || 'Item'} x${Number(item.qty || 1)}`)
+      .join(' · ');
+  };
   const dayMovements = useMemo(() => {
     const saleRows = (posSales || []).map((sale) => {
       const firstItem = Array.isArray(sale.items) && sale.items.length ? sale.items[0] : null;
@@ -561,6 +578,7 @@ export function POSView({
         kind: 'sale',
         title: firstItem?.name || 'Venta POS',
         detail: itemCount > 1 ? `${itemCount} ítems` : (firstItem?.category || 'Cobro'),
+        sourceDetail: summarizeItems(sale.items),
         method: sale.paymentMethod || 'cash',
         amount: Number(sale.subtotal || 0),
         productTotal: Number(sale.productTotal || 0),
@@ -568,6 +586,7 @@ export function POSView({
         discountTotal: Number(sale.discountTotal || 0),
         ticketNumber: sale.ticketNumber || 0,
         items: Array.isArray(sale.items) ? sale.items : [],
+        createdBy: sale.createdBy || null,
         createdAt: sale.createdAt,
         canCancel: Boolean(cashSession),
       };
@@ -583,9 +602,13 @@ export function POSView({
       detail: movement.movementKind === 'opening'
         ? 'Fondo inicial'
         : (movement.type === 'out' ? 'Salida de efectivo' : 'Entrada de efectivo'),
+      sourceDetail: movement.movementKind === 'opening'
+        ? 'Fondo inicial de caja'
+        : (movement.notes || (movement.type === 'out' ? 'Salida manual de efectivo' : 'Entrada manual de efectivo')),
       method: movement.paymentMethod || 'cash',
       amount: Number(movement.amount || 0),
       notes: movement.notes || '',
+      createdBy: movement.createdBy || null,
       createdAt: movement.createdAt,
       canCancel: Boolean(cashSession && movement.movementKind === 'manual'),
     }));
@@ -1089,10 +1112,11 @@ export function POSView({
                 </div>
               ) : (
                 <div className="overflow-hidden rounded-[1.8rem] border border-[#f0a6c3] bg-white">
-                  <div className="grid grid-cols-[6rem_minmax(13rem,1.2fr)_minmax(12rem,1fr)_8.5rem_8rem_8rem] gap-3 border-b border-[#f5cddd] bg-[#fff7fb] px-5 py-3 text-[9px] font-black uppercase tracking-[0.16em] text-[#9b6076] max-lg:hidden">
+                  <div className="grid grid-cols-[5.5rem_minmax(12rem,1fr)_minmax(14rem,1.4fr)_minmax(8rem,0.8fr)_8rem_7.5rem_7rem] gap-3 border-b border-[#f5cddd] bg-[#fff7fb] px-5 py-3 text-[9px] font-black uppercase tracking-[0.16em] text-[#9b6076] max-xl:hidden">
                     <span>Hora</span>
                     <span>Concepto</span>
-                    <span>Detalle</span>
+                    <span>Qué generó el movimiento</span>
+                    <span>Usuario</span>
                     <span>Método</span>
                     <span className="text-right">Monto</span>
                     <span className="text-right">Acción</span>
@@ -1109,39 +1133,38 @@ export function POSView({
                       const timeLabel = entry.createdAt
                         ? new Date(entry.createdAt).toLocaleTimeString('es-NI', { hour: '2-digit', minute: '2-digit' })
                         : '--:--';
-                      const detailText = isSale
-                        ? `Ticket ${String(Number(entry.ticketNumber || 0)).padStart(6, '0')} · Servicios ${formatCurrency(entry.serviceTotal)} · Productos ${formatCurrency(entry.productTotal)}`
-                        : (entry.notes || entry.detail);
+                      const detailText = entry.sourceDetail || entry.detail;
+                      const userLabel = resolveUserName(entry.createdBy);
                       return (
-                        <div key={entry.id} className="grid gap-3 px-5 py-3 text-sm max-lg:grid-cols-[minmax(0,1fr)] lg:grid-cols-[6rem_minmax(13rem,1.2fr)_minmax(12rem,1fr)_8.5rem_8rem_8rem] lg:items-center">
-                          <p className="font-black text-[#34242b] max-lg:hidden">{timeLabel}</p>
+                        <div key={entry.id} className="grid gap-3 px-5 py-3 text-sm max-xl:grid-cols-[minmax(0,1fr)] xl:grid-cols-[5.5rem_minmax(12rem,1fr)_minmax(14rem,1.4fr)_minmax(8rem,0.8fr)_8rem_7.5rem_7rem] xl:items-center">
+                          <p className="font-black text-[#34242b] max-xl:hidden">{timeLabel}</p>
                           <div className="flex min-w-0 items-center gap-3">
                             <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-white shadow-lg ${isSale ? 'bg-[#d94f83] shadow-[#d94f83]/20' : (isOut ? 'bg-[#b35a7b] shadow-[#b35a7b]/20' : 'bg-[#72b79b] shadow-[#72b79b]/20')}`}>
                               {isSale ? <ReceiptText size={17} /> : (isOut ? <ArrowDown size={17} /> : <ArrowUp size={17} />)}
                             </div>
                             <div className="min-w-0">
                               <p className="truncate font-black uppercase italic text-[#34242b]">{entry.title}</p>
-                              <p className="mt-1 text-[9px] font-black uppercase tracking-[0.14em] text-[#9b6076] lg:hidden">{timeLabel} · {methodLabel}</p>
+                              <p className="mt-1 text-[9px] font-black uppercase tracking-[0.14em] text-[#9b6076] xl:hidden">{timeLabel} · {methodLabel} · {userLabel}</p>
                             </div>
-                            <p className="mt-1 line-clamp-2 text-[10px] font-bold uppercase tracking-[0.08em] text-[#9b6076] lg:hidden">{detailText}</p>
                           </div>
-                          <p className="line-clamp-2 text-[10px] font-bold uppercase tracking-[0.08em] text-[#9b6076] max-lg:hidden">{detailText}</p>
+                          <p className="line-clamp-2 text-[10px] font-bold uppercase tracking-[0.08em] text-[#9b6076] max-xl:rounded-2xl max-xl:border max-xl:border-[#f2c1d4] max-xl:bg-[#fff7fb] max-xl:px-3 max-xl:py-2">{detailText}</p>
+                          <p className="truncate text-[10px] font-black uppercase tracking-[0.1em] text-[#8f2d5b] max-xl:hidden">{userLabel}</p>
                           <span className="rounded-full border border-[#f2c1d4] bg-[#fff7fb] px-3 py-1.5 text-center text-[9px] font-black uppercase tracking-[0.12em] text-[#8f2d5b] max-lg:w-fit">
                             {methodLabel}
                           </span>
-                          <p className={`text-right text-lg font-black italic max-lg:text-left ${isOut ? 'text-[#b35a7b]' : 'text-[#426f64]'}`}>
+                          <p className={`text-right text-lg font-black italic max-xl:text-left ${isOut ? 'text-[#b35a7b]' : 'text-[#426f64]'}`}>
                             {isOut ? '-' : '+'}{formatCurrency(entry.amount)}
                           </p>
                           {entry.canCancel ? (
                             <button
                               type="button"
                               onClick={() => handleCancelMovementEntry(entry)}
-                              className="flex min-w-[6.8rem] items-center justify-center gap-2 justify-self-end rounded-2xl border border-[#f0a6c3] bg-white px-3 py-2.5 text-[9px] font-black uppercase tracking-[0.1em] text-[#8f2d5b] transition-all hover:bg-[#fff0f6] active:scale-95 max-lg:justify-self-start"
+                              className="flex min-w-[6.4rem] items-center justify-center gap-2 justify-self-end rounded-2xl border border-[#f0a6c3] bg-white px-3 py-2.5 text-[9px] font-black uppercase tracking-[0.1em] text-[#8f2d5b] transition-all hover:bg-[#fff0f6] active:scale-95 max-xl:justify-self-start"
                             >
                               <RotateCcw size={14} /> Anular
                             </button>
                           ) : (
-                            <span className="inline-flex min-w-[6.8rem] items-center justify-center justify-self-end rounded-2xl border border-[#f2c1d4] bg-[#fff7fb] px-3 py-2 text-center text-[8px] font-black uppercase tracking-[0.08em] text-[#b4899c] max-lg:justify-self-start">
+                            <span className="inline-flex min-w-[6.4rem] items-center justify-center justify-self-end rounded-2xl border border-[#f2c1d4] bg-[#fff7fb] px-3 py-2 text-center text-[8px] font-black uppercase tracking-[0.08em] text-[#b4899c] max-xl:justify-self-start">
                               {isOpening ? 'Base' : 'Bloqueado'}
                             </span>
                           )}
