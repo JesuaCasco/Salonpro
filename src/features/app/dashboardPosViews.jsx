@@ -1067,7 +1067,7 @@ export function POSView({
 
       {movementsModalOpen && cashSession ? createPortal((
         <div className="fixed inset-0 z-[235] flex min-h-screen items-center justify-center bg-[#211720]/85 p-3 backdrop-blur-xl md:p-5">
-          <div className="flex max-h-[calc(100vh-1rem)] w-full max-w-6xl flex-col overflow-hidden rounded-[2rem] border border-[#efabc7] bg-gradient-to-br from-white via-[#fff7fb] to-[#ffe3ef] text-[#34242b] shadow-[0_35px_120px_rgba(33,23,32,0.55)]">
+          <div className="flex max-h-[calc(100vh-1rem)] w-full max-w-[min(96vw,92rem)] flex-col overflow-hidden rounded-[2rem] border border-[#efabc7] bg-gradient-to-br from-white via-[#fff7fb] to-[#ffe3ef] text-[#34242b] shadow-[0_35px_120px_rgba(33,23,32,0.55)]">
             <div className="border-b border-[#f5cddd] px-5 py-4 md:px-7">
               <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div>
@@ -1112,7 +1112,7 @@ export function POSView({
                 </div>
               ) : (
                 <div className="overflow-hidden rounded-[1.8rem] border border-[#f0a6c3] bg-white">
-                  <div className="grid grid-cols-[5.5rem_minmax(12rem,1fr)_minmax(14rem,1.4fr)_minmax(8rem,0.8fr)_8rem_7.5rem_7rem] gap-3 border-b border-[#f5cddd] bg-[#fff7fb] px-5 py-3 text-[9px] font-black uppercase tracking-[0.16em] text-[#9b6076] max-xl:hidden">
+                  <div className="grid grid-cols-[5.5rem_minmax(13rem,1fr)_minmax(18rem,1.5fr)_minmax(9rem,0.8fr)_8rem_8rem_8rem] gap-3 border-b border-[#f5cddd] bg-[#fff7fb] px-5 py-3 text-[9px] font-black uppercase tracking-[0.16em] text-[#9b6076] max-xl:hidden">
                     <span>Hora</span>
                     <span>Concepto</span>
                     <span>Qué generó el movimiento</span>
@@ -1136,7 +1136,7 @@ export function POSView({
                       const detailText = entry.sourceDetail || entry.detail;
                       const userLabel = resolveUserName(entry.createdBy);
                       return (
-                        <div key={entry.id} className="grid gap-3 px-5 py-3 text-sm max-xl:grid-cols-[minmax(0,1fr)] xl:grid-cols-[5.5rem_minmax(12rem,1fr)_minmax(14rem,1.4fr)_minmax(8rem,0.8fr)_8rem_7.5rem_7rem] xl:items-center">
+                        <div key={entry.id} className="grid gap-3 px-5 py-3 text-sm max-xl:grid-cols-[minmax(0,1fr)] xl:grid-cols-[5.5rem_minmax(13rem,1fr)_minmax(18rem,1.5fr)_minmax(9rem,0.8fr)_8rem_8rem_8rem] xl:items-center">
                           <p className="font-black text-[#34242b] max-xl:hidden">{timeLabel}</p>
                           <div className="flex min-w-0 items-center gap-3">
                             <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-white shadow-lg ${isSale ? 'bg-[#d94f83] shadow-[#d94f83]/20' : (isOut ? 'bg-[#b35a7b] shadow-[#b35a7b]/20' : 'bg-[#72b79b] shadow-[#72b79b]/20')}`}>
