@@ -737,7 +737,7 @@ export function POSView({
         entry.canCancel ? 'Anulable' : (entry.kind === 'opening' ? 'Base' : 'Bloqueado'),
       ].map(escapeCsv).join(',');
     });
-    const headers = ['Fecha y hora', 'Concepto', 'Detalle', 'Cliente', 'Estilista', 'Usuario', 'Método', 'Monto', 'Estado'];
+    const headers = ['Fecha y hora', 'Concepto', 'Detalle', 'Cliente', 'Estilista', 'Usuario', 'Metodo', 'Monto', 'Estado'];
     const csv = `\uFEFFsep=,\r\n${headers.map(escapeCsv).join(',')}\r\n${rows.join('\r\n')}`;
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
