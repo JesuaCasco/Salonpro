@@ -2748,18 +2748,37 @@ export default function App() {
     let serviceSaleRecord = null;
     if (status === 'Finalizada' && apt.status !== 'Finalizada' && extra) {
       const appointmentClient = clients.find((client) => String(client.id) === String(updatedAppointment.clientId || ''));
+      const appointmentStylist = stylists.find((stylist) => String(stylist.id) === String(updatedAppointment.stylistId || ''));
+      const normalizeChargedItem = (item) => {
+        const matchedService = (services || []).find((service) => (
+          String(service.id || '') === String(item.id || '')
+          || String(service.name || '').toLowerCase() === String(item.name || '').toLowerCase()
+        ));
+        return {
+          id: item.id,
+          name: item.name,
+          category: item.category || matchedService?.category || 'Servicio',
+          price: Number(item.price) || 0,
+          qty: Number(item.qty) || 1,
+          source: 'appointment',
+          appointmentId: updatedAppointment.id,
+          stylistId: updatedAppointment.stylistId || null,
+          stylistName: appointmentStylist?.name || updatedAppointment.stylistName || '',
+          clientName: appointmentClient?.name || updatedAppointment.clientName || 'Cliente genérico',
+        };
+      };
       serviceSaleRecord = await handleRegisterPosSale({
         clientId: updatedAppointment.clientId || null,
         clientName: appointmentClient?.name || updatedAppointment.clientName || 'Cliente genérico',
         items: Array.isArray(extra.items) && extra.items.length
-          ? extra.items
-          : [{
-              id: updatedAppointment.serviceId || updatedAppointment.id,
-              name: updatedAppointment.service || 'Servicio',
-              category: 'Servicio',
-              price: Number(updatedAppointment.grossAmount || updatedAppointment.price || 0),
-              qty: 1,
-            }],
+          ? extra.items.map(normalizeChargedItem)
+          : [normalizeChargedItem({
+            id: updatedAppointment.serviceId || updatedAppointment.id,
+            name: updatedAppointment.service || 'Servicio',
+            category: 'Servicio',
+            price: Number(updatedAppointment.grossAmount || updatedAppointment.price || 0),
+            qty: 1,
+          })],
         rawSubtotal: Number(extra.grossAmount ?? extra.price ?? 0),
         discountTotal: Number(extra.discountAmount || 0),
         subtotal: Number(extra.price || 0),
@@ -3506,6 +3525,11 @@ export default function App() {
         category: item.category,
         price: Number(item.price) || 0,
         qty: Number(item.qty) || 0,
+        source: item.source || '',
+        appointmentId: item.appointmentId || null,
+        stylistId: item.stylistId || null,
+        stylistName: item.stylistName || '',
+        clientName: item.clientName || '',
       })),
       rawSubtotal,
       discountTotal,

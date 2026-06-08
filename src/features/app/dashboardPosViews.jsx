@@ -396,10 +396,38 @@ const summarizeMovementItems = (items = []) => {
     .join(' · ');
 };
 
+const SERVICE_INCOME_LABELS = {
+  Cabello: 'Servicio de cabello',
+  Tratamientos: 'Tratamiento',
+  Facial: 'Servicio facial',
+  Uñas: 'Servicio de uñas',
+  Combo: 'Combo de servicios',
+  Promociones: 'Promoción',
+  Servicio: 'Servicio',
+};
+
+const getUniqueLabels = (values = []) => [...new Set(values.filter(Boolean))];
+
+const getSaleIncomeType = (sale) => {
+  const items = Array.isArray(sale.items) ? sale.items : [];
+  const categories = getUniqueLabels(items.map((item) => item.category || 'Servicio'));
+  const hasProducts = categories.includes('Producto') || Number(sale.productTotal || 0) > 0;
+  const serviceCategories = categories.filter((category) => category !== 'Producto');
+  const hasServices = serviceCategories.length > 0 || Number(sale.serviceTotal || 0) > 0;
+
+  if (hasProducts && hasServices) return 'Venta mixta';
+  if (hasProducts) return 'Venta de producto';
+  if (serviceCategories.length === 1) return SERVICE_INCOME_LABELS[serviceCategories[0]] || 'Servicio';
+  if (serviceCategories.length > 1) return 'Servicios varios';
+  return 'Ingreso por servicio';
+};
+
 const summarizeSaleMovementSource = (sale) => {
   const itemSummary = summarizeMovementItems(sale.items);
   const clientLabel = sale.clientName ? `Cliente: ${sale.clientName}` : '';
-  return [itemSummary, clientLabel].filter(Boolean).join(' · ');
+  const stylistNames = getUniqueLabels((sale.items || []).map((item) => item.stylistName));
+  const stylistLabel = stylistNames.length ? `Estilista: ${stylistNames.join(', ')}` : '';
+  return [itemSummary, clientLabel, stylistLabel].filter(Boolean).join(' · ');
 };
 
 export function POSView({
@@ -593,13 +621,15 @@ export function POSView({
     const saleRows = (posSales || []).map((sale) => {
       const firstItem = Array.isArray(sale.items) && sale.items.length ? sale.items[0] : null;
       const itemCount = Array.isArray(sale.items) ? sale.items.length : 0;
+      const incomeType = getSaleIncomeType(sale);
       return {
         id: `sale-${sale.id}`,
         rawId: sale.id,
         kind: 'sale',
-        title: firstItem?.name || 'Venta POS',
-        detail: itemCount > 1 ? `${itemCount} ítems` : (firstItem?.category || 'Cobro'),
+        title: incomeType,
+        detail: itemCount > 1 ? `${itemCount} ítems cobrados` : (firstItem?.name || 'Cobro'),
         sourceDetail: summarizeSaleMovementSource(sale),
+        incomeType,
         method: sale.paymentMethod || 'cash',
         amount: Number(sale.subtotal || 0),
         productTotal: Number(sale.productTotal || 0),
