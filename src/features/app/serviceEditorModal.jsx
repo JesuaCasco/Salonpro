@@ -52,7 +52,7 @@ export function ServiceEditorModal({ services, onClose, onSave, initial }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/95 backdrop-blur-xl animate-in fade-in text-white no-print">
+    <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/95 backdrop-blur-xl animate-in fade-in text-white no-print">
       <div className="bg-slate-950 w-full max-w-xl rounded-[3.5rem] shadow-2xl border border-slate-800 animate-in zoom-in-95 max-h-[95vh] flex flex-col text-white overflow-hidden">
         <div className="px-12 py-8 bg-gradient-to-br from-indigo-600/20 border-b border-slate-900 flex justify-between items-center text-white">
           <div className="flex items-center gap-6 text-white">

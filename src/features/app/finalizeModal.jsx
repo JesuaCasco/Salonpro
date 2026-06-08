@@ -126,7 +126,7 @@ export function FinalizeModal({ onClose, onConfirm, services, clients, initial }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-xl p-4 animate-in fade-in text-white no-print">
+    <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/95 backdrop-blur-xl p-4 animate-in fade-in text-white no-print">
       <div className="relative bg-slate-950 w-full max-w-[92rem] rounded-[2.4rem] shadow-2xl border border-slate-800 animate-in zoom-in h-[92vh] md:h-[94vh] flex flex-col text-white overflow-hidden">
         <div className="p-5 md:px-7 md:py-4 border-b border-slate-900 flex justify-between items-center bg-black">
           <div>

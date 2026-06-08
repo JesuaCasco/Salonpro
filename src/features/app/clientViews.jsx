@@ -203,7 +203,7 @@ export function ClientDetailModal({ client, clients, appointments, stylists, onC
   const TypeIcon = stats.type.icon;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/95 backdrop-blur-xl animate-in fade-in text-white overflow-hidden no-print">
+    <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/95 backdrop-blur-xl animate-in fade-in text-white overflow-hidden no-print">
       <div className="relative bg-slate-950 w-full max-w-6xl rounded-[2rem] md:rounded-[3rem] shadow-2xl border border-slate-800 animate-in zoom-in-95 h-[92vh] flex flex-col text-white overflow-hidden">
         <button onClick={onClose} className="absolute right-4 top-4 z-20 p-2.5 bg-slate-900 rounded-2xl text-slate-400 hover:text-rose-500 transition-all text-white"><X size={22} /></button>
         <div className="flex flex-col md:flex-row h-full text-white overflow-hidden rounded-[2rem] md:rounded-[3rem]">

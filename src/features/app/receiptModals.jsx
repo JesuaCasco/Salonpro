@@ -61,7 +61,7 @@ export function CashClosureReceiptModal({ data, onClose }) {
   ];
 
   return (
-    <div className="fixed inset-0 z-[115] flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl animate-in fade-in text-white no-print">
+    <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl animate-in fade-in text-white no-print">
       <div className="bg-white text-black w-full max-w-4xl rounded-[2rem] overflow-hidden shadow-2xl animate-in zoom-in-95 flex flex-col max-h-[95vh]">
         <div className="p-6 md:p-10 overflow-y-auto custom-scrollbar" id="printable-receipt">
           <div className="flex items-start justify-between gap-6 border-b border-slate-200 pb-6">
@@ -160,7 +160,7 @@ export function PaymentReceiptModal({ data, onClose, onConfirmPayment, confirmAc
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl animate-in fade-in text-white no-print">
+    <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl animate-in fade-in text-white no-print">
       <div className="bg-white text-black w-full max-w-lg rounded-[2.5rem] overflow-hidden shadow-2xl animate-in zoom-in-95 flex flex-col max-h-[95vh]">
         <div className="p-10 overflow-y-auto custom-scrollbar" id="printable-receipt">
           <div className="text-center mb-8">
@@ -288,7 +288,7 @@ export function PosSaleReceiptModal({ data, onClose, onCancelSale, confirmAction
   };
 
   return (
-    <div className="fixed inset-0 z-[105] flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl animate-in fade-in text-white no-print">
+    <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl animate-in fade-in text-white no-print">
       <div className="bg-white text-black w-full max-w-lg rounded-[2.5rem] overflow-hidden shadow-2xl animate-in zoom-in-95 flex flex-col max-h-[95vh]">
         <div className="p-10 overflow-y-auto custom-scrollbar" id="printable-receipt">
           <div className="text-center mb-8">
@@ -420,7 +420,7 @@ export function StaffSettlementModal({ data, onClose, onConfirmSettlement, confi
   };
 
   return (
-    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl animate-in fade-in text-white no-print">
+    <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl animate-in fade-in text-white no-print">
       <div className="bg-white text-black w-full max-w-7xl rounded-[2rem] md:rounded-[2.5rem] overflow-hidden shadow-2xl animate-in zoom-in-95 flex flex-col max-h-[95vh]">
         <div className="p-4 md:p-10 overflow-y-auto custom-scrollbar" id="printable-staff-settlement">
           <div className="flex items-start justify-between gap-6 mb-8">

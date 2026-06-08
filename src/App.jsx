@@ -601,7 +601,7 @@ function SystemView({
       )}
 
       {isSuperAdmin && showCreateSalon && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 p-4 backdrop-blur-md animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/80 p-4 backdrop-blur-md animate-in fade-in duration-300">
           <div className="w-full max-w-5xl bg-slate-950 border border-white/10 rounded-[3rem] overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.8)] animate-in zoom-in-95 duration-300 relative text-white max-h-[88vh] overflow-y-auto custom-scrollbar">
             <button
               type="button"
@@ -710,7 +710,7 @@ function SystemView({
       )}
 
       {showBranchForm && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 p-4 backdrop-blur-md animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/80 p-4 backdrop-blur-md animate-in fade-in duration-300">
           <div className="w-full max-w-4xl bg-slate-950 border border-white/10 rounded-[3rem] overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.8)] animate-in zoom-in-95 duration-300 relative text-white max-h-[88vh] overflow-y-auto custom-scrollbar">
             <button
               type="button"
@@ -1152,7 +1152,7 @@ function SystemView({
 
         <div className="p-4 md:p-8 space-y-5">
           {canCreateUsers && showCreateUser && (
-            <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 p-4 backdrop-blur-md animate-in fade-in duration-300">
+            <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/80 p-4 backdrop-blur-md animate-in fade-in duration-300">
               <div className="w-full max-w-4xl bg-slate-950 border border-white/10 rounded-[3rem] overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.8)] animate-in zoom-in-95 duration-300 relative text-white max-h-[88vh] overflow-y-auto custom-scrollbar">
                 <button
                   type="button"
@@ -4125,7 +4125,7 @@ export default function App() {
         )
       )}
       {confirmState && (
-        <div className="no-print fixed inset-0 z-[140] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+        <div className="no-print fixed inset-0 z-[320] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
           <div className="w-full max-w-lg rounded-[2rem] border border-white/10 bg-slate-950 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.7)]">
             <h3 className="text-xl font-black uppercase italic tracking-tighter text-white">
               {confirmState.title}
@@ -4817,7 +4817,7 @@ function StylistsView({ stylists, appointments, branches, currentSalonId, curren
       </div>
 
       {isModalOpen && (
-        <div className="fixed top-[64px] bottom-0 left-0 right-0 lg:left-[13.25rem] z-40 flex items-start justify-center overflow-y-auto bg-black/70 p-4 md:p-6 backdrop-blur-md animate-in fade-in duration-300 text-white">
+        <div className="fixed top-[64px] bottom-0 left-0 right-0 lg:left-[13.25rem] z-[300] flex items-start justify-center overflow-y-auto bg-black/70 p-4 md:p-6 backdrop-blur-md animate-in fade-in duration-300 text-white">
           <div className="w-full max-w-[70rem] max-h-[calc(100dvh-7rem)] bg-slate-950 border border-white/10 rounded-[2.4rem] overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.8)] animate-in zoom-in-95 duration-300 flex flex-col md:flex-row relative text-white">
             
             <button onClick={closeModal} className="absolute top-6 right-6 p-3 rounded-2xl bg-white/5 hover:bg-rose-500/20 text-white/40 hover:text-rose-400 transition-all z-20 text-white">
@@ -6251,7 +6251,7 @@ function ClientModal({ onClose, onSave, clients, initial }) {
     onSave({ ...formData, phone: formattedPhone }); 
   };
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl animate-in fade-in text-white no-print">
+    <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl animate-in fade-in text-white no-print">
       <div className="bg-slate-950 w-full max-w-lg rounded-[3rem] overflow-hidden shadow-2xl border border-slate-800 animate-in zoom-in-95 text-white">
         <div className="px-10 py-12 bg-gradient-to-br from-indigo-600/30 border-b border-slate-800 flex justify-between items-center text-white">
           <div className="flex items-center gap-5 text-white"><div className="w-16 h-16 bg-indigo-600 rounded-[2rem] flex items-center justify-center text-white"><UserPlus size={32}/></div><div><h3 className="text-3xl font-black uppercase italic text-white leading-none">{initial ? 'Editar Ficha' : 'Nuevo Cliente'}</h3></div></div>
@@ -6293,7 +6293,7 @@ function TransferAppointmentModal({ appointment, appointments, clients, stylists
   };
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 backdrop-blur-md p-4 animate-in fade-in text-white no-print">
+    <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/70 backdrop-blur-md p-4 animate-in fade-in text-white no-print">
       <form onSubmit={handleSubmit} className="w-full max-w-2xl rounded-[2rem] border border-slate-800 bg-slate-950 shadow-2xl animate-in zoom-in-95 overflow-hidden">
         <div className="flex items-center justify-between gap-4 border-b border-slate-800 bg-black px-5 py-4">
           <div className="flex items-center gap-4 min-w-0">
@@ -6423,7 +6423,7 @@ function RescheduleAppointmentModal({ appointment, appointments, clients, stylis
   };
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 backdrop-blur-md p-4 animate-in fade-in text-white no-print">
+    <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/70 backdrop-blur-md p-4 animate-in fade-in text-white no-print">
       <form onSubmit={handleSubmit} className="w-full max-w-2xl rounded-[2rem] border border-slate-800 bg-slate-950 shadow-2xl animate-in zoom-in-95 overflow-hidden">
         <div className="flex items-center justify-between gap-4 border-b border-slate-800 bg-black px-5 py-4">
           <div className="flex items-center gap-4 min-w-0">
@@ -6528,7 +6528,7 @@ function AppointmentActionsModal({ appointment, clients, stylists, onClose, onUp
   const canMarkLost = appointment.type === 'reserva' && appointment.status === 'Confirmada';
 
   return (
-    <div className="fixed inset-0 z-[68] flex items-center justify-center bg-black/70 backdrop-blur-md p-4 animate-in fade-in text-white no-print">
+    <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/70 backdrop-blur-md p-4 animate-in fade-in text-white no-print">
       <div className="w-full max-w-xl rounded-[2rem] border border-slate-800 bg-slate-950 shadow-2xl animate-in zoom-in-95 overflow-hidden">
         <div className="flex items-center justify-between gap-4 border-b border-slate-800 bg-black px-5 py-4">
           <div className="flex items-center gap-4 min-w-0">
@@ -6753,7 +6753,7 @@ function AppointmentModal({ onClose, onSave, services, clients, stylists, initia
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-4 md:p-8 animate-in fade-in text-white no-print">
+    <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/75 backdrop-blur-md p-4 md:p-8 animate-in fade-in text-white no-print">
       <div className="appointment-modal bg-slate-950 w-full max-w-4xl rounded-[2.25rem] shadow-2xl border border-slate-800 animate-in zoom-in-95 overflow-hidden flex flex-col max-h-[88vh] text-white">
         <div className="px-6 py-4 bg-black border-b border-slate-800 flex justify-between items-center text-white">
           <div className="flex items-center gap-4 text-white">
