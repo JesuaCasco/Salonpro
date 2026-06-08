@@ -651,8 +651,9 @@
       background: white !important;
       color: black !important;
     }
-    aside, main, header, .no-print {
+    aside, main, header, .no-print, .no-print * {
       display: none !important;
+      visibility: hidden !important;
     }
     .fixed.inset-0 {
       position: absolute !important;

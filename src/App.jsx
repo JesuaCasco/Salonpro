@@ -4010,7 +4010,7 @@ export default function App() {
             </div>
           </div>
         ) : (
-          <div className="fixed left-1/2 top-5 z-[130] w-[min(92vw,620px)] -translate-x-1/2">
+          <div className="no-print fixed left-1/2 top-5 z-[130] w-[min(92vw,620px)] -translate-x-1/2">
             <div className={`rounded-[1.8rem] border-2 px-5 py-4 shadow-[0_18px_45px_rgba(48,37,48,0.22)] ${
               feedbackToast.tone === 'success'
                 ? 'bg-[#edf7f2] border-[#6fae93] text-[#2f5f50]'
@@ -4052,7 +4052,7 @@ export default function App() {
         )
       )}
       {confirmState && (
-        <div className="fixed inset-0 z-[140] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+        <div className="no-print fixed inset-0 z-[140] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
           <div className="w-full max-w-lg rounded-[2rem] border border-white/10 bg-slate-950 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.7)]">
             <h3 className="text-xl font-black uppercase italic tracking-tighter text-white">
               {confirmState.title}
