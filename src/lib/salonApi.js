@@ -240,6 +240,27 @@ const toUiPosSale = (row) => ({
   promotionName: row.promotion_name || row.promotionName || '',
   discountLabel: row.discount_label || row.discountLabel || '',
   notes: row.notes || '',
+  canceledAt: (() => {
+    try {
+      return row.notes ? JSON.parse(row.notes)?.canceledAt || null : null;
+    } catch {
+      return null;
+    }
+  })(),
+  canceledBy: (() => {
+    try {
+      return row.notes ? JSON.parse(row.notes)?.canceledBy || null : null;
+    } catch {
+      return null;
+    }
+  })(),
+  cancellationReason: (() => {
+    try {
+      return row.notes ? JSON.parse(row.notes)?.cancellationReason || '' : '';
+    } catch {
+      return '';
+    }
+  })(),
   createdBy: row.created_by || null,
   createdAt: row.created_at,
 });
@@ -1473,6 +1494,40 @@ export async function createCashMovement(payload = {}, currentUserId, scopeOverr
   return toUiCashMovement(data);
 }
 
+export async function createCashAuditMovement(payload = {}, currentUserId, scopeOverride = {}) {
+  assertSupabase();
+  const scope = await resolveUserScope(currentUserId, scopeOverride);
+  const resolvedSalonId = payload.salonId || scope.currentSalonId || null;
+  const resolvedBranchId = payload.branchId ?? scope.currentBranchId ?? null;
+
+  if (!resolvedSalonId) throw normalizeError(null, 'No se pudo resolver el salón para registrar auditoría de caja.');
+  if (!resolvedBranchId) throw normalizeError(null, 'No se pudo resolver la sucursal para registrar auditoría de caja.');
+  if (!payload.cashSessionId) throw normalizeError(null, 'No se pudo resolver la caja para registrar auditoría.');
+  await validateBranchBelongsToSalon(resolvedSalonId, resolvedBranchId);
+
+  const amount = Math.max(Number(payload.amount || 0), 0);
+  const { data, error } = await supabase
+    .from('cash_movements')
+    .insert({
+      cash_session_id: payload.cashSessionId,
+      salon_id: resolvedSalonId,
+      branch_id: resolvedBranchId,
+      type: payload.type === 'out' ? 'out' : 'in',
+      movement_kind: payload.movementKind || 'closing_adjustment',
+      payment_method: payload.paymentMethod || 'cash',
+      amount,
+      notes: payload.notes || 'Movimiento de auditoría',
+      reference_type: payload.referenceType || null,
+      reference_id: payload.referenceId || null,
+      created_by: currentUserId || null,
+    })
+    .select('*')
+    .single();
+
+  if (error) throw normalizeError(error, 'No se pudo registrar el movimiento de auditoría.');
+  return toUiCashMovement(data);
+}
+
 export async function closeCashSession(payload = {}, currentUserId, scopeOverride = {}) {
   assertSupabase();
   const scope = await resolveUserScope(currentUserId, scopeOverride);
@@ -1603,6 +1658,55 @@ export async function deletePosSaleRecord(saleId, currentUserId, scopeOverride =
     p_branch_id: resolvedBranchId,
   });
   if (error) throw normalizeError(error, 'No se pudo cancelar la venta de POS.');
+}
+
+export async function cancelPosSaleWithReversal(sale, reason = '', currentUserId, scopeOverride = {}) {
+  assertSupabase();
+  if (!sale?.id) throw normalizeError(null, 'No se pudo resolver la venta para anular.');
+  const scope = await resolveUserScope(currentUserId, scopeOverride);
+  const resolvedSalonId = sale.salonId || scope.currentSalonId || null;
+  const resolvedBranchId = sale.branchId ?? scope.currentBranchId ?? null;
+
+  if (!resolvedSalonId) throw normalizeError(null, 'No se pudo resolver el salón para cancelar la venta.');
+  if (!resolvedBranchId) throw normalizeError(null, 'No se pudo resolver la sucursal para cancelar la venta.');
+  await validateBranchBelongsToSalon(resolvedSalonId, resolvedBranchId);
+
+  const canceledAt = new Date().toISOString();
+  const cancellationPayload = {
+    source: 'cancel_pos_sale',
+    previousNotes: sale.notes || '',
+    canceledAt,
+    canceledBy: currentUserId || null,
+    cancellationReason: reason || 'Sin motivo especificado',
+  };
+
+  const { data: updatedSale, error: saleError } = await supabase
+    .from('pos_sales')
+    .update({ notes: JSON.stringify(cancellationPayload) })
+    .eq('id', sale.id)
+    .eq('salon_id', resolvedSalonId)
+    .eq('branch_id', resolvedBranchId)
+    .select('*')
+    .single();
+  if (saleError) throw normalizeError(saleError, 'No se pudo marcar la venta como anulada.');
+
+  const movement = await createCashAuditMovement({
+    cashSessionId: sale.cashSessionId,
+    salonId: resolvedSalonId,
+    branchId: resolvedBranchId,
+    type: 'out',
+    movementKind: 'sale',
+    paymentMethod: sale.paymentMethod || 'cash',
+    amount: Number(sale.subtotal || 0),
+    notes: `Anulación venta POS #${sale.ticketNumber || ''} - ${reason || 'Sin motivo'}`,
+    referenceType: 'pos_sale_void',
+    referenceId: sale.id,
+  }, currentUserId, scopeOverride);
+
+  return {
+    sale: toUiPosSale(updatedSale),
+    movement,
+  };
 }
 
 export async function deleteCashMovementRecord(movementId, currentUserId, scopeOverride = {}, movementScope = {}) {

@@ -446,6 +446,7 @@ export function POSView({
   allPosSales = [],
   onOpenCashSession,
   onCloseCashSession,
+  onPrintCashClosure,
   onCashMovement,
   onCancelSale,
   onCancelCashMovement,
@@ -536,7 +537,7 @@ export function POSView({
       const amount = Number(movement.amount || 0);
       if (movement.movementKind === 'opening') summary.opening += amount;
       if (movement.movementKind === 'sale') {
-        summary.sales += amount;
+        summary.sales += movement.type === 'out' ? -amount : amount;
         summary.saleCount += 1;
       }
       if (movement.movementKind === 'manual' && movement.type === 'in') summary.manualIn += amount;
@@ -622,6 +623,11 @@ export function POSView({
   }, [userNameById]);
   const dayMovements = useMemo(() => {
     const saleReferenceIds = new Set((posSales || []).map((sale) => String(sale.id)));
+    const voidedReferenceIds = new Set(
+      (cashMovements || [])
+        .filter((movement) => ['pos_sale_void', 'cash_movement_void'].includes(movement.referenceType))
+        .map((movement) => String(movement.referenceId || '')),
+    );
     const saleRows = (posSales || []).map((sale) => {
       const firstItem = Array.isArray(sale.items) && sale.items.length ? sale.items[0] : null;
       const itemCount = Array.isArray(sale.items) ? sale.items.length : 0;
@@ -647,11 +653,13 @@ export function POSView({
         clientName: sale.clientName || '',
         createdBy: sale.createdBy || null,
         createdAt: sale.createdAt,
-        canCancel: Boolean(cashSession),
+        canCancel: Boolean(cashSession && !voidedReferenceIds.has(String(sale.id))),
       };
     });
     const movementRows = (cashMovements || [])
       .filter((movement) => (
+        movement.referenceType?.includes('void')
+        ||
         movement.movementKind !== 'sale'
         || !movement.referenceId
         || !saleReferenceIds.has(String(movement.referenceId))
@@ -661,29 +669,39 @@ export function POSView({
         rawId: movement.id,
         kind: movement.movementKind || 'manual',
         type: movement.type || 'in',
-        title: movement.movementKind === 'opening'
-          ? 'Apertura de caja'
-          : (movement.movementKind === 'sale'
-            ? (movement.notes || 'Venta sin detalle')
-            : (movement.notes || (movement.type === 'out' ? 'Salida manual' : 'Entrada manual'))),
-        detail: movement.movementKind === 'opening'
-          ? 'Fondo inicial'
-          : (movement.movementKind === 'sale'
-            ? 'Venta registrada en caja'
-            : (movement.type === 'out' ? 'Salida de efectivo' : 'Entrada de efectivo')),
-        sourceDetail: movement.movementKind === 'opening'
-          ? 'Fondo inicial de caja'
-          : (movement.movementKind === 'sale'
-            ? 'Sin detalle guardado'
-            : (movement.notes || (movement.type === 'out' ? 'Salida manual de efectivo' : 'Entrada manual de efectivo'))),
+        title: movement.referenceType === 'pos_sale_void'
+          ? 'Anulación de venta'
+          : (movement.referenceType === 'cash_movement_void'
+            ? 'Anulación de movimiento'
+            : (movement.movementKind === 'opening'
+              ? 'Apertura de caja'
+              : (movement.movementKind === 'sale'
+                ? (movement.notes || 'Venta sin detalle')
+                : (movement.notes || (movement.type === 'out' ? 'Salida manual' : 'Entrada manual'))))),
+        detail: movement.referenceType?.includes('void')
+          ? 'Reverso / auditoría'
+          : (movement.movementKind === 'opening'
+            ? 'Fondo inicial'
+            : (movement.movementKind === 'sale'
+              ? 'Venta registrada en caja'
+              : (movement.type === 'out' ? 'Salida de efectivo' : 'Entrada de efectivo'))),
+        sourceDetail: movement.referenceType?.includes('void')
+          ? (movement.notes || 'Reverso de auditoría')
+          : (movement.movementKind === 'opening'
+            ? 'Fondo inicial de caja'
+            : (movement.movementKind === 'sale'
+              ? 'Sin detalle guardado'
+              : (movement.notes || (movement.type === 'out' ? 'Salida manual de efectivo' : 'Entrada manual de efectivo')))),
         method: movement.paymentMethod || 'cash',
         amount: Number(movement.amount || 0),
         notes: movement.notes || '',
+        referenceType: movement.referenceType || null,
+        referenceId: movement.referenceId || null,
         clientLabel: '-',
         stylistLabel: '-',
         createdBy: movement.createdBy || null,
         createdAt: movement.createdAt,
-        canCancel: Boolean(cashSession && movement.movementKind === 'manual'),
+        canCancel: Boolean(cashSession && movement.movementKind === 'manual' && !movement.referenceType?.includes('void') && !voidedReferenceIds.has(String(movement.id))),
       }));
 
     return [...saleRows, ...movementRows]
@@ -764,6 +782,7 @@ export function POSView({
       ));
       const sessionSales = (allPosSales || []).filter((sale) => (
         String(sale.cashSessionId || '') === String(session.id || '')
+        && !sale.canceledAt
       ));
       const systemCash = sessionMovements.reduce((total, movement) => {
         if ((movement.paymentMethod || 'cash') !== 'cash') return total;
@@ -802,18 +821,20 @@ export function POSView({
     const confirmed = await confirmAction?.({
       title: entry.kind === 'sale' ? 'Anular venta' : 'Anular movimiento',
       message: entry.kind === 'sale'
-        ? `¿Deseas anular esta venta por ${formatCurrency(entry.amount)}? Se eliminará también su movimiento de caja.`
-        : `¿Deseas anular este movimiento por ${formatCurrency(entry.amount)}?`,
+        ? `¿Deseas anular esta venta por ${formatCurrency(entry.amount)}? Se registrará un reverso de auditoría.`
+        : `¿Deseas anular este movimiento por ${formatCurrency(entry.amount)}? Se registrará un reverso de auditoría.`,
       confirmLabel: 'Anular',
       cancelLabel: 'Volver',
     });
     if (!confirmed) return;
+    const reason = window.prompt('Motivo de anulación');
+    if (!reason?.trim()) return;
 
     if (entry.kind === 'sale') {
-      await onCancelSale?.(entry.rawId);
+      await onCancelSale?.(entry.rawId, reason.trim());
       return;
     }
-    await onCancelCashMovement?.(entry.rawId);
+    await onCancelCashMovement?.(entry.rawId, reason.trim());
   };
 
 
@@ -884,7 +905,12 @@ export function POSView({
   };
 
   const handleCloseCash = async () => {
-    if (!isBalancedClose) return;
+    let differenceReason = '';
+    if (!isBalancedClose) {
+      const reason = window.prompt('La caja tiene diferencia. Escribe el motivo para cerrar.');
+      if (!reason?.trim()) return;
+      differenceReason = reason.trim();
+    }
     const result = await onCloseCashSession?.({
       countedCashAmount: closingTotals.total,
       notes: JSON.stringify({
@@ -900,6 +926,7 @@ export function POSView({
         countedTransferAmount: closingTransferCounted,
         expectedTransferAmount: systemPaymentSummary.transfer,
         differences: closingDifferences,
+        differenceReason,
       }),
     });
     if (result) {
@@ -1249,9 +1276,9 @@ export function POSView({
             <div className="border-t border-[#f5cddd] bg-white/85 px-5 py-3 md:px-7">
               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <p className={`text-[10px] font-black uppercase tracking-[0.16em] ${isBalancedClose ? 'text-[#426f64]' : 'text-[#b35a7b]'}`}>
-                  {isBalancedClose ? 'Arqueo cuadrado. Listo para cerrar.' : 'Corrige las diferencias para cerrar.'}
+                  {isBalancedClose ? 'Arqueo cuadrado. Listo para cerrar.' : 'Hay diferencias. Se pedirá motivo al cerrar.'}
                 </p>
-                <button type="button" onClick={handleCloseCash} disabled={!isBalancedClose} className={`flex items-center justify-center gap-3 rounded-[1.5rem] px-6 py-3.5 text-[11px] font-black uppercase tracking-[0.2em] shadow-[0_18px_35px_rgba(114,183,155,0.24)] transition-all active:scale-95 ${isBalancedClose ? 'bg-[#72b79b] text-white hover:bg-[#63a98d]' : 'cursor-not-allowed bg-[#f3d4df] text-[#b35a7b] opacity-80'}`}>
+                <button type="button" onClick={handleCloseCash} className={`flex items-center justify-center gap-3 rounded-[1.5rem] px-6 py-3.5 text-[11px] font-black uppercase tracking-[0.2em] transition-all active:scale-95 ${isBalancedClose ? 'bg-[#72b79b] text-white shadow-[0_18px_35px_rgba(114,183,155,0.24)] hover:bg-[#63a98d]' : 'bg-[#d65f7f] text-white shadow-[0_18px_35px_rgba(214,95,127,0.24)] hover:bg-[#c24f74]'}`}>
                   <Check size={18} /> Cerrar caja
                 </button>
               </div>
@@ -1456,7 +1483,7 @@ export function POSView({
                 </div>
               ) : (
                 <div className="overflow-hidden rounded-[1.8rem] border border-[#f0a6c3] bg-white">
-                  <div className="grid grid-cols-[minmax(12rem,1fr)_minmax(12rem,1fr)_8rem_8rem_8rem_8rem_minmax(10rem,1fr)] gap-3 border-b border-[#f5cddd] bg-[#fff7fb] px-5 py-3 text-[9px] font-black uppercase tracking-[0.16em] text-[#9b6076] max-xl:hidden">
+                  <div className="grid grid-cols-[minmax(12rem,1fr)_minmax(12rem,1fr)_8rem_8rem_8rem_8rem_minmax(10rem,1fr)_8rem] gap-3 border-b border-[#f5cddd] bg-[#fff7fb] px-5 py-3 text-[9px] font-black uppercase tracking-[0.16em] text-[#9b6076] max-xl:hidden">
                     <span>Apertura</span>
                     <span>Cierre</span>
                     <span className="text-right">Esperado</span>
@@ -1464,6 +1491,7 @@ export function POSView({
                     <span className="text-right">Dif.</span>
                     <span className="text-right">Ventas</span>
                     <span>Usuarios</span>
+                    <span className="text-right">Soporte</span>
                   </div>
 
                   <div className="divide-y divide-[#f5cddd]">
@@ -1476,7 +1504,7 @@ export function POSView({
                         : 'Sin cierre';
                       const balanced = Math.abs(row.difference) < 0.01;
                       return (
-                        <div key={row.id} className={`grid gap-3 border-l-4 px-5 py-4 text-sm max-xl:grid-cols-1 xl:grid-cols-[minmax(12rem,1fr)_minmax(12rem,1fr)_8rem_8rem_8rem_8rem_minmax(10rem,1fr)] xl:items-center ${balanced ? 'border-l-[#72b79b] bg-[#f8fffb]' : 'border-l-[#d65f7f] bg-[#fff6f8]'}`}>
+                        <div key={row.id} className={`grid gap-3 border-l-4 px-5 py-4 text-sm max-xl:grid-cols-1 xl:grid-cols-[minmax(12rem,1fr)_minmax(12rem,1fr)_8rem_8rem_8rem_8rem_minmax(10rem,1fr)_8rem] xl:items-center ${balanced ? 'border-l-[#72b79b] bg-[#f8fffb]' : 'border-l-[#d65f7f] bg-[#fff6f8]'}`}>
                           <div>
                             <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#9b6076] xl:hidden">Apertura</p>
                             <p className="font-black text-[#34242b]">{openedLabel}</p>
@@ -1496,6 +1524,13 @@ export function POSView({
                             <p className="truncate text-[10px] font-black uppercase tracking-[0.1em] text-[#8f2d5b]">Abrió: {row.openedByLabel}</p>
                             <p className="mt-1 truncate text-[10px] font-black uppercase tracking-[0.1em] text-[#9b6076]">Cerró: {row.closedByLabel}</p>
                           </div>
+                          <button
+                            type="button"
+                            onClick={() => onPrintCashClosure?.(row)}
+                            className="flex items-center justify-center gap-2 justify-self-end rounded-2xl border border-[#72b79b]/45 bg-[#eef8f4] px-3 py-2 text-[9px] font-black uppercase tracking-[0.1em] text-[#426f64] transition-all hover:bg-[#dff2eb] active:scale-95 max-xl:justify-self-start"
+                          >
+                            <ReceiptText size={14} /> Ver
+                          </button>
                         </div>
                       );
                     })}

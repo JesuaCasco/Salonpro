@@ -45,6 +45,7 @@ export function CashClosureReceiptModal({ data, onClose }) {
   const cardCounted = Number(closureNotes?.countedCardAmount ?? 0);
   const transferExpected = Number(closureNotes?.expectedTransferAmount ?? salesByMethod.transfer ?? 0);
   const transferCounted = Number(closureNotes?.countedTransferAmount ?? 0);
+  const differenceReason = closureNotes?.differenceReason || '';
   const allBalanced = Math.abs(cashDifference) < 0.01
     && Math.abs(cardCounted - cardExpected) < 0.01
     && Math.abs(transferCounted - transferExpected) < 0.01;
@@ -118,6 +119,13 @@ export function CashClosureReceiptModal({ data, onClose }) {
               </tbody>
             </table>
           </div>
+
+          {!allBalanced && differenceReason ? (
+            <div className="mt-6 rounded-[1.4rem] border border-rose-200 bg-rose-50 p-4">
+              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-rose-600">Motivo de diferencia</p>
+              <p className="mt-2 text-sm font-bold text-rose-900">{differenceReason}</p>
+            </div>
+          ) : null}
 
           <div className="mt-8 grid grid-cols-2 gap-12 text-center">
             <div className="border-t border-slate-300 pt-4">
@@ -261,16 +269,18 @@ export function PosSaleReceiptModal({ data, onClose, onCancelSale, confirmAction
     if (isCancelling) return;
 
     const confirmed = await confirmAction({
-      title: 'Cancelar venta',
-      message: `¿Deseas cancelar la venta del ticket ${ticketNumber}? Esta acción eliminará el registro de la venta.`,
-      confirmLabel: 'Cancelar venta',
+      title: 'Anular venta',
+      message: `¿Deseas anular la venta del ticket ${ticketNumber}? Se registrará un reverso de auditoría en caja.`,
+      confirmLabel: 'Anular venta',
       cancelLabel: 'Volver',
     });
 
     if (confirmed) {
+      const reason = window.prompt('Motivo de anulación');
+      if (!reason?.trim()) return;
       setIsCancelling(true);
       try {
-        await onCancelSale?.(sale.id);
+        await onCancelSale?.(sale.id, reason.trim());
       } finally {
         setIsCancelling(false);
       }

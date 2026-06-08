@@ -1,14 +1,14 @@
 ﻿import React, { Suspense, createContext, useContext, useState, useEffect, useMemo, useRef } from 'react';
 import {
   closeCashSession,
+  cancelPosSaleWithReversal,
+  createCashAuditMovement,
   createCashMovement,
   createManagedUser,
   createPosSale,
-  deleteCashMovementRecord,
   assignProfileSalon,
   deleteStylistRecord,
   deleteClientRecord,
-  deletePosSaleRecord,
   deleteServiceRecord,
   fetchAccessControlSnapshot,
   fetchSalonSnapshot,
@@ -2391,9 +2391,16 @@ export default function App() {
   ), [cashMovements, activeCashSession]);
   const activeCashPosSales = useMemo(() => (
     activeCashSession
-      ? (posSales || []).filter((sale) => String(sale.cashSessionId || '') === String(activeCashSession.id || ''))
+      ? (posSales || []).filter((sale) => (
+        String(sale.cashSessionId || '') === String(activeCashSession.id || '')
+        && !sale.canceledAt
+      ))
       : []
   ), [posSales, activeCashSession]);
+  const activePosSales = useMemo(
+    () => (posSales || []).filter((sale) => !sale.canceledAt),
+    [posSales],
+  );
   const isAdmin = isSuperAdmin || currentUserRoles.includes('admin');
   const isCashier = currentUserRoles.includes('cashier');
   const effectiveClientDirectory = useMemo(() => ({
@@ -3521,10 +3528,13 @@ export default function App() {
       ticketNumber: nextLocalTicketNumber,
       items: normalizedItems.map((item) => ({
         id: item.id,
+        productId: item.category === 'Producto' ? item.id : null,
         name: item.name,
         category: item.category,
         price: Number(item.price) || 0,
         qty: Number(item.qty) || 0,
+        inventoryAction: item.category === 'Producto' ? 'decrement_pending' : null,
+        inventoryQuantity: item.category === 'Producto' ? Number(item.qty) || 0 : 0,
         source: item.source || '',
         appointmentId: item.appointmentId || null,
         stylistId: item.stylistId || null,
@@ -3620,34 +3630,53 @@ export default function App() {
     }
   };
 
-  const handleCancelPosSale = async (saleId) => {
+  const handleCancelPosSale = async (saleId, reason = '') => {
     if (!saleId) return false;
+    const saleToCancel = (posSales || []).find((sale) => String(sale.id) === String(saleId));
+    if (!saleToCancel || saleToCancel.canceledAt) return false;
+    const canceledAt = new Date().toISOString();
+    const cancellationReason = reason || 'Sin motivo especificado';
+    const reversalMovement = {
+      id: makeId(),
+      cashSessionId: saleToCancel.cashSessionId || activeCashSession?.id || null,
+      salonId: saleToCancel.salonId || currentSalonId,
+      branchId: saleToCancel.branchId || currentBranchId,
+      type: 'out',
+      movementKind: 'sale',
+      paymentMethod: saleToCancel.paymentMethod || 'cash',
+      amount: Number(saleToCancel.subtotal || 0),
+      notes: `Anulación venta POS #${saleToCancel.ticketNumber || ''} - ${cancellationReason}`,
+      referenceType: 'pos_sale_void',
+      referenceId: saleToCancel.id,
+      createdBy: session?.user?.id || null,
+      createdAt: canceledAt,
+    };
 
     if (!hasSupabaseConfig || !session?.user?.id) {
-      setPosSales((prev) => prev.filter((sale) => String(sale.id) !== String(saleId)));
-      setCashMovements((prev) => prev.filter((movement) => String(movement.referenceId || '') !== String(saleId)));
+      setPosSales((prev) => prev.map((sale) => (
+        String(sale.id) === String(saleId)
+          ? { ...sale, canceledAt, canceledBy: session?.user?.id || null, cancellationReason }
+          : sale
+      )));
+      setCashMovements((prev) => [...prev, reversalMovement]);
       setModals((prev) => ({ ...prev, posSaleReceipt: false }));
       setSelectedData((prev) => ({ ...prev, posSaleReceipt: null }));
-      notify('Venta cancelada.', 'success');
+      notify('Venta anulada con reverso de caja.', 'success');
       return true;
     }
 
     try {
-      const saleToCancel = (posSales || []).find((sale) => String(sale.id) === String(saleId));
-      await deletePosSaleRecord(
-        saleId,
+      const result = await cancelPosSaleWithReversal(
+        saleToCancel,
+        cancellationReason,
         session.user.id,
         superAdminScopeOverride,
-        {
-          salonId: saleToCancel?.salonId || currentSalonId,
-          branchId: saleToCancel?.branchId || currentBranchId,
-        },
       );
-      setPosSales((prev) => prev.filter((sale) => String(sale.id) !== String(saleId)));
-      setCashMovements((prev) => prev.filter((movement) => String(movement.referenceId || '') !== String(saleId)));
+      setPosSales((prev) => prev.map((sale) => String(sale.id) === String(saleId) ? result.sale : sale));
+      setCashMovements((prev) => [...prev, result.movement]);
       setModals((prev) => ({ ...prev, posSaleReceipt: false }));
       setSelectedData((prev) => ({ ...prev, posSaleReceipt: null }));
-      notify('Venta cancelada.', 'success');
+      notify('Venta anulada con reverso de caja.', 'success');
       return true;
     } catch (error) {
       handleSyncError(error, 'No pude cancelar la venta de POS en Supabase.');
@@ -3655,33 +3684,76 @@ export default function App() {
     }
   };
 
-  const handleCancelCashMovement = async (movementId) => {
+  const handleCancelCashMovement = async (movementId, reason = '') => {
     if (!movementId) return false;
+    const movementToCancel = (cashMovements || []).find((movement) => String(movement.id) === String(movementId));
+    if (!movementToCancel) return false;
+    const canceledAt = new Date().toISOString();
+    const cancellationReason = reason || 'Sin motivo especificado';
+    const reversalMovement = {
+      id: makeId(),
+      cashSessionId: movementToCancel.cashSessionId || activeCashSession?.id || null,
+      salonId: movementToCancel.salonId || currentSalonId,
+      branchId: movementToCancel.branchId || currentBranchId,
+      type: movementToCancel.type === 'out' ? 'in' : 'out',
+      movementKind: 'manual',
+      paymentMethod: movementToCancel.paymentMethod || 'cash',
+      amount: Number(movementToCancel.amount || 0),
+      notes: `Anulación movimiento: ${movementToCancel.notes || 'Sin detalle'} - ${cancellationReason}`,
+      referenceType: 'cash_movement_void',
+      referenceId: movementToCancel.id,
+      createdBy: session?.user?.id || null,
+      createdAt: canceledAt,
+    };
 
     if (!hasSupabaseConfig || !session?.user?.id) {
-      setCashMovements((prev) => prev.filter((movement) => String(movement.id) !== String(movementId)));
-      notify('Movimiento anulado.', 'success');
+      setCashMovements((prev) => [...prev, reversalMovement]);
+      notify('Movimiento anulado con reverso de caja.', 'success');
       return true;
     }
 
     try {
-      const movementToCancel = (cashMovements || []).find((movement) => String(movement.id) === String(movementId));
-      await deleteCashMovementRecord(
-        movementId,
+      const movement = await createCashAuditMovement(
+        {
+          cashSessionId: movementToCancel.cashSessionId,
+          salonId: movementToCancel.salonId || currentSalonId,
+          branchId: movementToCancel.branchId || currentBranchId,
+          type: movementToCancel.type === 'out' ? 'in' : 'out',
+          movementKind: 'manual',
+          paymentMethod: movementToCancel.paymentMethod || 'cash',
+          amount: Number(movementToCancel.amount || 0),
+          notes: `Anulación movimiento: ${movementToCancel.notes || 'Sin detalle'} - ${cancellationReason}`,
+          referenceType: 'cash_movement_void',
+          referenceId: movementToCancel.id,
+        },
         session.user.id,
         superAdminScopeOverride,
-        {
-          salonId: movementToCancel?.salonId || currentSalonId,
-          branchId: movementToCancel?.branchId || currentBranchId,
-        },
       );
-      setCashMovements((prev) => prev.filter((movement) => String(movement.id) !== String(movementId)));
-      notify('Movimiento anulado.', 'success');
+      setCashMovements((prev) => [...prev, movement]);
+      notify('Movimiento anulado con reverso de caja.', 'success');
       return true;
     } catch (error) {
       handleSyncError(error, 'No pude anular el movimiento de caja.');
       return false;
     }
+  };
+
+  const handlePrintCashClosureFromHistory = (cashSessionRecord) => {
+    if (!cashSessionRecord?.id) return;
+    setSelectedData((prev) => ({
+      ...prev,
+      cashClosureReceipt: {
+        cashSession: cashSessionRecord,
+        cashMovements: (cashMovements || []).filter((movement) => String(movement.cashSessionId || '') === String(cashSessionRecord.id || '')),
+        posSales: (posSales || []).filter((sale) => (
+          String(sale.cashSessionId || '') === String(cashSessionRecord.id || '')
+          && !sale.canceledAt
+        )),
+        salonName: currentSalon?.name || 'SalonPro',
+        branchName: currentBranch?.name || 'General',
+      },
+    }));
+    setModals((prev) => ({ ...prev, cashClosureReceipt: true }));
   };
 
   const getNextWalkinQueueTime = (stylistId, date = getTodayString()) => {
@@ -3865,7 +3937,7 @@ export default function App() {
         <div className="mobile-main-scroll relative z-[1] flex-1 overflow-auto overflow-x-hidden custom-scrollbar">
           {['dashboard', 'caja', 'reportes'].includes(activeTab) && operationalWarnings.length > 0 && renderPersistentWarningBanner('Datos operativos con advertencias', operationalWarnings)}
           {activeTab === 'clientes' && clientDirectoryWarnings.length > 0 && renderPersistentWarningBanner('Clientes cargados parcialmente', clientDirectoryWarnings)}
-          {activeTab === 'dashboard' && <DashboardView appointments={appointments} clients={clients} onUpdate={handleUpdateStatus} onOpenAppointment={openAppointmentActions} stylists={stylists} onNewWalkin={triggerWalkIn} posSales={posSales} />}
+          {activeTab === 'dashboard' && <DashboardView appointments={appointments} clients={clients} onUpdate={handleUpdateStatus} onOpenAppointment={openAppointmentActions} stylists={stylists} onNewWalkin={triggerWalkIn} posSales={activePosSales} />}
           {activeTab === 'agenda' && <AgendaView viewDate={viewDate} setViewDate={setViewDate} appointments={appointments} clients={clients} stylists={stylists} onSlotClick={(h, b) => { setSelectedData({ ...selectedData, appointment: { date: viewDate, time: h, stylistId: b } }); setModals({ ...modals, appointment: true }); }} onAptClick={handleAgendaAppointmentClick} onTransferApt={openTransferAppointment} />}
           {activeTab === 'clientes' && <ClientsTableView clients={effectiveClientDirectory.clients} appointments={effectiveClientDirectory.appointments} stylists={effectiveClientDirectory.stylists} onRowClick={(c) => { setSelectedData({...selectedData, client: c}); setModals({...modals, clientDetail: true}); }} onNewApt={(c) => { setSelectedData({ ...selectedData, appointment: { date: getTodayString(), time: '09:00', stylistId: defaultStylistId, client: c } }); setModals({ ...modals, appointment: true }); }} />}
           {activeTab === 'estilistas' && (
@@ -3910,6 +3982,7 @@ export default function App() {
               allPosSales={posSales}
               onOpenCashSession={handleOpenCashSession}
               onCloseCashSession={handleCloseCashSession}
+              onPrintCashClosure={handlePrintCashClosureFromHistory}
               onCashMovement={handleCreateCashMovement}
               onCancelSale={handleCancelPosSale}
               onCancelCashMovement={handleCancelCashMovement}
@@ -3924,7 +3997,7 @@ export default function App() {
               stylists={stylists}
               branches={availableBranches}
               currentBranchId={currentBranchId}
-              posSales={posSales}
+              posSales={activePosSales}
             />
           )}
           {activeTab === 'sistema' && (
