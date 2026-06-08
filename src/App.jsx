@@ -3876,10 +3876,14 @@ export default function App() {
           {activeTab === 'caja' && (
             <POSView
               services={services}
+              clients={clients}
               onSale={handleRegisterPosSale}
               cashSession={activeCashSession}
               cashMovements={activeCashMovements}
               posSales={activeCashPosSales}
+              cashSessions={cashSessions}
+              allCashMovements={cashMovements}
+              allPosSales={posSales}
               onOpenCashSession={handleOpenCashSession}
               onCloseCashSession={handleCloseCashSession}
               onCashMovement={handleCreateCashMovement}

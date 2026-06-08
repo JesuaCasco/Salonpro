@@ -1,4 +1,4 @@
-﻿import React, { memo, useDeferredValue, useMemo, useState } from 'react';
+﻿import React, { memo, useCallback, useDeferredValue, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Activity,
@@ -404,10 +404,14 @@ const summarizeSaleMovementSource = (sale) => {
 
 export function POSView({
   services,
+  clients = [],
   onSale,
   cashSession = null,
   cashMovements = [],
   posSales = [],
+  cashSessions = [],
+  allCashMovements = [],
+  allPosSales = [],
   onOpenCashSession,
   onCloseCashSession,
   onCashMovement,
@@ -423,6 +427,10 @@ export function POSView({
   const [ticketOpen, setTicketOpen] = useState(false);
   const [closingModalOpen, setClosingModalOpen] = useState(false);
   const [movementsModalOpen, setMovementsModalOpen] = useState(false);
+  const [cashHistoryOpen, setCashHistoryOpen] = useState(false);
+  const [movementSearch, setMovementSearch] = useState('');
+  const [selectedClientId, setSelectedClientId] = useState('');
+  const [genericClientSale, setGenericClientSale] = useState(false);
   const [openingModalSuppressed, setOpeningModalSuppressed] = useState(false);
   const [openingBreakdown, setOpeningBreakdown] = useState({
     nioBills: {},
@@ -445,6 +453,7 @@ export function POSView({
   const deferredSearch = useDeferredValue(search);
   const subtotal = cart.reduce((acc, item) => acc + (item.price * item.qty), 0);
   const normalizedSearch = deferredSearch.trim().toLowerCase();
+  const normalizedMovementSearch = movementSearch.trim().toLowerCase();
   const formatCurrency = (value) => `C$ ${(Number(value) || 0).toLocaleString('es-NI')}`;
   const sumDenominations = (denominations, values) =>
     denominations.reduce((sum, denomination) => sum + (Number(values[denomination] || 0) * denomination), 0);
@@ -532,6 +541,10 @@ export function POSView({
       && service.name.toLowerCase().includes(normalizedSearch)
     ))
   ), [services, normalizedSearch]);
+  const selectedClient = useMemo(
+    () => (clients || []).find((client) => String(client.id) === String(selectedClientId || '')) || null,
+    [clients, selectedClientId],
+  );
 
   const savedPromotions = useMemo(
     () => (services || [])
@@ -571,10 +584,10 @@ export function POSView({
       user.fullName || user.email || 'Usuario',
     ]))
   ), [users]);
-  const resolveUserName = (userId) => {
+  const resolveUserName = useCallback((userId) => {
     if (!userId) return 'Sistema';
     return userNameById.get(String(userId)) || 'Usuario';
-  };
+  }, [userNameById]);
   const dayMovements = useMemo(() => {
     const saleReferenceIds = new Set((posSales || []).map((sale) => String(sale.id)));
     const saleRows = (posSales || []).map((sale) => {
@@ -638,6 +651,67 @@ export function POSView({
     return [...saleRows, ...movementRows]
       .sort((left, right) => new Date(right.createdAt || 0) - new Date(left.createdAt || 0));
   }, [cashMovements, cashSession, posSales]);
+  const filteredDayMovements = useMemo(() => {
+    if (!normalizedMovementSearch) return dayMovements;
+    return dayMovements.filter((entry) => {
+      const userLabel = resolveUserName(entry.createdBy);
+      const text = [
+        entry.title,
+        entry.sourceDetail,
+        entry.detail,
+        entry.method,
+        entry.clientName,
+        userLabel,
+        entry.ticketNumber ? `ticket ${entry.ticketNumber}` : '',
+        String(entry.amount || ''),
+      ].join(' ').toLowerCase();
+      return text.includes(normalizedMovementSearch);
+    });
+  }, [dayMovements, normalizedMovementSearch, resolveUserName]);
+  const closedCashSessions = useMemo(() => (
+    (cashSessions || [])
+      .filter((session) => session.status === 'closed' || session.closedAt)
+      .sort((left, right) => new Date(right.closedAt || right.openedAt || 0) - new Date(left.closedAt || left.openedAt || 0))
+  ), [cashSessions]);
+  const cashHistoryRows = useMemo(() => (
+    closedCashSessions.map((session) => {
+      const sessionMovements = (allCashMovements || []).filter((movement) => (
+        String(movement.cashSessionId || '') === String(session.id || '')
+      ));
+      const sessionSales = (allPosSales || []).filter((sale) => (
+        String(sale.cashSessionId || '') === String(session.id || '')
+      ));
+      const systemCash = sessionMovements.reduce((total, movement) => {
+        if ((movement.paymentMethod || 'cash') !== 'cash') return total;
+        const amount = Number(movement.amount || 0);
+        return movement.type === 'out' ? total - amount : total + amount;
+      }, 0);
+      const cardTotal = sessionSales.reduce((total, sale) => (
+        sale.paymentMethod === 'card' ? total + Number(sale.subtotal || 0) : total
+      ), 0);
+      const transferTotal = sessionSales.reduce((total, sale) => (
+        sale.paymentMethod === 'transfer' ? total + Number(sale.subtotal || 0) : total
+      ), 0);
+      const saleTotal = sessionSales.reduce((total, sale) => total + Number(sale.subtotal || 0), 0);
+      const expectedCash = Number(session.expectedCashAmount ?? systemCash);
+      const countedCash = Number(session.countedCashAmount ?? session.closingAmount ?? 0);
+      const difference = Number(session.differenceAmount ?? (countedCash - expectedCash));
+
+      return {
+        ...session,
+        movementCount: sessionMovements.length,
+        saleCount: sessionSales.length,
+        saleTotal,
+        expectedCash,
+        countedCash,
+        difference,
+        cardTotal,
+        transferTotal,
+        openedByLabel: resolveUserName(session.openedBy),
+        closedByLabel: resolveUserName(session.closedBy),
+      };
+    })
+  ), [allCashMovements, allPosSales, closedCashSessions, resolveUserName]);
 
   const handleCancelMovementEntry = async (entry) => {
     if (!entry?.canCancel) return;
@@ -754,18 +828,25 @@ export function POSView({
   };
 
   const handleCompleteSale = async () => {
+    const saleClientName = genericClientSale
+      ? 'Cliente genérico'
+      : (selectedClient?.name || '');
     const result = await onSale({
       items: cart,
       rawSubtotal: subtotal,
       discountTotal: promotionDiscount,
       subtotal: totalToCharge,
       paymentMethod,
+      clientId: genericClientSale ? null : (selectedClient?.id || null),
+      clientName: saleClientName,
       promotion: selectedPromotion ? { id: selectedPromotion.id, name: selectedPromotion.name } : null,
     });
 
     if (result) {
       setCart([]);
       setSelectedPromotionId('');
+      setSelectedClientId('');
+      setGenericClientSale(false);
       setPromotionPickerOpen(false);
       setTicketOpen(false);
     }
@@ -871,6 +952,14 @@ export function POSView({
                   <span className="rounded-full bg-[#fff0f6] px-2 py-0.5 text-[8px] text-[#c24f82]">{dayMovements.length}</span>
                 </button>
               ) : null}
+              <button
+                type="button"
+                onClick={() => setCashHistoryOpen(true)}
+                className="flex items-center gap-3 rounded-[1.6rem] border border-[#efabc7] bg-white px-5 py-4 text-[10px] font-black uppercase tracking-[0.18em] text-[#8f2d5b] transition-all hover:bg-[#fff0f6] active:scale-95"
+              >
+                <Clock size={16} />
+                Historial
+              </button>
               <div className="relative">
                 <Search className="absolute right-6 top-1/2 -translate-y-1/2 text-[#9b6076]" size={18} />
                 <input type="text" placeholder="Buscar producto" className="w-full rounded-2xl border border-[#efabc7] bg-white py-4 pl-8 pr-16 text-sm font-black text-[#34242b] outline-none transition-all placeholder:text-[#b4899c] focus:border-[#d94f83] md:w-80" value={search} onChange={(event) => setSearch(event.target.value)} />
@@ -1127,10 +1216,23 @@ export function POSView({
               </div>
             </div>
 
+            <div className="border-b border-[#f5cddd] bg-white/75 px-5 py-3 md:px-7">
+              <div className="relative">
+                <Search className="absolute right-4 top-1/2 -translate-y-1/2 text-[#9b6076]" size={16} />
+                <input
+                  type="text"
+                  value={movementSearch}
+                  onChange={(event) => setMovementSearch(event.target.value)}
+                  placeholder="Buscar por ticket, cliente, servicio, producto, usuario o método"
+                  className="w-full rounded-2xl border border-[#efabc7] bg-white py-3 pl-5 pr-12 text-sm font-black text-[#34242b] outline-none placeholder:text-[#b4899c] focus:border-[#d94f83]"
+                />
+              </div>
+            </div>
+
             <div className="flex-1 overflow-y-auto p-3 custom-scrollbar md:p-5">
-              {dayMovements.length === 0 ? (
+              {filteredDayMovements.length === 0 ? (
                 <div className="rounded-[1.8rem] border border-dashed border-[#efabc7] bg-white/70 p-10 text-center">
-                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#9b6076]">Sin movimientos registrados</p>
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#9b6076]">Sin movimientos para esta búsqueda</p>
                 </div>
               ) : (
                 <div className="overflow-hidden rounded-[1.8rem] border border-[#f0a6c3] bg-white">
@@ -1145,7 +1247,7 @@ export function POSView({
                   </div>
 
                   <div className="divide-y divide-[#f5cddd]">
-                    {dayMovements.map((entry) => {
+                    {filteredDayMovements.map((entry) => {
                       const isOut = entry.type === 'out';
                       const isSale = entry.kind === 'sale';
                       const isOpening = entry.kind === 'opening';
@@ -1196,6 +1298,104 @@ export function POSView({
                               {isOpening ? 'Base' : 'Bloqueado'}
                             </span>
                           )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      ), document.body) : null}
+
+      {cashHistoryOpen ? createPortal((
+        <div className="fixed inset-0 z-[236] flex min-h-screen items-center justify-center bg-[#211720]/85 p-3 backdrop-blur-xl md:p-5">
+          <div className="flex max-h-[calc(100vh-1rem)] w-full max-w-[min(96vw,86rem)] flex-col overflow-hidden rounded-[2rem] border border-[#efabc7] bg-gradient-to-br from-white via-[#fff7fb] to-[#ffe3ef] text-[#34242b] shadow-[0_35px_120px_rgba(33,23,32,0.55)]">
+            <div className="border-b border-[#f5cddd] px-5 py-4 md:px-7">
+              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.24em] text-[#c24f82]">Control de caja</p>
+                  <h3 className="mt-1 text-3xl font-black uppercase italic tracking-tighter text-[#34242b]">Historial de cajas</h3>
+                  <p className="mt-0.5 text-[10px] font-black uppercase tracking-[0.16em] text-[#9b6076]">Cierres, diferencias y usuarios responsables</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setCashHistoryOpen(false)}
+                  className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[#efabc7] bg-white text-[#8f2d5b] transition-all hover:bg-[#fff0f6]"
+                  aria-label="Cerrar historial de caja"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+
+            <div className="grid gap-3 border-b border-[#f5cddd] bg-white/65 px-5 py-3 md:grid-cols-4 md:px-7">
+              <div className="rounded-[1.3rem] border border-[#f2c1d4] bg-white px-4 py-3">
+                <p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#9b6076]">Cajas cerradas</p>
+                <p className="mt-1 text-xl font-black italic text-[#426f64]">{cashHistoryRows.length}</p>
+              </div>
+              <div className="rounded-[1.3rem] border border-[#f2c1d4] bg-white px-4 py-3">
+                <p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#9b6076]">Ventas cerradas</p>
+                <p className="mt-1 text-xl font-black italic text-[#c24f82]">{formatCurrency(cashHistoryRows.reduce((total, row) => total + row.saleTotal, 0))}</p>
+              </div>
+              <div className="rounded-[1.3rem] border border-[#f2c1d4] bg-white px-4 py-3">
+                <p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#9b6076]">POS / tarjeta</p>
+                <p className="mt-1 text-xl font-black italic text-[#426f64]">{formatCurrency(cashHistoryRows.reduce((total, row) => total + row.cardTotal, 0))}</p>
+              </div>
+              <div className="rounded-[1.3rem] border border-[#f2c1d4] bg-white px-4 py-3">
+                <p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#9b6076]">Transferencias</p>
+                <p className="mt-1 text-xl font-black italic text-[#426f64]">{formatCurrency(cashHistoryRows.reduce((total, row) => total + row.transferTotal, 0))}</p>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-3 custom-scrollbar md:p-5">
+              {cashHistoryRows.length === 0 ? (
+                <div className="rounded-[1.8rem] border border-dashed border-[#efabc7] bg-white/70 p-10 text-center">
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#9b6076]">Todavía no hay cajas cerradas</p>
+                </div>
+              ) : (
+                <div className="overflow-hidden rounded-[1.8rem] border border-[#f0a6c3] bg-white">
+                  <div className="grid grid-cols-[minmax(12rem,1fr)_minmax(12rem,1fr)_8rem_8rem_8rem_8rem_minmax(10rem,1fr)] gap-3 border-b border-[#f5cddd] bg-[#fff7fb] px-5 py-3 text-[9px] font-black uppercase tracking-[0.16em] text-[#9b6076] max-xl:hidden">
+                    <span>Apertura</span>
+                    <span>Cierre</span>
+                    <span className="text-right">Esperado</span>
+                    <span className="text-right">Contado</span>
+                    <span className="text-right">Dif.</span>
+                    <span className="text-right">Ventas</span>
+                    <span>Usuarios</span>
+                  </div>
+
+                  <div className="divide-y divide-[#f5cddd]">
+                    {cashHistoryRows.map((row) => {
+                      const openedLabel = row.openedAt
+                        ? new Date(row.openedAt).toLocaleString('es-NI', { dateStyle: 'medium', timeStyle: 'short' })
+                        : 'Sin apertura';
+                      const closedLabel = row.closedAt
+                        ? new Date(row.closedAt).toLocaleString('es-NI', { dateStyle: 'medium', timeStyle: 'short' })
+                        : 'Sin cierre';
+                      const balanced = Math.abs(row.difference) < 0.01;
+                      return (
+                        <div key={row.id} className={`grid gap-3 border-l-4 px-5 py-4 text-sm max-xl:grid-cols-1 xl:grid-cols-[minmax(12rem,1fr)_minmax(12rem,1fr)_8rem_8rem_8rem_8rem_minmax(10rem,1fr)] xl:items-center ${balanced ? 'border-l-[#72b79b] bg-[#f8fffb]' : 'border-l-[#d65f7f] bg-[#fff6f8]'}`}>
+                          <div>
+                            <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#9b6076] xl:hidden">Apertura</p>
+                            <p className="font-black text-[#34242b]">{openedLabel}</p>
+                          </div>
+                          <div>
+                            <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#9b6076] xl:hidden">Cierre</p>
+                            <p className="font-black text-[#34242b]">{closedLabel}</p>
+                          </div>
+                          <p className="text-right font-black italic text-[#426f64] max-xl:text-left">{formatCurrency(row.expectedCash)}</p>
+                          <p className="text-right font-black italic text-[#34242b] max-xl:text-left">{formatCurrency(row.countedCash)}</p>
+                          <p className={`text-right font-black italic max-xl:text-left ${balanced ? 'text-[#426f64]' : 'text-[#b35a7b]'}`}>{formatCurrency(row.difference)}</p>
+                          <div className="text-right max-xl:text-left">
+                            <p className="font-black italic text-[#c24f82]">{formatCurrency(row.saleTotal)}</p>
+                            <p className="mt-1 text-[8px] font-black uppercase tracking-[0.12em] text-[#9b6076]">{row.saleCount} ventas · {row.movementCount} mov.</p>
+                          </div>
+                          <div className="min-w-0">
+                            <p className="truncate text-[10px] font-black uppercase tracking-[0.1em] text-[#8f2d5b]">Abrió: {row.openedByLabel}</p>
+                            <p className="mt-1 truncate text-[10px] font-black uppercase tracking-[0.1em] text-[#9b6076]">Cerró: {row.closedByLabel}</p>
+                          </div>
                         </div>
                       );
                     })}
@@ -1294,6 +1494,40 @@ export function POSView({
                   <div className="flex justify-between items-center text-white"><span className="text-slate-500 text-[10px] font-black uppercase tracking-widest leading-none">Subtotal</span><span className="text-base font-black italic text-white">C$ {subtotal.toLocaleString('es-NI')}</span></div>
                   {selectedPromotion ? <div className="flex justify-between items-center text-white"><span className="text-emerald-300 text-[10px] font-black uppercase tracking-widest leading-none">{selectedPromotion.name}</span><span className="text-base font-black italic text-emerald-300">- C$ {promotionDiscount.toLocaleString('es-NI')}</span></div> : null}
                   <div className="flex justify-between items-center text-white"><span className="text-slate-500 text-[10px] font-black uppercase tracking-widest leading-none">Monto Total</span><span className="text-4xl font-black italic tracking-tighter leading-none text-white shadow-[0_0_15px_rgba(201,111,141,0.16)]">C$ {totalToCharge.toLocaleString('es-NI')}</span></div>
+                </div>
+
+                <div className="mb-5 rounded-[1.7rem] border border-[#efabc7] bg-[#fff7fb] p-3 shadow-[0_12px_28px_rgba(196,74,126,0.08)]">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <p className="text-[9px] font-black uppercase tracking-[0.18em] text-[#9b6076]">Cliente</p>
+                    <label className="flex items-center gap-2 rounded-full border border-[#f2c1d4] bg-white px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.12em] text-[#8f5d71]">
+                      <input
+                        type="checkbox"
+                        checked={genericClientSale}
+                        onChange={(event) => {
+                          setGenericClientSale(event.target.checked);
+                          if (event.target.checked) setSelectedClientId('');
+                        }}
+                        className="h-3 w-3 accent-[#72b79b]"
+                      />
+                      Genérico
+                    </label>
+                  </div>
+                  <select
+                    value={selectedClientId}
+                    disabled={genericClientSale}
+                    onChange={(event) => {
+                      setSelectedClientId(event.target.value);
+                      if (event.target.value) setGenericClientSale(false);
+                    }}
+                    className="w-full rounded-2xl border border-[#f2c1d4] bg-white px-4 py-3 text-[10px] font-black uppercase tracking-[0.12em] text-[#34242b] outline-none transition-all disabled:opacity-60 focus:border-[#d94f83]"
+                  >
+                    <option value="">Sin cliente asignado</option>
+                    {(clients || []).map((client) => (
+                      <option key={client.id} value={client.id}>
+                        {client.name || client.phone || 'Cliente'}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div className="mb-5 rounded-[1.7rem] border border-[#efabc7] bg-[#fff7fb] p-3 shadow-[0_12px_28px_rgba(196,74,126,0.08)]">
