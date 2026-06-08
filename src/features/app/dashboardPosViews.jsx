@@ -653,6 +653,8 @@ export function POSView({
         clientName: sale.clientName || '',
         createdBy: sale.createdBy || null,
         createdAt: sale.createdAt,
+        isVoidedOriginal: voidedReferenceIds.has(String(sale.id)),
+        isReversal: false,
         canCancel: Boolean(cashSession && !voidedReferenceIds.has(String(sale.id))),
       };
     });
@@ -701,6 +703,8 @@ export function POSView({
         stylistLabel: '-',
         createdBy: movement.createdBy || null,
         createdAt: movement.createdAt,
+        isVoidedOriginal: voidedReferenceIds.has(String(movement.id)),
+        isReversal: Boolean(movement.referenceType?.includes('void')),
         canCancel: Boolean(cashSession && movement.movementKind === 'manual' && !movement.referenceType?.includes('void') && !voidedReferenceIds.has(String(movement.id))),
       }));
 
@@ -755,7 +759,7 @@ export function POSView({
         resolveUserName(entry.createdBy),
         formatMethodLabel(entry),
         amount,
-        entry.canCancel ? 'Anulable' : (entry.kind === 'opening' ? 'Base' : 'Bloqueado'),
+        entry.isReversal ? 'Reverso' : (entry.isVoidedOriginal ? 'Anulado' : (entry.canCancel ? 'Anulable' : (entry.kind === 'opening' ? 'Base' : 'Bloqueado'))),
       ].map(escapeCsv).join(',');
     });
     const headers = ['Fecha y hora', 'Concepto', 'Detalle', 'Cliente', 'Estilista', 'Usuario', 'Metodo', 'Monto', 'Estado'];
@@ -1374,6 +1378,7 @@ export function POSView({
                       const isOut = entry.type === 'out';
                       const isSale = entry.kind === 'sale';
                       const isOpening = entry.kind === 'opening';
+                      const isReversal = entry.isReversal;
                       const methodLabel = entry.method === 'card'
                         ? 'POS / tarjeta'
                         : (entry.method === 'transfer' ? 'Transferencia' : 'Efectivo');
@@ -1386,16 +1391,16 @@ export function POSView({
                       const userLabel = resolveUserName(entry.createdBy);
                       const rowTone = isOpening
                         ? 'border-l-[#75a7b8] bg-[#f3f9fb]'
-                        : (isOut ? 'border-l-[#d65f7f] bg-[#fff6f8]' : 'border-l-[#72b79b] bg-[#f8fffb]');
+                        : (isReversal ? 'border-l-[#b35a7b] bg-[#fff3f7]' : (isOut ? 'border-l-[#d65f7f] bg-[#fff6f8]' : 'border-l-[#72b79b] bg-[#f8fffb]'));
                       const iconTone = isOpening
                         ? 'bg-[#75a7b8] shadow-[#75a7b8]/20'
-                        : (isOut ? 'bg-[#d65f7f] shadow-[#d65f7f]/20' : 'bg-[#72b79b] shadow-[#72b79b]/20');
+                        : (isReversal ? 'bg-[#b35a7b] shadow-[#b35a7b]/20' : (isOut ? 'bg-[#d65f7f] shadow-[#d65f7f]/20' : 'bg-[#72b79b] shadow-[#72b79b]/20'));
                       return (
                         <div key={entry.id} className={`grid min-w-[92rem] gap-3 border-l-4 px-5 py-3 text-sm transition-colors max-xl:min-w-0 max-xl:grid-cols-[minmax(0,1fr)] xl:grid-cols-[5.2rem_minmax(11.5rem,1.05fr)_minmax(17rem,1.35fr)_minmax(9rem,0.8fr)_minmax(9rem,0.8fr)_minmax(8rem,0.75fr)_7.5rem_7.5rem_7.5rem] xl:items-center ${rowTone}`}>
                           <p className="font-black text-[#34242b] max-xl:hidden">{timeLabel}</p>
                           <div className="flex min-w-0 items-center gap-3">
                             <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-white shadow-lg ${iconTone}`}>
-                              {isSale ? <ReceiptText size={17} /> : (isOut ? <ArrowDown size={17} /> : <ArrowUp size={17} />)}
+                              {isReversal ? <RotateCcw size={17} /> : (isSale ? <ReceiptText size={17} /> : (isOut ? <ArrowDown size={17} /> : <ArrowUp size={17} />))}
                             </div>
                             <div className="min-w-0">
                               <p className="truncate text-[12px] font-black uppercase italic leading-tight text-[#34242b]">{entry.title}</p>
@@ -1406,8 +1411,8 @@ export function POSView({
                           <p className="truncate text-[10px] font-black uppercase tracking-[0.1em] text-[#426f64] max-xl:hidden">{clientLabel}</p>
                           <p className="truncate text-[10px] font-black uppercase tracking-[0.1em] text-[#8f2d5b] max-xl:hidden">{stylistLabel}</p>
                           <p className="truncate text-[10px] font-black uppercase tracking-[0.1em] text-[#8f2d5b] max-xl:hidden">{userLabel}</p>
-                          <span className={`rounded-full border px-3 py-1.5 text-center text-[9px] font-black uppercase tracking-[0.12em] max-lg:w-fit ${isOpening ? 'border-[#c4dce4] bg-white text-[#4f7b8b]' : (isOut ? 'border-[#f3b8c8] bg-white text-[#b84868]' : 'border-[#cdeadd] bg-white text-[#426f64]')}`}>
-                            {isOpening ? 'Fondo inicial' : methodLabel}
+                          <span className={`rounded-full border px-3 py-1.5 text-center text-[9px] font-black uppercase tracking-[0.12em] max-lg:w-fit ${isOpening ? 'border-[#c4dce4] bg-white text-[#4f7b8b]' : (isReversal ? 'border-[#f3b8c8] bg-white text-[#b35a7b]' : (isOut ? 'border-[#f3b8c8] bg-white text-[#b84868]' : 'border-[#cdeadd] bg-white text-[#426f64]'))}`}>
+                            {isOpening ? 'Fondo inicial' : (isReversal ? 'Reverso' : methodLabel)}
                           </span>
                           <p className={`text-right text-lg font-black italic max-xl:text-left ${isOut ? 'text-[#b35a7b]' : 'text-[#426f64]'}`}>
                             {isOut ? '-' : '+'}{formatCurrency(entry.amount)}
@@ -1422,7 +1427,7 @@ export function POSView({
                             </button>
                           ) : (
                             <span className="inline-flex min-w-[6.4rem] items-center justify-center justify-self-end rounded-2xl border border-[#f2c1d4] bg-[#fff7fb] px-3 py-2 text-center text-[8px] font-black uppercase tracking-[0.08em] text-[#b4899c] max-xl:justify-self-start">
-                              {isOpening ? 'Base' : 'Bloqueado'}
+                              {isOpening ? 'Base' : (isReversal ? 'Reverso' : (entry.isVoidedOriginal ? 'Anulado' : 'Bloqueado'))}
                             </span>
                           )}
                         </div>
