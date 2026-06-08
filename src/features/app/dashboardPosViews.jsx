@@ -711,7 +711,10 @@ export function POSView({
   const exportMovementsToExcel = () => {
     if (!filteredDayMovements.length) return;
 
-    const escapeCsv = (value) => `"${`${value ?? ''}`.replace(/"/g, '""')}"`;
+    const normalizeExcelText = (value) => `${value ?? ''}`
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+    const escapeCsv = (value) => `"${normalizeExcelText(value).replace(/"/g, '""')}"`;
     const formatMethodLabel = (entry) => {
       if (entry.kind === 'opening') return 'Fondo inicial';
       if (entry.method === 'card') return 'POS / tarjeta';

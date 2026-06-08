@@ -5554,7 +5554,10 @@ function ReportsView({ appointments, clients, stylists, branches = [], currentBr
   const downloadMonthlyServicesReport = () => {
     if (!monthlyFinished.length) return;
 
-    const escapeCsv = (value) => `"${`${value ?? ''}`.replace(/"/g, '""')}"`;
+    const normalizeExcelText = (value) => `${value ?? ''}`
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+    const escapeCsv = (value) => `"${normalizeExcelText(value).replace(/"/g, '""')}"`;
     const rows = monthlyFinished
       .slice()
       .sort((a, b) => parseLocalDate(b.date) - parseLocalDate(a.date))
@@ -5584,7 +5587,10 @@ function ReportsView({ appointments, clients, stylists, branches = [], currentBr
   const downloadProductSalesReport = () => {
     if (!productSalesSummary.length) return;
 
-    const escapeCsv = (value) => `"${`${value ?? ''}`.replace(/"/g, '""')}"`;
+    const normalizeExcelText = (value) => `${value ?? ''}`
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+    const escapeCsv = (value) => `"${normalizeExcelText(value).replace(/"/g, '""')}"`;
     const rows = productSalesSummary.map((product) => [
       product.name,
       product.units,

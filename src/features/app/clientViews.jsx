@@ -67,7 +67,10 @@ export function ClientsTableView({ clients, appointments, stylists, onRowClick, 
   const downloadClientsReport = () => {
     if (!tableData.length) return;
 
-    const escapeCsv = (value) => `"${`${value ?? ''}`.replace(/"/g, '""')}"`;
+    const normalizeExcelText = (value) => `${value ?? ''}`
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+    const escapeCsv = (value) => `"${normalizeExcelText(value).replace(/"/g, '""')}"`;
     const rows = tableData.map((client) => ([
       client.name,
       client.phone,
@@ -77,7 +80,7 @@ export function ClientsTableView({ clients, appointments, stylists, onRowClick, 
       client.lastVisit,
     ].map(escapeCsv).join(',')));
 
-    const csv = `\uFEFFsep=,\r\n${['Cliente', 'Celular', 'Tipo', 'Visitas', 'Estilista favorito', 'Última visita'].map(escapeCsv).join(',')}\r\n${rows.join('\r\n')}`;
+    const csv = `\uFEFFsep=,\r\n${['Cliente', 'Celular', 'Tipo', 'Visitas', 'Estilista favorito', 'Ultima visita'].map(escapeCsv).join(',')}\r\n${rows.join('\r\n')}`;
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
