@@ -422,12 +422,15 @@ const getSaleIncomeType = (sale) => {
   return 'Ingreso por servicio';
 };
 
-const summarizeSaleMovementSource = (sale) => {
-  const itemSummary = summarizeMovementItems(sale.items);
-  const clientLabel = sale.clientName ? `Cliente: ${sale.clientName}` : '';
+const getSaleClientLabel = (sale) => sale.clientName || getUniqueLabels((sale.items || []).map((item) => item.clientName))[0] || '-';
+
+const getSaleStylistLabel = (sale) => {
   const stylistNames = getUniqueLabels((sale.items || []).map((item) => item.stylistName));
-  const stylistLabel = stylistNames.length ? `Estilista: ${stylistNames.join(', ')}` : '';
-  return [itemSummary, clientLabel, stylistLabel].filter(Boolean).join(' · ');
+  return stylistNames.length ? stylistNames.join(', ') : '-';
+};
+
+const summarizeSaleMovementSource = (sale) => {
+  return summarizeMovementItems(sale.items);
 };
 
 export function POSView({
@@ -630,6 +633,8 @@ export function POSView({
         detail: itemCount > 1 ? `${itemCount} ítems cobrados` : (firstItem?.name || 'Cobro'),
         sourceDetail: summarizeSaleMovementSource(sale),
         incomeType,
+        clientLabel: getSaleClientLabel(sale),
+        stylistLabel: getSaleStylistLabel(sale),
         method: sale.paymentMethod || 'cash',
         amount: Number(sale.subtotal || 0),
         productTotal: Number(sale.productTotal || 0),
@@ -673,6 +678,8 @@ export function POSView({
         method: movement.paymentMethod || 'cash',
         amount: Number(movement.amount || 0),
         notes: movement.notes || '',
+        clientLabel: '-',
+        stylistLabel: '-',
         createdBy: movement.createdBy || null,
         createdAt: movement.createdAt,
         canCancel: Boolean(cashSession && movement.movementKind === 'manual'),
@@ -691,6 +698,8 @@ export function POSView({
         entry.detail,
         entry.method,
         entry.clientName,
+        entry.clientLabel,
+        entry.stylistLabel,
         userLabel,
         entry.ticketNumber ? `ticket ${entry.ticketNumber}` : '',
         String(entry.amount || ''),
@@ -1208,7 +1217,7 @@ export function POSView({
 
       {movementsModalOpen && cashSession ? createPortal((
         <div className="fixed inset-0 z-[235] flex min-h-screen items-center justify-center bg-[#211720]/85 p-3 backdrop-blur-xl md:p-5">
-          <div className="flex max-h-[calc(100vh-1rem)] w-full max-w-[min(96vw,92rem)] flex-col overflow-hidden rounded-[2rem] border border-[#efabc7] bg-gradient-to-br from-white via-[#fff7fb] to-[#ffe3ef] text-[#34242b] shadow-[0_35px_120px_rgba(33,23,32,0.55)]">
+          <div className="flex max-h-[calc(100vh-1rem)] w-full max-w-[min(98vw,100rem)] flex-col overflow-hidden rounded-[2rem] border border-[#efabc7] bg-gradient-to-br from-white via-[#fff7fb] to-[#ffe3ef] text-[#34242b] shadow-[0_35px_120px_rgba(33,23,32,0.55)]">
             <div className="border-b border-[#f5cddd] px-5 py-4 md:px-7">
               <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div>
@@ -1265,11 +1274,13 @@ export function POSView({
                   <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#9b6076]">Sin movimientos para esta búsqueda</p>
                 </div>
               ) : (
-                <div className="overflow-hidden rounded-[1.8rem] border border-[#f0a6c3] bg-white">
-                  <div className="grid grid-cols-[5.5rem_minmax(13rem,1fr)_minmax(18rem,1.5fr)_minmax(9rem,0.8fr)_8rem_8rem_8rem] gap-3 border-b border-[#f5cddd] bg-[#fff7fb] px-5 py-3 text-[9px] font-black uppercase tracking-[0.16em] text-[#9b6076] max-xl:hidden">
+                <div className="overflow-x-auto rounded-[1.8rem] border border-[#f0a6c3] bg-white custom-scrollbar">
+                  <div className="grid min-w-[92rem] grid-cols-[5.2rem_minmax(10rem,0.95fr)_minmax(18rem,1.45fr)_minmax(9rem,0.8fr)_minmax(9rem,0.8fr)_minmax(8rem,0.75fr)_7.5rem_7.5rem_7.5rem] gap-3 border-b border-[#f5cddd] bg-[#fff7fb] px-5 py-3 text-[9px] font-black uppercase tracking-[0.16em] text-[#9b6076] max-xl:hidden">
                     <span>Hora</span>
                     <span>Concepto</span>
                     <span>Qué generó el movimiento</span>
+                    <span>Cliente</span>
+                    <span>Estilista</span>
                     <span>Usuario</span>
                     <span>Método</span>
                     <span className="text-right">Monto</span>
@@ -1288,6 +1299,8 @@ export function POSView({
                         ? new Date(entry.createdAt).toLocaleTimeString('es-NI', { hour: '2-digit', minute: '2-digit' })
                         : '--:--';
                       const detailText = entry.sourceDetail || entry.detail;
+                      const clientLabel = entry.clientLabel || entry.clientName || '-';
+                      const stylistLabel = entry.stylistLabel || '-';
                       const userLabel = resolveUserName(entry.createdBy);
                       const rowTone = isOpening
                         ? 'border-l-[#75a7b8] bg-[#f3f9fb]'
@@ -1296,7 +1309,7 @@ export function POSView({
                         ? 'bg-[#75a7b8] shadow-[#75a7b8]/20'
                         : (isOut ? 'bg-[#d65f7f] shadow-[#d65f7f]/20' : 'bg-[#72b79b] shadow-[#72b79b]/20');
                       return (
-                        <div key={entry.id} className={`grid gap-3 border-l-4 px-5 py-3 text-sm transition-colors max-xl:grid-cols-[minmax(0,1fr)] xl:grid-cols-[5.5rem_minmax(13rem,1fr)_minmax(18rem,1.5fr)_minmax(9rem,0.8fr)_8rem_8rem_8rem] xl:items-center ${rowTone}`}>
+                        <div key={entry.id} className={`grid min-w-[92rem] gap-3 border-l-4 px-5 py-3 text-sm transition-colors max-xl:min-w-0 max-xl:grid-cols-[minmax(0,1fr)] xl:grid-cols-[5.2rem_minmax(10rem,0.95fr)_minmax(18rem,1.45fr)_minmax(9rem,0.8fr)_minmax(9rem,0.8fr)_minmax(8rem,0.75fr)_7.5rem_7.5rem_7.5rem] xl:items-center ${rowTone}`}>
                           <p className="font-black text-[#34242b] max-xl:hidden">{timeLabel}</p>
                           <div className="flex min-w-0 items-center gap-3">
                             <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-white shadow-lg ${iconTone}`}>
@@ -1304,10 +1317,12 @@ export function POSView({
                             </div>
                             <div className="min-w-0">
                               <p className="truncate font-black uppercase italic text-[#34242b]">{entry.title}</p>
-                              <p className="mt-1 text-[9px] font-black uppercase tracking-[0.14em] text-[#9b6076] xl:hidden">{timeLabel} · {methodLabel} · {userLabel}</p>
+                              <p className="mt-1 text-[9px] font-black uppercase tracking-[0.14em] text-[#9b6076] xl:hidden">{timeLabel} · {methodLabel} · Cliente: {clientLabel} · Estilista: {stylistLabel}</p>
                             </div>
                           </div>
                           <p className="line-clamp-2 text-[10px] font-bold uppercase tracking-[0.08em] text-[#9b6076] max-xl:rounded-2xl max-xl:border max-xl:border-[#f2c1d4] max-xl:bg-[#fff7fb] max-xl:px-3 max-xl:py-2">{detailText}</p>
+                          <p className="truncate text-[10px] font-black uppercase tracking-[0.1em] text-[#426f64] max-xl:hidden">{clientLabel}</p>
+                          <p className="truncate text-[10px] font-black uppercase tracking-[0.1em] text-[#8f2d5b] max-xl:hidden">{stylistLabel}</p>
                           <p className="truncate text-[10px] font-black uppercase tracking-[0.1em] text-[#8f2d5b] max-xl:hidden">{userLabel}</p>
                           <span className={`rounded-full border px-3 py-1.5 text-center text-[9px] font-black uppercase tracking-[0.12em] max-lg:w-fit ${isOpening ? 'border-[#c4dce4] bg-white text-[#4f7b8b]' : (isOut ? 'border-[#f3b8c8] bg-white text-[#b84868]' : 'border-[#cdeadd] bg-white text-[#426f64]')}`}>
                             {isOpening ? 'Fondo inicial' : methodLabel}
