@@ -14,6 +14,7 @@ import {
   ListChecks,
   ReceiptText,
   RotateCcw,
+  Save,
   Search,
   ShoppingBag,
   Sparkles,
@@ -707,6 +708,47 @@ export function POSView({
       return text.includes(normalizedMovementSearch);
     });
   }, [dayMovements, normalizedMovementSearch, resolveUserName]);
+  const exportMovementsToExcel = () => {
+    if (!filteredDayMovements.length) return;
+
+    const escapeCsv = (value) => `"${`${value ?? ''}`.replace(/"/g, '""')}"`;
+    const formatMethodLabel = (entry) => {
+      if (entry.kind === 'opening') return 'Fondo inicial';
+      if (entry.method === 'card') return 'POS / tarjeta';
+      if (entry.method === 'transfer') return 'Transferencia';
+      return 'Efectivo';
+    };
+    const rows = filteredDayMovements.map((entry) => {
+      const timeLabel = entry.createdAt
+        ? new Date(entry.createdAt).toLocaleString('es-NI', { dateStyle: 'medium', timeStyle: 'short' })
+        : '';
+      const clientLabel = entry.clientLabel || entry.clientName || '-';
+      const stylistLabel = entry.stylistLabel || '-';
+      const amount = Number(entry.amount || 0) * (entry.type === 'out' ? -1 : 1);
+      return [
+        timeLabel,
+        entry.title,
+        entry.sourceDetail || entry.detail,
+        clientLabel,
+        stylistLabel,
+        resolveUserName(entry.createdBy),
+        formatMethodLabel(entry),
+        amount,
+        entry.canCancel ? 'Anulable' : (entry.kind === 'opening' ? 'Base' : 'Bloqueado'),
+      ].map(escapeCsv).join(',');
+    });
+    const headers = ['Fecha y hora', 'Concepto', 'Detalle', 'Cliente', 'Estilista', 'Usuario', 'Método', 'Monto', 'Estado'];
+    const csv = `\uFEFFsep=,\r\n${headers.map(escapeCsv).join(',')}\r\n${rows.join('\r\n')}`;
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const fileDate = new Date().toISOString().slice(0, 10);
+    link.href = URL.createObjectURL(blob);
+    link.download = `movimientos-caja-${fileDate}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(link.href);
+  };
   const closedCashSessions = useMemo(() => (
     (cashSessions || [])
       .filter((session) => session.status === 'closed' || session.closedAt)
@@ -1256,7 +1298,8 @@ export function POSView({
             </div>
 
             <div className="border-b border-[#f5cddd] bg-white/75 px-5 py-3 md:px-7">
-              <div className="relative">
+              <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+                <div className="relative">
                 <Search className="absolute right-4 top-1/2 -translate-y-1/2 text-[#9b6076]" size={16} />
                 <input
                   type="text"
@@ -1265,6 +1308,15 @@ export function POSView({
                   placeholder="Buscar por ticket, cliente, servicio, producto, usuario o método"
                   className="w-full rounded-2xl border border-[#efabc7] bg-white py-3 pl-5 pr-12 text-sm font-black text-[#34242b] outline-none placeholder:text-[#b4899c] focus:border-[#d94f83]"
                 />
+                </div>
+                <button
+                  type="button"
+                  onClick={exportMovementsToExcel}
+                  disabled={filteredDayMovements.length === 0}
+                  className={`flex items-center justify-center gap-2 rounded-2xl border px-5 py-3 text-[10px] font-black uppercase tracking-[0.14em] transition-all active:scale-95 ${filteredDayMovements.length > 0 ? 'border-[#72b79b]/45 bg-[#eef8f4] text-[#426f64] hover:bg-[#dff2eb]' : 'cursor-not-allowed border-[#f2c1d4] bg-[#fff7fb] text-[#b4899c] opacity-70'}`}
+                >
+                  <Save size={15} /> Exportar Excel
+                </button>
               </div>
             </div>
 
