@@ -1680,15 +1680,23 @@ export async function cancelPosSaleWithReversal(sale, reason = '', currentUserId
     cancellationReason: reason || 'Sin motivo especificado',
   };
 
-  const { data: updatedSale, error: saleError } = await supabase
+  const { data: updatedSales, error: saleError } = await supabase
     .from('pos_sales')
     .update({ notes: JSON.stringify(cancellationPayload) })
     .eq('id', sale.id)
     .eq('salon_id', resolvedSalonId)
     .eq('branch_id', resolvedBranchId)
-    .select('*')
-    .single();
+    .select('*');
   if (saleError) throw normalizeError(saleError, 'No se pudo marcar la venta como anulada.');
+  const updatedSale = Array.isArray(updatedSales) && updatedSales.length > 0
+    ? toUiPosSale(updatedSales[0])
+    : {
+      ...sale,
+      notes: JSON.stringify(cancellationPayload),
+      canceledAt,
+      canceledBy: currentUserId || null,
+      cancellationReason: reason || 'Sin motivo especificado',
+    };
 
   const movement = await createCashAuditMovement({
     cashSessionId: sale.cashSessionId,
@@ -1704,7 +1712,7 @@ export async function cancelPosSaleWithReversal(sale, reason = '', currentUserId
   }, currentUserId, scopeOverride);
 
   return {
-    sale: toUiPosSale(updatedSale),
+    sale: updatedSale,
     movement,
   };
 }
