@@ -1275,7 +1275,7 @@ export function POSView({
                 </div>
               ) : (
                 <div className="overflow-x-auto rounded-[1.8rem] border border-[#f0a6c3] bg-white custom-scrollbar">
-                  <div className="grid min-w-[92rem] grid-cols-[5.2rem_minmax(10rem,0.95fr)_minmax(18rem,1.45fr)_minmax(9rem,0.8fr)_minmax(9rem,0.8fr)_minmax(8rem,0.75fr)_7.5rem_7.5rem_7.5rem] gap-3 border-b border-[#f5cddd] bg-[#fff7fb] px-5 py-3 text-[9px] font-black uppercase tracking-[0.16em] text-[#9b6076] max-xl:hidden">
+                  <div className="grid min-w-[92rem] grid-cols-[5.2rem_minmax(11.5rem,1.05fr)_minmax(17rem,1.35fr)_minmax(9rem,0.8fr)_minmax(9rem,0.8fr)_minmax(8rem,0.75fr)_7.5rem_7.5rem_7.5rem] gap-3 border-b border-[#f5cddd] bg-[#fff7fb] px-5 py-3 text-[9px] font-black uppercase tracking-[0.16em] text-[#9b6076] max-xl:hidden">
                     <span>Hora</span>
                     <span>Concepto</span>
                     <span>Qué generó el movimiento</span>
@@ -1309,14 +1309,14 @@ export function POSView({
                         ? 'bg-[#75a7b8] shadow-[#75a7b8]/20'
                         : (isOut ? 'bg-[#d65f7f] shadow-[#d65f7f]/20' : 'bg-[#72b79b] shadow-[#72b79b]/20');
                       return (
-                        <div key={entry.id} className={`grid min-w-[92rem] gap-3 border-l-4 px-5 py-3 text-sm transition-colors max-xl:min-w-0 max-xl:grid-cols-[minmax(0,1fr)] xl:grid-cols-[5.2rem_minmax(10rem,0.95fr)_minmax(18rem,1.45fr)_minmax(9rem,0.8fr)_minmax(9rem,0.8fr)_minmax(8rem,0.75fr)_7.5rem_7.5rem_7.5rem] xl:items-center ${rowTone}`}>
+                        <div key={entry.id} className={`grid min-w-[92rem] gap-3 border-l-4 px-5 py-3 text-sm transition-colors max-xl:min-w-0 max-xl:grid-cols-[minmax(0,1fr)] xl:grid-cols-[5.2rem_minmax(11.5rem,1.05fr)_minmax(17rem,1.35fr)_minmax(9rem,0.8fr)_minmax(9rem,0.8fr)_minmax(8rem,0.75fr)_7.5rem_7.5rem_7.5rem] xl:items-center ${rowTone}`}>
                           <p className="font-black text-[#34242b] max-xl:hidden">{timeLabel}</p>
                           <div className="flex min-w-0 items-center gap-3">
                             <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-white shadow-lg ${iconTone}`}>
                               {isSale ? <ReceiptText size={17} /> : (isOut ? <ArrowDown size={17} /> : <ArrowUp size={17} />)}
                             </div>
                             <div className="min-w-0">
-                              <p className="truncate font-black uppercase italic text-[#34242b]">{entry.title}</p>
+                              <p className="truncate text-[12px] font-black uppercase italic leading-tight text-[#34242b]">{entry.title}</p>
                               <p className="mt-1 text-[9px] font-black uppercase tracking-[0.14em] text-[#9b6076] xl:hidden">{timeLabel} · {methodLabel} · Cliente: {clientLabel} · Estilista: {stylistLabel}</p>
                             </div>
                           </div>
