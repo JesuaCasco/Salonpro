@@ -472,6 +472,7 @@ export function POSView({
   const [movementsModalOpen, setMovementsModalOpen] = useState(false);
   const [movementsSummaryCollapsed, setMovementsSummaryCollapsed] = useState(false);
   const [cashHistoryOpen, setCashHistoryOpen] = useState(false);
+  const [cashHistorySummaryCollapsed, setCashHistorySummaryCollapsed] = useState(false);
   const [movementSearch, setMovementSearch] = useState('');
   const [selectedClientId, setSelectedClientId] = useState('');
   const [clientSearch, setClientSearch] = useState('');
@@ -1115,7 +1116,10 @@ export function POSView({
               ) : null}
               <button
                 type="button"
-                onClick={() => setCashHistoryOpen(true)}
+                onClick={() => {
+                  setCashHistorySummaryCollapsed(false);
+                  setCashHistoryOpen(true);
+                }}
                 className="flex items-center gap-3 rounded-[1.6rem] border border-[#efabc7] bg-white px-5 py-4 text-[10px] font-black uppercase tracking-[0.18em] text-[#8f2d5b] transition-all hover:bg-[#fff0f6] active:scale-95"
               >
                 <Clock size={16} />
@@ -1511,7 +1515,10 @@ export function POSView({
                 </div>
                 <button
                   type="button"
-                  onClick={() => setCashHistoryOpen(false)}
+                  onClick={() => {
+                    setCashHistorySummaryCollapsed(false);
+                    setCashHistoryOpen(false);
+                  }}
                   className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[#efabc7] bg-white text-[#8f2d5b] transition-all hover:bg-[#fff0f6]"
                   aria-label="Cerrar historial de caja"
                 >
@@ -1520,7 +1527,7 @@ export function POSView({
               </div>
             </div>
 
-            <div className="grid gap-3 border-b border-[#f5cddd] bg-white/65 px-5 py-3 md:grid-cols-4 md:px-7">
+            <div className={`grid grid-cols-2 gap-3 bg-white/65 px-5 transition-all duration-300 md:grid-cols-4 md:border-b md:border-[#f5cddd] md:px-7 md:py-3 ${cashHistorySummaryCollapsed ? 'max-md:max-h-0 max-md:overflow-hidden max-md:border-b-0 max-md:py-0 max-md:opacity-0' : 'max-md:max-h-[18rem] max-md:border-b max-md:border-[#f5cddd] max-md:py-3 max-md:opacity-100'}`}>
               <div className="rounded-[1.3rem] border border-[#f2c1d4] bg-white px-4 py-3">
                 <p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#9b6076]">Cajas cerradas</p>
                 <p className="mt-1 text-xl font-black italic text-[#426f64]">{cashHistoryRows.length}</p>
@@ -1539,7 +1546,13 @@ export function POSView({
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-3 custom-scrollbar md:p-5">
+            <div
+              className="flex-1 overflow-y-auto p-3 custom-scrollbar md:p-5"
+              onScroll={(event) => {
+                if (window.innerWidth >= 768) return;
+                setCashHistorySummaryCollapsed(event.currentTarget.scrollTop > 12);
+              }}
+            >
               {cashHistoryRows.length === 0 ? (
                 <div className="rounded-[1.8rem] border border-dashed border-[#efabc7] bg-white/70 p-10 text-center">
                   <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#9b6076]">Todavía no hay cajas cerradas</p>
