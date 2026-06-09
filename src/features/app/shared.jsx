@@ -802,7 +802,7 @@ export const parseLocalDate = (dateStr) => {
   return new Date(year, (month || 1) - 1, day || 1);
 };
 
-export const getPhoneDigits = (value = '') => `${value ?? ''}`.replace(/\D+/g, '').slice(0, 8);
+export const getPhoneDigits = (value = '') => `${value ?? ''}`.replace(/\D+/g, '').slice(-8);
 
 export const formatPhoneNumber = (value = '') => {
   const digits = getPhoneDigits(value);
