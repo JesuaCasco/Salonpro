@@ -4634,6 +4634,20 @@ function StylistsView({ stylists, appointments, branches, currentSalonId, curren
     return onlyDigits;
   };
 
+  const formatCedula = (value) => {
+    const compact = `${value || ''}`.replace(/[^0-9a-zA-Z]+/g, '');
+    const digits = compact.replace(/\D+/g, '').slice(0, 13);
+    const suffix = digits.length >= 13 ? compact.replace(/[^a-zA-Z]+/g, '').slice(0, 1) : '';
+    const first = digits.slice(0, 3);
+    const second = digits.slice(3, 9);
+    const third = digits.slice(9, 13);
+    const parts = [];
+    if (first) parts.push(first);
+    if (second) parts.push(second);
+    if (third || suffix) parts.push(`${third}${suffix}`);
+    return parts.join('-');
+  };
+
   const parseSalary = (value) => {
     if (value === null || value === undefined || value === '') return 0;
     const onlyDigits = `${value}`.replace(/\D+/g, '');
@@ -4651,7 +4665,7 @@ function StylistsView({ stylists, appointments, branches, currentSalonId, curren
     setForm({
       name: stylist.name || '',
       fullName: stylist.fullName || stylist.name || '',
-      cedula: stylist.cedula || '',
+      cedula: formatCedula(stylist.cedula || ''),
       salary: formatSalary(stylistHasBasePay(stylist.paymentMode) ? stylist.salary : ''),
       phone: stylist.phone || '',
       paymentMode: stylist.paymentMode || 'salario',
@@ -4710,7 +4724,7 @@ function StylistsView({ stylists, appointments, branches, currentSalonId, curren
       id: editing,
       ...form,
       fullName: form.fullName.trim(),
-      cedula: form.cedula.trim(),
+      cedula: formatCedula(form.cedula).trim(),
       phone: formatPhoneNumber(form.phone),
       paymentMode: form.paymentMode,
       paymentFrequency: form.paymentFrequency,
@@ -5003,35 +5017,35 @@ function StylistsView({ stylists, appointments, branches, currentSalonId, curren
                 <div className="space-y-2 text-white">
                   <label className="text-[9px] font-black text-white/30 uppercase tracking-[0.2em] ml-2 italic leading-none">Nombre Comercial</label>
                   <div className="relative group text-white">
-                    <User className="absolute left-5 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-indigo-400 transition-colors" size={16}/>
+                    <User className="absolute left-5 top-1/2 -translate-y-1/2 text-indigo-400 transition-colors" size={16}/>
                     <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ej. Juan Pérez" className="w-full bg-black border border-white/10 rounded-2xl pl-12 pr-6 py-3.5 text-sm font-bold text-white outline-none focus:border-indigo-500 focus:bg-white/[0.07] transition-all" />
                   </div>
                 </div>
                 <div className="space-y-2 text-white">
                   <label className="text-[9px] font-black text-white/30 uppercase tracking-[0.2em] ml-2 italic leading-none">Nombre Completo</label>
                   <div className="relative group text-white">
-                    <User className="absolute left-5 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-indigo-400 transition-colors" size={16}/>
+                    <User className="absolute left-5 top-1/2 -translate-y-1/2 text-indigo-400 transition-colors" size={16}/>
                     <input value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} placeholder="Ej. Juan Carlos Pérez López" className="w-full bg-black border border-white/10 rounded-2xl pl-12 pr-6 py-3.5 text-sm font-bold text-white outline-none focus:border-indigo-500 focus:bg-white/[0.07] transition-all" />
                   </div>
                 </div>
                 <div className="space-y-2 text-white">
                   <label className="text-[9px] font-black text-white/30 uppercase tracking-[0.2em] ml-2 italic leading-none">Teléfono móvil</label>
                   <div className="relative group text-white">
-                    <Smartphone className="absolute left-5 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-indigo-400 transition-colors" size={16}/>
+                    <Smartphone className="absolute left-5 top-1/2 -translate-y-1/2 text-indigo-400 transition-colors" size={16}/>
                     <input value={form.phone} onChange={(e) => setForm({ ...form, phone: formatPhoneNumber(e.target.value) })} placeholder="Ej. 8899-4455" className="w-full bg-black border border-white/10 rounded-2xl pl-12 pr-6 py-3.5 text-sm font-bold text-white outline-none focus:border-indigo-500 focus:bg-white/[0.07] transition-all" />
                   </div>
                 </div>
                 <div className="space-y-2 text-white">
                   <label className="text-[9px] font-black text-white/30 uppercase tracking-[0.2em] ml-2 italic leading-none">Cédula</label>
                   <div className="relative group text-white">
-                    <IdCard className="absolute left-5 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-indigo-400 transition-colors" size={16}/>
-                    <input value={form.cedula} onChange={(e) => setForm({ ...form, cedula: e.target.value })} placeholder="Ej. 001-000000-0000A" className="w-full bg-black border border-white/10 rounded-2xl pl-12 pr-6 py-3.5 text-sm font-bold text-white outline-none focus:border-indigo-500 focus:bg-white/[0.07] transition-all" />
+                    <IdCard className="absolute left-5 top-1/2 -translate-y-1/2 text-indigo-400 transition-colors" size={16}/>
+                    <input value={form.cedula} onChange={(e) => setForm({ ...form, cedula: formatCedula(e.target.value) })} placeholder="Ej. 001-000000-0000A" className="w-full bg-black border border-white/10 rounded-2xl pl-12 pr-6 py-3.5 text-sm font-bold text-white outline-none focus:border-indigo-500 focus:bg-white/[0.07] transition-all" />
                   </div>
                 </div>
                 <div className="space-y-2 text-white">
                   <label className="text-[9px] font-black text-white/30 uppercase tracking-[0.2em] ml-2 italic leading-none">Modalidad de Pago</label>
                   <div className="relative group text-white">
-                    <CreditCard className="absolute left-5 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-emerald-400 transition-colors" size={16}/>
+                    <CreditCard className="absolute left-5 top-1/2 -translate-y-1/2 text-emerald-400 transition-colors" size={16}/>
                     <select value={form.paymentMode} onChange={(e) => setForm({ ...form, paymentMode: e.target.value, salary: stylistHasBasePay(e.target.value) ? form.salary : '', commission: stylistHasCommissionPay(e.target.value) ? form.commission : '' })} className="w-full bg-black border border-white/10 rounded-2xl pl-12 pr-6 py-3.5 text-sm font-bold text-white outline-none focus:border-emerald-500 focus:bg-white/[0.07] transition-all appearance-none cursor-pointer text-white">
                         {STYLIST_PAYMENT_MODE_OPTIONS.map((option) => (
                           <option key={option.id} value={option.id} className="bg-slate-950 text-white">{option.label}</option>
