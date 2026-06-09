@@ -1387,7 +1387,7 @@ export function POSView({
                     <span>Usuario</span>
                     <span>Método</span>
                     <span className="text-right">Monto</span>
-                    <span className="text-center">Acción</span>
+                    <span className="w-[6.4rem] justify-self-center text-center">Acción</span>
                   </div>
 
                   <div className="divide-y divide-[#f5cddd]">
