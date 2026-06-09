@@ -430,6 +430,15 @@ const getSaleStylistLabel = (sale) => {
   return stylistNames.length ? stylistNames.join(', ') : '-';
 };
 
+const getMovementTicketNumber = (movement) => {
+  const match = `${movement.notes || ''}`.match(/(?:POS\s*)?#(\d+)/i);
+  return match ? Number(match[1]) : 0;
+};
+
+const formatTicketNumber = (ticketNumber) => (
+  Number(ticketNumber || 0) > 0 ? String(Number(ticketNumber)).padStart(6, '0') : ''
+);
+
 const summarizeSaleMovementSource = (sale) => {
   return summarizeMovementItems(sale.items);
 };
@@ -666,47 +675,52 @@ export function POSView({
         || !movement.referenceId
         || !saleReferenceIds.has(String(movement.referenceId))
       ))
-      .map((movement) => ({
-        id: `movement-${movement.id}`,
-        rawId: movement.id,
-        kind: movement.movementKind || 'manual',
-        type: movement.type || 'in',
-        title: movement.referenceType === 'pos_sale_void'
-          ? 'Anulación de venta'
-          : (movement.referenceType === 'cash_movement_void'
-            ? 'Anulación de movimiento'
+      .map((movement) => {
+        const ticketNumber = movement.ticketNumber || getMovementTicketNumber(movement);
+        const ticketLabel = formatTicketNumber(ticketNumber);
+        return {
+          id: `movement-${movement.id}`,
+          rawId: movement.id,
+          kind: movement.movementKind || 'manual',
+          type: movement.type || 'in',
+          title: movement.referenceType === 'pos_sale_void'
+            ? `Anulación de venta${ticketLabel ? ` #${ticketLabel}` : ''}`
+            : (movement.referenceType === 'cash_movement_void'
+              ? 'Anulación de movimiento'
+              : (movement.movementKind === 'opening'
+                ? 'Apertura de caja'
+                : (movement.movementKind === 'sale'
+                  ? (movement.notes || 'Venta sin detalle')
+                  : (movement.notes || (movement.type === 'out' ? 'Salida manual' : 'Entrada manual'))))),
+          detail: movement.referenceType?.includes('void')
+            ? 'Reverso / auditoría'
             : (movement.movementKind === 'opening'
-              ? 'Apertura de caja'
+              ? 'Fondo inicial'
               : (movement.movementKind === 'sale'
-                ? (movement.notes || 'Venta sin detalle')
-                : (movement.notes || (movement.type === 'out' ? 'Salida manual' : 'Entrada manual'))))),
-        detail: movement.referenceType?.includes('void')
-          ? 'Reverso / auditoría'
-          : (movement.movementKind === 'opening'
-            ? 'Fondo inicial'
-            : (movement.movementKind === 'sale'
-              ? 'Venta registrada en caja'
-              : (movement.type === 'out' ? 'Salida de efectivo' : 'Entrada de efectivo'))),
-        sourceDetail: movement.referenceType?.includes('void')
-          ? (movement.notes || 'Reverso de auditoría')
-          : (movement.movementKind === 'opening'
-            ? 'Fondo inicial de caja'
-            : (movement.movementKind === 'sale'
-              ? 'Sin detalle guardado'
-              : (movement.notes || (movement.type === 'out' ? 'Salida manual de efectivo' : 'Entrada manual de efectivo')))),
-        method: movement.paymentMethod || 'cash',
-        amount: Number(movement.amount || 0),
-        notes: movement.notes || '',
-        referenceType: movement.referenceType || null,
-        referenceId: movement.referenceId || null,
-        clientLabel: '-',
-        stylistLabel: '-',
-        createdBy: movement.createdBy || null,
-        createdAt: movement.createdAt,
-        isVoidedOriginal: voidedReferenceIds.has(String(movement.id)),
-        isReversal: Boolean(movement.referenceType?.includes('void')),
-        canCancel: Boolean(cashSession && movement.movementKind === 'manual' && !movement.referenceType?.includes('void') && !voidedReferenceIds.has(String(movement.id))),
-      }));
+                ? 'Venta registrada en caja'
+                : (movement.type === 'out' ? 'Salida de efectivo' : 'Entrada de efectivo'))),
+          sourceDetail: movement.referenceType?.includes('void')
+            ? (movement.notes || 'Reverso de auditoría')
+            : (movement.movementKind === 'opening'
+              ? 'Fondo inicial de caja'
+              : (movement.movementKind === 'sale'
+                ? 'Sin detalle guardado'
+                : (movement.notes || (movement.type === 'out' ? 'Salida manual de efectivo' : 'Entrada manual de efectivo')))),
+          method: movement.paymentMethod || 'cash',
+          amount: Number(movement.amount || 0),
+          ticketNumber,
+          notes: movement.notes || '',
+          referenceType: movement.referenceType || null,
+          referenceId: movement.referenceId || null,
+          clientLabel: '-',
+          stylistLabel: '-',
+          createdBy: movement.createdBy || null,
+          createdAt: movement.createdAt,
+          isVoidedOriginal: voidedReferenceIds.has(String(movement.id)),
+          isReversal: Boolean(movement.referenceType?.includes('void')),
+          canCancel: Boolean(cashSession && movement.movementKind === 'manual' && !movement.referenceType?.includes('void') && !voidedReferenceIds.has(String(movement.id))),
+        };
+      });
 
     return [...saleRows, ...movementRows]
       .sort((left, right) => new Date(right.createdAt || 0) - new Date(left.createdAt || 0));
@@ -749,9 +763,11 @@ export function POSView({
         : '';
       const clientLabel = entry.clientLabel || entry.clientName || '-';
       const stylistLabel = entry.stylistLabel || '-';
+      const ticketLabel = formatTicketNumber(entry.ticketNumber) || '-';
       const amount = Number(entry.amount || 0) * (entry.type === 'out' ? -1 : 1);
       return [
         timeLabel,
+        ticketLabel,
         entry.title,
         entry.sourceDetail || entry.detail,
         clientLabel,
@@ -762,7 +778,7 @@ export function POSView({
         entry.isReversal ? 'Reverso' : (entry.isVoidedOriginal ? 'Anulado' : (entry.canCancel ? 'Anulable' : (entry.kind === 'opening' ? 'Base' : 'Bloqueado'))),
       ].map(escapeCsv).join(',');
     });
-    const headers = ['Fecha y hora', 'Concepto', 'Detalle', 'Cliente', 'Estilista', 'Usuario', 'Metodo', 'Monto', 'Estado'];
+    const headers = ['Fecha y hora', 'Ticket', 'Concepto', 'Detalle', 'Cliente', 'Estilista', 'Usuario', 'Metodo', 'Monto', 'Estado'];
     const csv = `\uFEFFsep=,\r\n${headers.map(escapeCsv).join(',')}\r\n${rows.join('\r\n')}`;
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
@@ -1361,8 +1377,9 @@ export function POSView({
                 </div>
               ) : (
                 <div className="overflow-x-auto rounded-[1.8rem] border border-[#f0a6c3] bg-white custom-scrollbar">
-                  <div className="grid min-w-[92rem] grid-cols-[5.2rem_minmax(11.5rem,1.05fr)_minmax(17rem,1.35fr)_minmax(9rem,0.8fr)_minmax(9rem,0.8fr)_minmax(8rem,0.75fr)_7.5rem_7.5rem_7.5rem] gap-3 border-b border-[#f5cddd] bg-[#fff7fb] px-5 py-3 text-[9px] font-black uppercase tracking-[0.16em] text-[#9b6076] max-xl:hidden">
+                  <div className="grid min-w-[98rem] grid-cols-[5.2rem_6.5rem_minmax(10.5rem,1fr)_minmax(16rem,1.3fr)_minmax(8.5rem,0.75fr)_minmax(8.5rem,0.75fr)_minmax(7.5rem,0.7fr)_7.3rem_7.3rem_7.3rem] gap-3 border-b border-[#f5cddd] bg-[#fff7fb] px-5 py-3 text-[9px] font-black uppercase tracking-[0.16em] text-[#9b6076] max-xl:hidden">
                     <span>Hora</span>
+                    <span>Ticket</span>
                     <span>Concepto</span>
                     <span>Qué generó el movimiento</span>
                     <span>Cliente</span>
@@ -1388,6 +1405,7 @@ export function POSView({
                       const detailText = entry.sourceDetail || entry.detail;
                       const clientLabel = entry.clientLabel || entry.clientName || '-';
                       const stylistLabel = entry.stylistLabel || '-';
+                      const ticketLabel = formatTicketNumber(entry.ticketNumber) || '-';
                       const userLabel = resolveUserName(entry.createdBy);
                       const rowTone = isOpening
                         ? 'border-l-[#75a7b8] bg-[#f3f9fb]'
@@ -1396,15 +1414,16 @@ export function POSView({
                         ? 'bg-[#75a7b8] shadow-[#75a7b8]/20'
                         : (isReversal ? 'bg-[#b35a7b] shadow-[#b35a7b]/20' : (isOut ? 'bg-[#d65f7f] shadow-[#d65f7f]/20' : 'bg-[#72b79b] shadow-[#72b79b]/20'));
                       return (
-                        <div key={entry.id} className={`grid min-w-[92rem] gap-3 border-l-4 px-5 py-3 text-sm transition-colors max-xl:min-w-0 max-xl:grid-cols-[minmax(0,1fr)] xl:grid-cols-[5.2rem_minmax(11.5rem,1.05fr)_minmax(17rem,1.35fr)_minmax(9rem,0.8fr)_minmax(9rem,0.8fr)_minmax(8rem,0.75fr)_7.5rem_7.5rem_7.5rem] xl:items-center ${rowTone}`}>
+                        <div key={entry.id} className={`grid min-w-[98rem] gap-3 border-l-4 px-5 py-3 text-sm transition-colors max-xl:min-w-0 max-xl:grid-cols-[minmax(0,1fr)] xl:grid-cols-[5.2rem_6.5rem_minmax(10.5rem,1fr)_minmax(16rem,1.3fr)_minmax(8.5rem,0.75fr)_minmax(8.5rem,0.75fr)_minmax(7.5rem,0.7fr)_7.3rem_7.3rem_7.3rem] xl:items-center ${rowTone}`}>
                           <p className="font-black text-[#34242b] max-xl:hidden">{timeLabel}</p>
+                          <p className="truncate text-[10px] font-black uppercase tracking-[0.12em] text-[#8f2d5b] max-xl:hidden">{ticketLabel}</p>
                           <div className="flex min-w-0 items-center gap-3">
                             <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-white shadow-lg ${iconTone}`}>
                               {isReversal ? <RotateCcw size={17} /> : (isSale ? <ReceiptText size={17} /> : (isOut ? <ArrowDown size={17} /> : <ArrowUp size={17} />))}
                             </div>
                             <div className="min-w-0">
                               <p className="truncate text-[12px] font-black uppercase italic leading-tight text-[#34242b]">{entry.title}</p>
-                              <p className="mt-1 text-[9px] font-black uppercase tracking-[0.14em] text-[#9b6076] xl:hidden">{timeLabel} · {methodLabel} · Cliente: {clientLabel} · Estilista: {stylistLabel}</p>
+                              <p className="mt-1 text-[9px] font-black uppercase tracking-[0.14em] text-[#9b6076] xl:hidden">{timeLabel} · Ticket: {ticketLabel} · {methodLabel} · Cliente: {clientLabel} · Estilista: {stylistLabel}</p>
                             </div>
                           </div>
                           <p className="line-clamp-2 text-[10px] font-bold uppercase tracking-[0.08em] text-[#9b6076] max-xl:rounded-2xl max-xl:border max-xl:border-[#f2c1d4] max-xl:bg-[#fff7fb] max-xl:px-3 max-xl:py-2">{detailText}</p>

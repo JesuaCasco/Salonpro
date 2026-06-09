@@ -3648,6 +3648,7 @@ export default function App() {
       notes: `Anulación venta POS #${saleToCancel.ticketNumber || ''} - ${cancellationReason}`,
       referenceType: 'pos_sale_void',
       referenceId: saleToCancel.id,
+      ticketNumber: saleToCancel.ticketNumber || 0,
       createdBy: session?.user?.id || null,
       createdAt: canceledAt,
     };

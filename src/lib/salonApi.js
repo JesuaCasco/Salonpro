@@ -1709,6 +1709,7 @@ export async function cancelPosSaleWithReversal(sale, reason = '', currentUserId
     notes: `Anulación venta POS #${sale.ticketNumber || ''} - ${reason || 'Sin motivo'}`,
     referenceType: 'pos_sale_void',
     referenceId: sale.id,
+    ticketNumber: sale.ticketNumber || 0,
   }, currentUserId, scopeOverride);
 
   return {
