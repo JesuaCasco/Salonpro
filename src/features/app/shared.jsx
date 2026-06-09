@@ -1145,6 +1145,15 @@ export const normalizeBusinessTime = (value, fallback = DEFAULT_SALON_OPEN_TIME)
   return `${String(normalizedHours).padStart(2, '0')}:${String(roundedMinutes).padStart(2, '0')}`;
 };
 
+export const formatTime12h = (value, fallback = '--:--') => {
+  const normalized = normalizeBusinessTime(value, '');
+  if (!normalized) return fallback;
+  const [rawHours, rawMinutes] = normalized.split(':').map(Number);
+  const period = rawHours >= 12 ? 'p. m.' : 'a. m.';
+  const hour12 = rawHours % 12 || 12;
+  return `${hour12}:${String(rawMinutes || 0).padStart(2, '0')} ${period}`;
+};
+
 export const generateBusinessHours = (openTime = DEFAULT_SALON_OPEN_TIME, closeTime = DEFAULT_SALON_CLOSE_TIME) => {
   const toMinutes = (time) => {
     const [hours, minutes] = normalizeBusinessTime(time).split(':').map(Number);

@@ -112,6 +112,7 @@ import {
   stylistHasCommissionPay,
   formatPhoneNumber,
   formatLocalDateYmd,
+  formatTime12h,
   generateBusinessHours,
   getStylistNominaData,
   getStylistPaymentModeLabel,
@@ -221,6 +222,8 @@ const getFriendlySupabaseErrorMessage = (error, context = 'general') => {
 
   return 'No se pudo conectar con Supabase desde esta red m\u00f3vil. Intenta nuevamente cuando la conexi\u00f3n est\u00e9 estable.';
 };
+
+const BUSINESS_TIME_OPTIONS = generateBusinessHours('00:00', '23:30');
 
 const resolveWalkinQueueTime = ({ appointments = [], stylistId, date = getTodayString(), businessHours = HOURS }) => {
   const toMinutes = (time = '00:00') => {
@@ -730,23 +733,27 @@ function SystemView({
                 )}
                 <div className="space-y-3">
                   <label className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500">Hora de apertura</label>
-                  <input
-                    type="time"
-                    step="1800"
+                  <select
                     value={onboarding.openTime}
                     onChange={(e) => setOnboarding((prev) => ({ ...prev, openTime: e.target.value }))}
                     className="w-full bg-black border border-slate-800 rounded-[1.4rem] px-6 py-4 text-sm font-bold text-white outline-none focus:border-indigo-500 italic"
-                  />
+                  >
+                    {BUSINESS_TIME_OPTIONS.map((time) => (
+                      <option key={time} value={time}>{formatTime12h(time)}</option>
+                    ))}
+                  </select>
                 </div>
                 <div className="space-y-3">
                   <label className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500">Hora de cierre</label>
-                  <input
-                    type="time"
-                    step="1800"
+                  <select
                     value={onboarding.closeTime}
                     onChange={(e) => setOnboarding((prev) => ({ ...prev, closeTime: e.target.value }))}
                     className="w-full bg-black border border-slate-800 rounded-[1.4rem] px-6 py-4 text-sm font-bold text-white outline-none focus:border-indigo-500 italic"
-                  />
+                  >
+                    {BUSINESS_TIME_OPTIONS.map((time) => (
+                      <option key={time} value={time}>{formatTime12h(time)}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -949,7 +956,7 @@ function SystemView({
                         </div>
                         <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/5 bg-slate-950 px-3 py-2">
                           <span className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-500">Horario</span>
-                          <span className="text-[11px] font-black text-slate-200">{shop.openTime || DEFAULT_SALON_OPEN_TIME} - {shop.closeTime || DEFAULT_SALON_CLOSE_TIME}</span>
+                          <span className="text-[11px] font-black text-slate-200">{formatTime12h(shop.openTime || DEFAULT_SALON_OPEN_TIME)} - {formatTime12h(shop.closeTime || DEFAULT_SALON_CLOSE_TIME)}</span>
                         </div>
                         <button
                           type="button"
@@ -1007,7 +1014,7 @@ function SystemView({
                         </div>
                         <div>
                           <p className="text-[11px] font-black text-slate-200">
-                            {shop.openTime || DEFAULT_SALON_OPEN_TIME} - {shop.closeTime || DEFAULT_SALON_CLOSE_TIME}
+                            {formatTime12h(shop.openTime || DEFAULT_SALON_OPEN_TIME)} - {formatTime12h(shop.closeTime || DEFAULT_SALON_CLOSE_TIME)}
                           </p>
                         </div>
                         <div>
@@ -2672,7 +2679,7 @@ export default function App() {
           const remainingMinutes = Math.max(1, Math.ceil((15 * 60 * 1000 - delayMs) / 60000));
           reservationNearExpiryAlertsRef.current.add(alertKey);
           notify(
-            `La cita de "${clientName}" está por vencerse\n\nSucursal / estilista: ${stylistName}\nHora reservada: ${appointment.time}\nTiempo restante: ${remainingMinutes} minuto${remainingMinutes === 1 ? '' : 's'}\n\nMarca la llegada del cliente antes de que se venza la reserva.`,
+            `La cita de "${clientName}" está por vencerse\n\nSucursal / estilista: ${stylistName}\nHora reservada: ${formatTime12h(appointment.time)}\nTiempo restante: ${remainingMinutes} minuto${remainingMinutes === 1 ? '' : 's'}\n\nMarca la llegada del cliente antes de que se venza la reserva.`,
             'reservation-warning',
           );
         }
@@ -2686,7 +2693,7 @@ export default function App() {
           reservationExpiredAlertsRef.current.add(alertKey);
 
           notify(
-            `La cita de "${clientName}" ya se venció\n\nSucursal / estilista: ${stylistName}\nHora reservada: ${appointment.time}\n\nLa reserva se marcó como cita perdida.`,
+            `La cita de "${clientName}" ya se venció\n\nSucursal / estilista: ${stylistName}\nHora reservada: ${formatTime12h(appointment.time)}\n\nLa reserva se marcó como cita perdida.`,
             'reservation-expired',
           );
 
@@ -3008,7 +3015,7 @@ export default function App() {
     )));
     setSelectedData((prev) => ({ ...prev, rescheduleAppointment: null }));
     setModals((prev) => ({ ...prev, rescheduleAppointment: false }));
-    notify(`Turno movido a las ${targetTime}.`, 'success');
+    notify(`Turno movido a las ${formatTime12h(targetTime)}.`, 'success');
 
     if (hasSupabaseConfig && bootstrapCompletedRef.current) {
       try {
@@ -4368,7 +4375,7 @@ function AgendaView({ viewDate, setViewDate, appointments, clients, stylists, bu
                             <p className="mt-2 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">{getAgendaServiceLabel(appointment.service)}</p>
                           </div>
                           <div className="text-right shrink-0">
-                            <p className="text-sm font-black italic text-white">{appointment.time || '--:--'}</p>
+                            <p className="text-sm font-black italic text-white">{formatTime12h(appointment.time)}</p>
                             <p className="mt-2 text-[10px] font-black uppercase tracking-[0.18em] text-indigo-300">{appointment.status || 'Confirmada'}</p>
                           </div>
                         </div>
@@ -4429,7 +4436,7 @@ function AgendaView({ viewDate, setViewDate, appointments, clients, stylists, bu
                 className="grid min-h-[100px] group/row border-b border-slate-900 hover:bg-indigo-600/[0.03] transition-colors"
                 style={{ gridTemplateColumns: agendaGridColumns }}
               >
-                <div className="p-4 flex items-center justify-center font-black text-slate-500 text-sm border-r border-slate-900 bg-slate-900/10 italic group-hover/row:text-indigo-400 transition-colors">{h}</div>
+                <div className="p-4 flex items-center justify-center font-black text-slate-500 text-sm border-r border-slate-900 bg-slate-900/10 italic group-hover/row:text-indigo-400 transition-colors">{formatTime12h(h)}</div>
                 {agendaStylists.map(b => {
                   const apt = appointments.find(a => {
                     const normalizedAptDate = standardizeDate(a.date);
@@ -4456,7 +4463,7 @@ function AgendaView({ viewDate, setViewDate, appointments, clients, stylists, bu
                               {apt.service?.toLowerCase().includes('uñas') ? <Sparkles size={10}/> : <Scissors size={10}/>}
                           {apt.status === 'Cita Perdida' ? 'NO LLEGÓ' : getAgendaServiceLabel(apt.service)}
                             </span>
-                            <span className="text-[7px] opacity-70 font-black">{apt.time}</span>
+                            <span className="text-[7px] opacity-70 font-black">{formatTime12h(apt.time)}</span>
                           </div>
                           {apt.status !== 'Finalizada' && apt.status !== 'Cita Perdida' && (
                             <button
@@ -6415,7 +6422,7 @@ function TransferAppointmentModal({ appointment, appointments, clients, stylists
             <div className="min-w-0">
               <h3 className="text-xl font-black uppercase italic tracking-tight text-white">Trasladar cita</h3>
               <p className="mt-1 truncate text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
-                {client?.name || appointment.clientName || 'Cliente genérico'} · {appointment.time || '--:--'} · {normalizeFavoriteServiceName(appointment.service) || 'Servicio'}
+                {client?.name || appointment.clientName || 'Cliente genérico'} · {formatTime12h(appointment.time)} · {normalizeFavoriteServiceName(appointment.service) || 'Servicio'}
               </p>
             </div>
           </div>
@@ -6594,7 +6601,7 @@ function RescheduleAppointmentModal({ appointment, appointments, clients, stylis
                           : 'border-slate-800 bg-black text-slate-300 hover:border-indigo-500/40'
                       }`}
                     >
-                      {time}
+                      {formatTime12h(time)}
                     </button>
                   );
                 })}
@@ -6650,7 +6657,7 @@ function AppointmentActionsModal({ appointment, clients, stylists, onClose, onUp
             <div className="min-w-0">
               <h3 className="truncate text-xl font-black uppercase italic tracking-tight text-white">{client?.name || appointment.clientName || 'Cliente genérico'}</h3>
               <p className="mt-1 truncate text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
-                {appointment.time || '--:--'} · {normalizeFavoriteServiceName(appointment.service) || 'Servicio'} · {stylist?.name || 'Sin estilista'}
+                {formatTime12h(appointment.time)} · {normalizeFavoriteServiceName(appointment.service) || 'Servicio'} · {stylist?.name || 'Sin estilista'}
               </p>
             </div>
           </div>
@@ -6844,7 +6851,7 @@ function AppointmentModal({ onClose, onSave, services, clients, stylists, initia
     const salonOpenMinutes = toMinutes(openTime);
     const salonCloseMinutes = toMinutes(closeTime);
     if (form.type !== 'walkin' && (newStartMinutes < salonOpenMinutes || newStartMinutes > salonCloseMinutes)) {
-      setModalError(`El horario del salón es de ${openTime} a ${closeTime}.`);
+      setModalError(`El horario del salón es de ${formatTime12h(openTime)} a ${formatTime12h(closeTime)}.`);
       return;
     }
     const hasReservationConflict = form.type !== 'walkin' && (appointments || []).some(a => {
@@ -6856,7 +6863,7 @@ function AppointmentModal({ onClose, onSave, services, clients, stylists, initia
     });
 
     if (hasReservationConflict) { 
-      setModalError(`Este estilista ya tiene una cita que se solapa con el horario ${form.time}.`); 
+      setModalError(`Este estilista ya tiene una cita que se solapa con el horario ${formatTime12h(form.time)}.`); 
       return; 
     } 
     
@@ -6971,10 +6978,14 @@ function AppointmentModal({ onClose, onSave, services, clients, stylists, initia
                 {form.type === 'walkin' ? (
                   <div className="w-full bg-indigo-600/10 border border-indigo-500/30 py-3.5 px-5 rounded-[1.2rem] flex items-center gap-2 text-white">
                     <Clock size={14} className="text-indigo-400" />
-                    <span className="text-[11px] font-black text-indigo-400 uppercase italic leading-none">Cola (auto): {form.time || '--:--'}</span>
+                    <span className="text-[11px] font-black text-indigo-400 uppercase italic leading-none">Cola (auto): {formatTime12h(form.time)}</span>
                   </div>
                 ) : (
-                  <input type="time" min={openTime} max={closeTime} step="1800" className="w-full bg-black border border-slate-800 py-3.5 px-5 rounded-[1.2rem] text-[12px] font-black text-white outline-none italic" value={form.time} onChange={e => setForm({...form, time: e.target.value})} />
+                  <select className="w-full bg-black border border-slate-800 py-3.5 px-5 rounded-[1.2rem] text-[12px] font-black text-white outline-none italic" value={form.time} onChange={e => setForm({...form, time: e.target.value})}>
+                    {businessHours.map((time) => (
+                      <option key={time} value={time}>{formatTime12h(time)}</option>
+                    ))}
+                  </select>
                 )}
               </div>
               </div>
