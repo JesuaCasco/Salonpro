@@ -61,57 +61,57 @@ export function CashClosureReceiptModal({ data, onClose }) {
   ];
 
   return (
-    <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl animate-in fade-in text-white no-print">
+    <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/90 p-3 backdrop-blur-xl animate-in fade-in text-white no-print md:p-4">
       <div className="bg-white text-black w-full max-w-4xl rounded-[2rem] overflow-hidden shadow-2xl animate-in zoom-in-95 flex flex-col max-h-[95vh]">
-        <div className="p-6 md:p-10 overflow-y-auto custom-scrollbar" id="printable-receipt">
-          <div className="flex items-start justify-between gap-6 border-b border-slate-200 pb-6">
+        <div className="overflow-y-auto p-4 custom-scrollbar md:p-10" id="printable-receipt">
+          <div className="flex items-start justify-between gap-4 border-b border-slate-200 pb-4 md:gap-6 md:pb-6">
             <div>
-              <h2 className="text-3xl font-black italic tracking-widest text-slate-900">{salonName}</h2>
-              <p className="mt-2 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">Soporte de cierre de caja</p>
-              <p className="mt-3 text-sm font-bold text-slate-600">{branchName}</p>
+              <h2 className="text-2xl font-black italic tracking-widest text-slate-900 md:text-3xl">{salonName}</h2>
+              <p className="mt-1.5 text-[9px] font-bold uppercase tracking-[0.2em] text-slate-500 md:mt-2 md:text-[10px]">Soporte de cierre de caja</p>
+              <p className="mt-2 text-sm font-bold text-slate-600 md:mt-3">{branchName}</p>
             </div>
             <div className="text-right">
-              <p className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-[10px] font-black uppercase tracking-[0.16em] ${allBalanced ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
-                <CheckCircle2 size={14} /> {allBalanced ? 'Cuadrada' : 'Con diferencias'}
+              <p className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.14em] md:gap-2 md:px-4 md:py-2 md:text-[10px] ${allBalanced ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
+                <CheckCircle2 size={13} /> {allBalanced ? 'Cuadrada' : 'Con diferencias'}
               </p>
-              <p className="mt-4 text-[10px] font-black uppercase text-slate-400">Cierre</p>
-              <p className="text-sm font-bold">{closedAt.toLocaleString('es-NI')}</p>
+              <p className="mt-3 text-[9px] font-black uppercase text-slate-400 md:mt-4 md:text-[10px]">Cierre</p>
+              <p className="text-xs font-bold md:text-sm">{closedAt.toLocaleString('es-NI')}</p>
             </div>
           </div>
 
-          <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="rounded-[1.4rem] border border-slate-200 bg-slate-50 p-4">
-              <p className="text-[10px] font-black uppercase text-slate-400">Apertura</p>
-              <p className="mt-2 text-sm font-bold">{openedAt ? openedAt.toLocaleString('es-NI') : 'Sin fecha'}</p>
-              <p className="mt-3 text-2xl font-black italic text-slate-900">{formatCurrency(cashSession.openingAmount)}</p>
+          <div className="mt-4 grid grid-cols-3 gap-2 md:mt-6 md:gap-4">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 md:rounded-[1.4rem] md:p-4">
+              <p className="text-[8px] font-black uppercase text-slate-400 md:text-[10px]">Apertura</p>
+              <p className="mt-1 hidden text-sm font-bold md:block">{openedAt ? openedAt.toLocaleString('es-NI') : 'Sin fecha'}</p>
+              <p className="mt-1 text-lg font-black italic text-slate-900 md:mt-3 md:text-2xl">{formatCurrency(cashSession.openingAmount)}</p>
             </div>
-            <div className="rounded-[1.4rem] border border-slate-200 bg-slate-50 p-4">
-              <p className="text-[10px] font-black uppercase text-slate-400">Entradas manuales</p>
-              <p className="mt-3 text-2xl font-black italic text-emerald-700">{formatCurrency(manualIn)}</p>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 md:rounded-[1.4rem] md:p-4">
+              <p className="text-[8px] font-black uppercase text-slate-400 md:text-[10px]">Entradas</p>
+              <p className="mt-1 text-lg font-black italic text-emerald-700 md:mt-3 md:text-2xl">{formatCurrency(manualIn)}</p>
             </div>
-            <div className="rounded-[1.4rem] border border-slate-200 bg-slate-50 p-4">
-              <p className="text-[10px] font-black uppercase text-slate-400">Salidas manuales</p>
-              <p className="mt-3 text-2xl font-black italic text-rose-700">{formatCurrency(manualOut)}</p>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 md:rounded-[1.4rem] md:p-4">
+              <p className="text-[8px] font-black uppercase text-slate-400 md:text-[10px]">Salidas</p>
+              <p className="mt-1 text-lg font-black italic text-rose-700 md:mt-3 md:text-2xl">{formatCurrency(manualOut)}</p>
             </div>
           </div>
 
-          <div className="mt-6 rounded-[1.5rem] border border-slate-200 overflow-hidden">
+          <div className="mt-4 overflow-hidden rounded-[1.2rem] border border-slate-200 md:mt-6 md:rounded-[1.5rem]">
             <table className="w-full">
               <thead className="bg-slate-100">
-                <tr className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">
-                  <th className="px-4 py-3 text-left">Forma</th>
-                  <th className="px-4 py-3 text-right">Sistema</th>
-                  <th className="px-4 py-3 text-right">Contado / soporte</th>
-                  <th className="px-4 py-3 text-right">Diferencia</th>
+                <tr className="text-[8px] font-black uppercase tracking-[0.1em] text-slate-500 md:text-[10px] md:tracking-[0.16em]">
+                  <th className="px-2 py-2 text-left md:px-4 md:py-3">Forma</th>
+                  <th className="px-2 py-2 text-right md:px-4 md:py-3">Sistema</th>
+                  <th className="px-2 py-2 text-right md:px-4 md:py-3">Contado</th>
+                  <th className="px-2 py-2 text-right md:px-4 md:py-3">Dif.</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((row) => (
-                  <tr key={row.label} className="border-t border-slate-200 text-sm">
-                    <td className="px-4 py-3 font-black uppercase italic">{row.label}</td>
-                    <td className="px-4 py-3 text-right font-bold">{formatCurrency(row.system)}</td>
-                    <td className="px-4 py-3 text-right font-bold">{formatCurrency(row.counted)}</td>
-                    <td className={`px-4 py-3 text-right font-black ${Math.abs(row.diff) < 0.01 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                  <tr key={row.label} className="border-t border-slate-200 text-[11px] md:text-sm">
+                    <td className="px-2 py-2 font-black uppercase italic md:px-4 md:py-3">{row.label}</td>
+                    <td className="px-2 py-2 text-right font-bold md:px-4 md:py-3">{formatCurrency(row.system)}</td>
+                    <td className="px-2 py-2 text-right font-bold md:px-4 md:py-3">{formatCurrency(row.counted)}</td>
+                    <td className={`px-2 py-2 text-right font-black md:px-4 md:py-3 ${Math.abs(row.diff) < 0.01 ? 'text-emerald-700' : 'text-rose-700'}`}>
                       {formatCurrency(row.diff)}
                     </td>
                   </tr>
@@ -127,7 +127,7 @@ export function CashClosureReceiptModal({ data, onClose }) {
             </div>
           ) : null}
 
-          <div className="mt-8 grid grid-cols-2 gap-12 text-center">
+          <div className="mt-5 grid grid-cols-2 gap-6 text-center md:mt-8 md:gap-12">
             <div className="border-t border-slate-300 pt-4">
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Cajero / recepción</p>
             </div>
@@ -137,9 +137,9 @@ export function CashClosureReceiptModal({ data, onClose }) {
           </div>
         </div>
 
-        <div className="p-5 bg-slate-50 border-t border-slate-100 flex gap-4 no-print">
-          <button onClick={onClose} className="flex-1 px-6 py-4 bg-white border border-slate-200 text-slate-500 font-black uppercase italic text-[10px] rounded-2xl hover:bg-slate-100 transition-all">Cerrar</button>
-          <button onClick={handlePrint} className="flex-1 px-6 py-4 bg-emerald-600 text-white font-black uppercase italic text-[10px] rounded-2xl shadow-xl shadow-emerald-900/20 hover:bg-emerald-700 transition-all flex items-center justify-center gap-2">
+        <div className="flex gap-3 border-t border-slate-100 bg-slate-50 p-3 no-print md:gap-4 md:p-5">
+          <button onClick={onClose} className="flex-1 px-4 py-3 bg-white border border-slate-200 text-slate-500 font-black uppercase italic text-[10px] rounded-2xl hover:bg-slate-100 transition-all md:px-6 md:py-4">Cerrar</button>
+          <button onClick={handlePrint} className="flex-1 px-4 py-3 bg-emerald-600 text-white font-black uppercase italic text-[10px] rounded-2xl shadow-xl shadow-emerald-900/20 hover:bg-emerald-700 transition-all flex items-center justify-center gap-2 md:px-6 md:py-4">
             <Printer size={16} /> Imprimir soporte
           </button>
         </div>
