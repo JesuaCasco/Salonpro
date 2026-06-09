@@ -1033,7 +1033,7 @@ export function POSView({
                     </div>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
                     <div className="rounded-2xl border border-[#f2c1d4] bg-[#fff9fc] px-4 py-3">
                       <p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#9b6076]">Efectivo caja</p>
                       <p className="mt-1 text-lg font-black italic text-[#426f64]">{formatCurrency(cashSummary.expectedCash)}</p>
@@ -1049,6 +1049,14 @@ export function POSView({
                     <div className="rounded-2xl border border-[#f2c1d4] bg-[#fff9fc] px-4 py-3">
                       <p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#9b6076]">Transferencia</p>
                       <p className="mt-1 text-lg font-black italic text-[#426f64]">{formatCurrency(systemPaymentSummary.transfer)}</p>
+                    </div>
+                    <div className="rounded-2xl border border-[#f2c1d4] bg-[#fff9fc] px-4 py-3">
+                      <p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#9b6076]">Entradas</p>
+                      <p className="mt-1 text-lg font-black italic text-[#72a58f]">{formatCurrency(cashSummary.manualIn)}</p>
+                    </div>
+                    <div className="rounded-2xl border border-[#f2c1d4] bg-[#fff9fc] px-4 py-3">
+                      <p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#9b6076]">Salidas</p>
+                      <p className="mt-1 text-lg font-black italic text-[#b35a7b]">{formatCurrency(cashSummary.manualOut)}</p>
                     </div>
                   </div>
                 )}
