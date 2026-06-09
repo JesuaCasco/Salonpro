@@ -225,6 +225,20 @@ const getFriendlySupabaseErrorMessage = (error, context = 'general') => {
 
 const BUSINESS_TIME_OPTIONS = generateBusinessHours('00:00', '23:30');
 
+const formatCedula = (value) => {
+  const compact = `${value || ''}`.replace(/[^0-9a-zA-Z]+/g, '');
+  const digits = compact.replace(/\D+/g, '').slice(0, 13);
+  const suffix = digits.length >= 13 ? compact.replace(/[^a-zA-Z]+/g, '').slice(0, 1).toUpperCase() : '';
+  const first = digits.slice(0, 3);
+  const second = digits.slice(3, 9);
+  const third = digits.slice(9, 13);
+  const parts = [];
+  if (first) parts.push(first);
+  if (second) parts.push(second);
+  if (third || suffix) parts.push(`${third}${suffix}`);
+  return parts.join('-');
+};
+
 const resolveWalkinQueueTime = ({ appointments = [], stylistId, date = getTodayString(), businessHours = HOURS }) => {
   const toMinutes = (time = '00:00') => {
     if (!time || typeof time !== 'string') return 0;
@@ -4634,20 +4648,6 @@ function StylistsView({ stylists, appointments, branches, currentSalonId, curren
     return onlyDigits;
   };
 
-  const formatCedula = (value) => {
-    const compact = `${value || ''}`.replace(/[^0-9a-zA-Z]+/g, '');
-    const digits = compact.replace(/\D+/g, '').slice(0, 13);
-    const suffix = digits.length >= 13 ? compact.replace(/[^a-zA-Z]+/g, '').slice(0, 1) : '';
-    const first = digits.slice(0, 3);
-    const second = digits.slice(3, 9);
-    const third = digits.slice(9, 13);
-    const parts = [];
-    if (first) parts.push(first);
-    if (second) parts.push(second);
-    if (third || suffix) parts.push(`${third}${suffix}`);
-    return parts.join('-');
-  };
-
   const parseSalary = (value) => {
     if (value === null || value === undefined || value === '') return 0;
     const onlyDigits = `${value}`.replace(/\D+/g, '');
@@ -4926,7 +4926,7 @@ function StylistsView({ stylists, appointments, branches, currentSalonId, curren
                     </div>
                     <div className="flex justify-between items-center">
                         <span className="text-[9px] font-black text-[#9b6076] uppercase tracking-widest">Cédula</span>
-                        <span className="text-[10px] font-black text-[#5a3442] italic">{b.cedula?.trim() || 'Sin registrar'}</span>
+                        <span className="text-[10px] font-black text-[#5a3442] italic">{formatCedula(b.cedula) || 'Sin registrar'}</span>
                     </div>
                     <div className="flex justify-between items-center">
                           <span className="text-[9px] font-black text-[#9b6076] uppercase tracking-widest">Pago Base</span>
@@ -4968,7 +4968,7 @@ function StylistsView({ stylists, appointments, branches, currentSalonId, curren
               
               <h4 className="text-xl font-black text-white uppercase tracking-tighter text-center mb-1 leading-none">{form.name || 'Sin Nombre'}</h4>
               <p className="text-[9px] font-bold text-indigo-200 uppercase tracking-[0.16em] text-center mb-2">{form.fullName || 'Nombre legal pendiente'}</p>
-              <p className="text-[9px] font-black text-white/40 uppercase tracking-[0.16em] mb-4 italic">Cédula: {form.cedula || 'Sin registrar'}</p>
+              <p className="text-[9px] font-black text-white/40 uppercase tracking-[0.16em] mb-4 italic">Cédula: {formatCedula(form.cedula) || 'Sin registrar'}</p>
               <div className="mb-4 px-4 py-3 w-full rounded-2xl border border-white/5 bg-white/5 text-white">
                 <p className="text-[9px] font-black text-white/30 uppercase tracking-[0.2em] italic leading-none">Sucursal actual</p>
                 <p className="mt-2 text-sm font-black text-white italic">{branchNameById.get(String(form.branchId || '')) || 'Sucursal obligatoria'}</p>
@@ -5249,7 +5249,7 @@ function NominaView({ stylists, appointments, onClose, onPagar, onLiquidarTodo }
                       <div className={`w-12 h-12 ${b.bg} rounded-xl flex items-center justify-center font-black italic text-white shadow-lg`}>{b.avatar}</div>
                       <div>
                         <p className="text-base font-black uppercase italic text-[#302530] tracking-tighter leading-none">{b.fullName || b.name}</p>
-                        <p className="text-[10px] text-[#856a75] mt-1 font-bold italic leading-none">{b.cedula?.trim() || `ID STAFF ${b.id}`}</p>
+                        <p className="text-[10px] text-[#856a75] mt-1 font-bold italic leading-none">{formatCedula(b.cedula) || `ID STAFF ${b.id}`}</p>
                       </div>
                     </div>
                   </td>
