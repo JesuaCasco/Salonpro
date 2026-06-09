@@ -1377,7 +1377,7 @@ export function POSView({
                 </div>
               ) : (
                 <div className="overflow-x-auto rounded-[1.8rem] border border-[#f0a6c3] bg-white custom-scrollbar">
-                  <div className="grid min-w-[98rem] grid-cols-[5.2rem_6.5rem_minmax(10.5rem,1fr)_minmax(16rem,1.3fr)_minmax(8.5rem,0.75fr)_minmax(8.5rem,0.75fr)_minmax(7.5rem,0.7fr)_7.3rem_7.3rem_7.3rem] gap-3 border-b border-[#f5cddd] bg-[#fff7fb] px-5 py-3 text-[9px] font-black uppercase tracking-[0.16em] text-[#9b6076] max-xl:hidden">
+                  <div className="grid min-w-[98rem] grid-cols-[5.2rem_6.5rem_minmax(12.5rem,1.12fr)_minmax(14.5rem,1.18fr)_minmax(8.5rem,0.75fr)_minmax(8.5rem,0.75fr)_minmax(7.5rem,0.7fr)_7.3rem_7.3rem_7.3rem] gap-3 border-b border-[#f5cddd] bg-[#fff7fb] px-5 py-3 text-[8px] font-black uppercase tracking-[0.15em] text-[#9b6076] max-xl:hidden">
                     <span>Hora</span>
                     <span>Ticket</span>
                     <span>Concepto</span>
@@ -1414,23 +1414,23 @@ export function POSView({
                         ? 'bg-[#75a7b8] shadow-[#75a7b8]/20'
                         : (isReversal ? 'bg-[#b35a7b] shadow-[#b35a7b]/20' : (isOut ? 'bg-[#d65f7f] shadow-[#d65f7f]/20' : 'bg-[#72b79b] shadow-[#72b79b]/20'));
                       return (
-                        <div key={entry.id} className={`grid min-w-[98rem] gap-3 border-l-4 px-5 py-3 text-sm transition-colors max-xl:min-w-0 max-xl:grid-cols-[minmax(0,1fr)] xl:grid-cols-[5.2rem_6.5rem_minmax(10.5rem,1fr)_minmax(16rem,1.3fr)_minmax(8.5rem,0.75fr)_minmax(8.5rem,0.75fr)_minmax(7.5rem,0.7fr)_7.3rem_7.3rem_7.3rem] xl:items-center ${rowTone}`}>
-                          <p className="font-black text-[#34242b] max-xl:hidden">{timeLabel}</p>
-                          <p className="truncate text-[10px] font-black uppercase tracking-[0.12em] text-[#8f2d5b] max-xl:hidden">{ticketLabel}</p>
-                          <div className="flex min-w-0 items-center gap-3">
-                            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-white shadow-lg ${iconTone}`}>
-                              {isReversal ? <RotateCcw size={17} /> : (isSale ? <ReceiptText size={17} /> : (isOut ? <ArrowDown size={17} /> : <ArrowUp size={17} />))}
+                        <div key={entry.id} className={`grid min-w-[98rem] gap-3 border-l-4 px-5 py-3 text-sm transition-colors max-xl:min-w-0 max-xl:grid-cols-[minmax(0,1fr)] xl:grid-cols-[5.2rem_6.5rem_minmax(12.5rem,1.12fr)_minmax(14.5rem,1.18fr)_minmax(8.5rem,0.75fr)_minmax(8.5rem,0.75fr)_minmax(7.5rem,0.7fr)_7.3rem_7.3rem_7.3rem] xl:items-center ${rowTone}`}>
+                          <p className="text-[12px] font-black text-[#34242b] max-xl:hidden">{timeLabel}</p>
+                          <p className="truncate text-[9px] font-black uppercase tracking-[0.1em] text-[#8f2d5b] max-xl:hidden">{ticketLabel}</p>
+                          <div className="flex min-w-0 items-center gap-2.5">
+                            <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-white shadow-lg ${iconTone}`}>
+                              {isReversal ? <RotateCcw size={15} /> : (isSale ? <ReceiptText size={15} /> : (isOut ? <ArrowDown size={15} /> : <ArrowUp size={15} />))}
                             </div>
                             <div className="min-w-0">
-                              <p className="truncate text-[12px] font-black uppercase italic leading-tight text-[#34242b]">{entry.title}</p>
+                              <p className="line-clamp-2 text-[10px] font-black uppercase italic leading-snug text-[#34242b]">{entry.title}</p>
                               <p className="mt-1 text-[9px] font-black uppercase tracking-[0.14em] text-[#9b6076] xl:hidden">{timeLabel} · Ticket: {ticketLabel} · {methodLabel} · Cliente: {clientLabel} · Estilista: {stylistLabel}</p>
                             </div>
                           </div>
-                          <p className="line-clamp-2 text-[10px] font-bold uppercase tracking-[0.08em] text-[#9b6076] max-xl:rounded-2xl max-xl:border max-xl:border-[#f2c1d4] max-xl:bg-[#fff7fb] max-xl:px-3 max-xl:py-2">{detailText}</p>
-                          <p className="truncate text-[10px] font-black uppercase tracking-[0.1em] text-[#426f64] max-xl:hidden">{clientLabel}</p>
-                          <p className="truncate text-[10px] font-black uppercase tracking-[0.1em] text-[#8f2d5b] max-xl:hidden">{stylistLabel}</p>
-                          <p className="truncate text-[10px] font-black uppercase tracking-[0.1em] text-[#8f2d5b] max-xl:hidden">{userLabel}</p>
-                          <span className={`rounded-full border px-3 py-1.5 text-center text-[9px] font-black uppercase tracking-[0.12em] max-lg:w-fit ${isOpening ? 'border-[#c4dce4] bg-white text-[#4f7b8b]' : (isReversal ? 'border-[#f3b8c8] bg-white text-[#b35a7b]' : (isOut ? 'border-[#f3b8c8] bg-white text-[#b84868]' : 'border-[#cdeadd] bg-white text-[#426f64]'))}`}>
+                          <p className="line-clamp-2 text-[9px] font-bold uppercase tracking-[0.06em] text-[#9b6076] max-xl:rounded-2xl max-xl:border max-xl:border-[#f2c1d4] max-xl:bg-[#fff7fb] max-xl:px-3 max-xl:py-2">{detailText}</p>
+                          <p className="truncate text-[9px] font-black uppercase tracking-[0.08em] text-[#426f64] max-xl:hidden">{clientLabel}</p>
+                          <p className="truncate text-[9px] font-black uppercase tracking-[0.08em] text-[#8f2d5b] max-xl:hidden">{stylistLabel}</p>
+                          <p className="truncate text-[9px] font-black uppercase tracking-[0.08em] text-[#8f2d5b] max-xl:hidden">{userLabel}</p>
+                          <span className={`rounded-full border px-3 py-1.5 text-center text-[8px] font-black uppercase tracking-[0.1em] max-lg:w-fit ${isOpening ? 'border-[#c4dce4] bg-white text-[#4f7b8b]' : (isReversal ? 'border-[#f3b8c8] bg-white text-[#b35a7b]' : (isOut ? 'border-[#f3b8c8] bg-white text-[#b84868]' : 'border-[#cdeadd] bg-white text-[#426f64]'))}`}>
                             {isOpening ? 'Fondo inicial' : (isReversal ? 'Reverso' : methodLabel)}
                           </span>
                           <p className={`text-right text-lg font-black italic max-xl:text-left ${isOut ? 'text-[#b35a7b]' : 'text-[#426f64]'}`}>
