@@ -1372,11 +1372,11 @@ export function POSView({
 
             <div className="flex-1 overflow-y-auto p-3 custom-scrollbar md:p-5">
               {filteredDayMovements.length === 0 ? (
-                <div className="rounded-[1.8rem] border border-dashed border-[#efabc7] bg-white/70 p-10 text-center">
+                <div className="rounded-2xl border border-dashed border-[#efabc7] bg-white/70 p-10 text-center">
                   <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#9b6076]">Sin movimientos para esta búsqueda</p>
                 </div>
               ) : (
-                <div className="overflow-x-auto rounded-[1.8rem] border border-[#f0a6c3] bg-white custom-scrollbar">
+                <div className="overflow-x-auto rounded-2xl border border-[#f0a6c3] bg-white custom-scrollbar">
                   <div className="grid min-w-[98rem] grid-cols-[5.2rem_6.5rem_minmax(12.5rem,1.12fr)_minmax(14.5rem,1.18fr)_minmax(8.5rem,0.75fr)_minmax(8.5rem,0.75fr)_minmax(7.5rem,0.7fr)_7.3rem_7.3rem_7.3rem] gap-3 border-b border-[#f5cddd] bg-[#fff7fb] px-5 py-3 text-[8px] font-black uppercase tracking-[0.15em] text-[#9b6076] max-xl:hidden">
                     <span>Hora</span>
                     <span>Ticket</span>
@@ -1387,7 +1387,7 @@ export function POSView({
                     <span>Usuario</span>
                     <span>Método</span>
                     <span className="text-right">Monto</span>
-                    <span className="text-right">Acción</span>
+                    <span className="text-center">Acción</span>
                   </div>
 
                   <div className="divide-y divide-[#f5cddd]">
@@ -1440,12 +1440,12 @@ export function POSView({
                             <button
                               type="button"
                               onClick={() => handleCancelMovementEntry(entry)}
-                              className="flex min-w-[6.4rem] items-center justify-center gap-2 justify-self-end rounded-2xl border border-[#f0a6c3] bg-white px-3 py-2.5 text-[9px] font-black uppercase tracking-[0.1em] text-[#8f2d5b] transition-all hover:bg-[#fff0f6] active:scale-95 max-xl:justify-self-start"
+                              className="flex min-w-[6.4rem] items-center justify-center gap-2 justify-self-center rounded-xl border border-[#f0a6c3] bg-white px-3 py-2.5 text-[9px] font-black uppercase tracking-[0.1em] text-[#8f2d5b] transition-all hover:bg-[#fff0f6] active:scale-95 max-xl:justify-self-start"
                             >
                               <RotateCcw size={14} /> Anular
                             </button>
                           ) : (
-                            <span className="inline-flex min-w-[6.4rem] items-center justify-center justify-self-end rounded-2xl border border-[#f2c1d4] bg-[#fff7fb] px-3 py-2 text-center text-[8px] font-black uppercase tracking-[0.08em] text-[#b4899c] max-xl:justify-self-start">
+                            <span className="inline-flex min-w-[6.4rem] items-center justify-center justify-self-center rounded-xl border border-[#f2c1d4] bg-[#fff7fb] px-3 py-2 text-center text-[8px] font-black uppercase tracking-[0.08em] text-[#b4899c] max-xl:justify-self-start">
                               {isOpening ? 'Base' : (isReversal ? 'Reverso' : (entry.isVoidedOriginal ? 'Anulado' : 'Bloqueado'))}
                             </span>
                           )}
