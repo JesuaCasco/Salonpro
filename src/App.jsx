@@ -99,6 +99,8 @@ import {
   STYLIST_PAYMENT_MODE_OPTIONS,
   BUSINESS_PLANS,
   CATEGORIES,
+  DEFAULT_SALON_CLOSE_TIME,
+  DEFAULT_SALON_OPEN_TIME,
   HOURS,
   MOCK_STYLISTS,
   LOYALTY_REWARD_VISITS,
@@ -110,6 +112,7 @@ import {
   stylistHasCommissionPay,
   formatPhoneNumber,
   formatLocalDateYmd,
+  generateBusinessHours,
   getStylistNominaData,
   getStylistPaymentModeLabel,
   getCurrentTimeHHmm,
@@ -119,6 +122,7 @@ import {
   isValidPhoneNumber,
   formatPromotionValue,
   normalizeFavoriteServiceName,
+  normalizeBusinessTime,
   clampPromotionDiscountValue,
   isPromotionService,
   makeId,
@@ -218,9 +222,7 @@ const getFriendlySupabaseErrorMessage = (error, context = 'general') => {
   return 'No se pudo conectar con Supabase desde esta red m\u00f3vil. Intenta nuevamente cuando la conexi\u00f3n est\u00e9 estable.';
 };
 
-const resolveWalkinQueueTime = ({ appointments = [], stylistId, date = getTodayString() }) => {
-  if (!stylistId || !date) return getCurrentTimeHHmm();
-
+const resolveWalkinQueueTime = ({ appointments = [], stylistId, date = getTodayString(), businessHours = HOURS }) => {
   const toMinutes = (time = '00:00') => {
     if (!time || typeof time !== 'string') return 0;
     const [hours, minutes] = time.split(':').map((value) => Number(value));
@@ -233,6 +235,12 @@ const resolveWalkinQueueTime = ({ appointments = [], stylistId, date = getTodayS
     const m = safeMinutes % 60;
     return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
   };
+
+  const firstBusinessSlot = businessHours?.[0] || DEFAULT_SALON_OPEN_TIME;
+  const lastBusinessSlot = businessHours?.[businessHours.length - 1] || DEFAULT_SALON_CLOSE_TIME;
+  const firstBusinessMinutes = toMinutes(firstBusinessSlot);
+  const lastBusinessMinutes = toMinutes(lastBusinessSlot);
+  if (!stylistId || !date) return firstBusinessSlot;
 
   const activeStatuses = new Set(['Confirmada', 'En Espera', 'En Servicio']);
   const sameStylistDay = (appointments || []).filter((appointment) => (
@@ -250,11 +258,11 @@ const resolveWalkinQueueTime = ({ appointments = [], stylistId, date = getTodayS
   const isToday = standardizeDate(date) === getTodayString();
   if (isToday) {
     const nowMinutes = toMinutes(getCurrentTimeHHmm());
-    return toHHmm(Math.max(latestEnd, nowMinutes));
+    return toHHmm(Math.min(Math.max(latestEnd, nowMinutes, firstBusinessMinutes), lastBusinessMinutes));
   }
 
-  if (latestEnd > 0) return toHHmm(latestEnd);
-  return '09:00';
+  if (latestEnd > 0) return toHHmm(Math.min(Math.max(latestEnd, firstBusinessMinutes), lastBusinessMinutes));
+  return firstBusinessSlot;
 };
 
 const appointmentTimeToMinutes = (time = '00:00') => {
@@ -311,7 +319,7 @@ function SystemView({
   const [selectedBranchesSalonId, setSelectedBranchesSalonId] = useState('all');
   const [selectedUsersSalonId, setSelectedUsersSalonId] = useState('all');
   const [selectedUsersBranchId, setSelectedUsersBranchId] = useState('all');
-  const [onboarding, setOnboarding] = useState({ name: '', ownerEmail: '', phone: '', city: '', plan: BUSINESS_PLANS[0], adminUserId: '' });
+  const [onboarding, setOnboarding] = useState({ id: '', name: '', ownerEmail: '', phone: '', city: '', plan: BUSINESS_PLANS[0], adminUserId: '', openTime: DEFAULT_SALON_OPEN_TIME, closeTime: DEFAULT_SALON_CLOSE_TIME });
   const [branchForm, setBranchForm] = useState({ id: '', name: '', code: '', city: '', address: '', salonId: '' });
   const [newUser, setNewUser] = useState({ fullName: '', email: '', password: '', roleName: 'admin', salonId: '', branchId: '' });
 
@@ -393,6 +401,7 @@ function SystemView({
     [accessControl.users],
   );
   const effectiveOnboardingAdminUserId = onboarding.adminUserId || onboardingCandidates[0]?.id || '';
+  const isEditingSalon = Boolean(onboarding.id);
 
   const resetBranchForm = () => {
     setBranchForm({
@@ -403,6 +412,26 @@ function SystemView({
       address: '',
       salonId: '',
     });
+  };
+
+  const resetSalonForm = () => {
+    setOnboarding({ id: '', name: '', ownerEmail: '', phone: '', city: '', plan: BUSINESS_PLANS[0], adminUserId: '', openTime: DEFAULT_SALON_OPEN_TIME, closeTime: DEFAULT_SALON_CLOSE_TIME });
+  };
+
+  const startSalonEdit = (shop) => {
+    setActiveSystemPanel('salons');
+    setOnboarding({
+      id: shop.id,
+      name: shop.name || '',
+      ownerEmail: shop.ownerEmail || '',
+      phone: shop.phone || '',
+      city: shop.city || '',
+      plan: shop.plan || BUSINESS_PLANS[0],
+      adminUserId: '',
+      openTime: shop.openTime || DEFAULT_SALON_OPEN_TIME,
+      closeTime: shop.closeTime || DEFAULT_SALON_CLOSE_TIME,
+    });
+    setShowCreateSalon(true);
   };
 
   const startBranchEdit = (branch) => {
@@ -471,12 +500,21 @@ function SystemView({
       notify('Ingresa el nombre del salón para completar el onboarding.', 'warning');
       return;
     }
+    const openTime = normalizeBusinessTime(onboarding.openTime, DEFAULT_SALON_OPEN_TIME);
+    const closeTime = normalizeBusinessTime(onboarding.closeTime, DEFAULT_SALON_CLOSE_TIME);
+    if (appointmentTimeToMinutes(closeTime) <= appointmentTimeToMinutes(openTime)) {
+      notify('La hora de cierre debe ser posterior a la hora de apertura.', 'warning');
+      return;
+    }
+
     const created = await onCreateSalon({
       ...onboarding,
+      openTime,
+      closeTime,
       adminUserId: effectiveOnboardingAdminUserId || '',
     });
     if (created) {
-      setOnboarding({ name: '', ownerEmail: '', phone: '', city: '', plan: BUSINESS_PLANS[0], adminUserId: '' });
+      resetSalonForm();
       setShowCreateSalon(false);
     }
   };
@@ -605,7 +643,10 @@ function SystemView({
           <div className="w-full max-w-5xl bg-slate-950 border border-white/10 rounded-[3rem] overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.8)] animate-in zoom-in-95 duration-300 relative text-white max-h-[88vh] overflow-y-auto custom-scrollbar">
             <button
               type="button"
-              onClick={() => setShowCreateSalon(false)}
+              onClick={() => {
+                setShowCreateSalon(false);
+                resetSalonForm();
+              }}
               className="absolute top-6 right-6 p-3 rounded-2xl bg-white/5 hover:bg-rose-500/20 text-white/40 hover:text-rose-400 transition-all z-20"
             >
               <X size={20} />
@@ -616,7 +657,7 @@ function SystemView({
                 <div className="min-w-0">
                   <p className="text-[10px] font-black uppercase tracking-[0.22em] text-indigo-300">Configuración comercial</p>
                   <h3 className="mt-3 text-[2rem] font-black uppercase italic tracking-tighter text-white leading-none">
-                    Nuevo salón
+                    {isEditingSalon ? 'Editar salón' : 'Nuevo salón'}
                   </h3>
                 </div>
               </div>
@@ -670,6 +711,7 @@ function SystemView({
                     ))}
                   </select>
                 </div>
+                {!isEditingSalon && (
                 <div className="space-y-3">
                   <label className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500">Admin principal</label>
                   <select
@@ -685,6 +727,27 @@ function SystemView({
                     ))}
                   </select>
                 </div>
+                )}
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500">Hora de apertura</label>
+                  <input
+                    type="time"
+                    step="1800"
+                    value={onboarding.openTime}
+                    onChange={(e) => setOnboarding((prev) => ({ ...prev, openTime: e.target.value }))}
+                    className="w-full bg-black border border-slate-800 rounded-[1.4rem] px-6 py-4 text-sm font-bold text-white outline-none focus:border-indigo-500 italic"
+                  />
+                </div>
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500">Hora de cierre</label>
+                  <input
+                    type="time"
+                    step="1800"
+                    value={onboarding.closeTime}
+                    onChange={(e) => setOnboarding((prev) => ({ ...prev, closeTime: e.target.value }))}
+                    className="w-full bg-black border border-slate-800 rounded-[1.4rem] px-6 py-4 text-sm font-bold text-white outline-none focus:border-indigo-500 italic"
+                  />
+                </div>
               </div>
 
               <div className="px-8 pb-8 flex flex-col sm:flex-row gap-3">
@@ -694,11 +757,14 @@ function SystemView({
                   className="flex-1 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 text-white py-4.5 rounded-[1.6rem] font-black uppercase italic text-[11px] tracking-[0.22em] transition-all flex items-center justify-center gap-3 shadow-[0_12px_30px_rgba(201,111,141,0.24)]"
                 >
                   {onboardingBusy ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
-                  Crear salón
+                  {isEditingSalon ? 'Guardar salón' : 'Crear salón'}
                 </button>
                 <button
                   type="button"
-                  onClick={() => setShowCreateSalon(false)}
+                  onClick={() => {
+                    setShowCreateSalon(false);
+                    resetSalonForm();
+                  }}
                   className="sm:w-56 bg-white/5 hover:bg-white/10 text-white py-4.5 rounded-[1.6rem] font-black uppercase italic text-[11px] tracking-[0.22em] transition-all"
                 >
                   Cancelar
@@ -846,7 +912,10 @@ function SystemView({
                 </div>
                 <button
                   type="button"
-                  onClick={() => setShowCreateSalon(true)}
+                  onClick={() => {
+                    resetSalonForm();
+                    setShowCreateSalon(true);
+                  }}
                   className="px-5 py-4 rounded-[1.6rem] bg-indigo-600 hover:bg-indigo-500 text-white font-black uppercase italic text-[10px] tracking-[0.2em] transition-all flex items-center justify-center gap-2"
                 >
                   <Plus size={16} />
@@ -878,25 +947,38 @@ function SystemView({
                           </span>
                           <span className="text-sm font-black text-white">{branchCountBySalonId[String(shop.id)] || 0} suc.</span>
                         </div>
+                        <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/5 bg-slate-950 px-3 py-2">
+                          <span className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-500">Horario</span>
+                          <span className="text-[11px] font-black text-slate-200">{shop.openTime || DEFAULT_SALON_OPEN_TIME} - {shop.closeTime || DEFAULT_SALON_CLOSE_TIME}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => startSalonEdit(shop)}
+                          className="mt-1 w-full rounded-2xl border border-indigo-500/25 bg-indigo-600/10 px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-indigo-200 transition-all hover:bg-indigo-600 hover:text-white"
+                        >
+                          Editar salón
+                        </button>
                       </div>
                     </div>
                   ))}
                 </div>
                 <div className="hidden md:block rounded-[2.4rem] border border-white/5 bg-black/35 overflow-x-auto">
                 <div className="min-w-[980px]">
-                  <div className="grid grid-cols-[minmax(220px,1.2fr)_160px_minmax(260px,1.2fr)_140px_140px] gap-4 px-6 py-5 border-b border-white/5 text-[9px] font-black uppercase tracking-[0.24em] text-slate-500">
+                  <div className="grid grid-cols-[minmax(220px,1.2fr)_140px_minmax(230px,1.1fr)_120px_120px_140px_110px] gap-4 px-6 py-5 border-b border-white/5 text-[9px] font-black uppercase tracking-[0.24em] text-slate-500">
                     <span>Salón</span>
                     <span>Ciudad</span>
                     <span>Propietario</span>
                     <span>Plan</span>
+                    <span>Horario</span>
                     <span>Sucursales</span>
+                    <span></span>
                   </div>
 
                   <div className="divide-y divide-white/5">
                     {salons.map((shop) => (
                       <div
                         key={shop.id}
-                        className="grid grid-cols-[minmax(220px,1.2fr)_160px_minmax(260px,1.2fr)_140px_140px] gap-4 px-6 py-5 items-center"
+                        className="grid grid-cols-[minmax(220px,1.2fr)_140px_minmax(230px,1.1fr)_120px_120px_140px_110px] gap-4 px-6 py-5 items-center"
                       >
                         <div className="min-w-0">
                           <p className="text-base font-black uppercase italic tracking-tighter text-white break-all">
@@ -924,10 +1006,22 @@ function SystemView({
                           </span>
                         </div>
                         <div>
+                          <p className="text-[11px] font-black text-slate-200">
+                            {shop.openTime || DEFAULT_SALON_OPEN_TIME} - {shop.closeTime || DEFAULT_SALON_CLOSE_TIME}
+                          </p>
+                        </div>
+                        <div>
                           <span className="text-sm font-black text-white">
                             {branchCountBySalonId[String(shop.id)] || 0}
                           </span>
                         </div>
+                        <button
+                          type="button"
+                          onClick={() => startSalonEdit(shop)}
+                          className="inline-flex items-center justify-center gap-2 rounded-xl border border-indigo-500/25 bg-indigo-600/10 px-3 py-2.5 text-[9px] font-black uppercase tracking-[0.12em] text-indigo-200 transition-all hover:bg-indigo-600 hover:text-white"
+                        >
+                          <Edit2 size={13} /> Editar
+                        </button>
                       </div>
                     ))}
                   </div>
@@ -2334,23 +2428,26 @@ export default function App() {
 
   const handleCreateSalon = async (payload) => {
     if (!isSuperAdmin) {
-      notify('Solo el super usuario puede crear nuevos negocios.', 'warning');
+      notify('Solo el super usuario puede administrar negocios.', 'warning');
       return null;
     }
 
     setOnboardingBusy(true);
     try {
+      const isUpdate = Boolean(payload.id);
       const createdSalon = await upsertSalon({
-        id: makeId(),
+        id: payload.id || makeId(),
         name: payload.name,
         ownerEmail: payload.ownerEmail,
         phone: payload.phone,
         city: payload.city,
         plan: payload.plan,
+        openTime: payload.openTime || DEFAULT_SALON_OPEN_TIME,
+        closeTime: payload.closeTime || DEFAULT_SALON_CLOSE_TIME,
         isActive: true,
       });
 
-      if (payload.adminUserId) {
+      if (!isUpdate && payload.adminUserId) {
         await assignProfileSalon(payload.adminUserId, createdSalon.id);
         const targetUser = (accessControl.users || []).find((user) => String(user.id) === String(payload.adminUserId));
         const preservedRoles = new Set((targetUser?.roles || []).filter((role) => role === 'super_admin'));
@@ -2360,7 +2457,7 @@ export default function App() {
 
       const snapshot = await fetchAccessControlSnapshot(session?.user?.id);
       setAccessControl(snapshot);
-      notify(`Negocio ${createdSalon.name} creado correctamente.`, 'success');
+      notify(`Negocio ${createdSalon.name} ${isUpdate ? 'actualizado' : 'creado'} correctamente.`, 'success');
       return createdSalon;
     } catch (error) {
       handleSyncError(error, 'No pude completar el onboarding del negocio.');
@@ -2375,6 +2472,12 @@ export default function App() {
   const currentSalon = availableSalons.find((shop) => String(shop.id) === String(currentSalonId || ''))
     || availableSalons[0]
     || null;
+  const currentSalonOpenTime = currentSalon?.openTime || DEFAULT_SALON_OPEN_TIME;
+  const currentSalonCloseTime = currentSalon?.closeTime || DEFAULT_SALON_CLOSE_TIME;
+  const currentSalonHours = useMemo(
+    () => generateBusinessHours(currentSalonOpenTime, currentSalonCloseTime),
+    [currentSalonOpenTime, currentSalonCloseTime],
+  );
   const currentBranch = availableBranches.find((branch) => String(branch.id) === String(currentBranchId || '')) || null;
   const activeCashSession = useMemo(() => (
     (cashSessions || []).find((cashSession) => (
@@ -3758,7 +3861,7 @@ export default function App() {
   };
 
   const getNextWalkinQueueTime = (stylistId, date = getTodayString()) => {
-    return resolveWalkinQueueTime({ appointments, stylistId, date });
+    return resolveWalkinQueueTime({ appointments, stylistId, date, businessHours: currentSalonHours });
   };
 
   const triggerWalkIn = (stylistId = defaultStylistId) => {
@@ -3930,7 +4033,7 @@ export default function App() {
           {(activeTab === 'clientes' || activeTab === 'agenda') && (
             <div className="flex w-full md:w-auto flex-col sm:flex-row items-stretch sm:items-center justify-stretch md:justify-end gap-3">
               {activeTab === 'clientes' && <button onClick={() => { setSelectedData({ ...selectedData, client: null }); setModals({ ...modals, client: true }); }} className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-500 text-white px-5 md:px-6 py-3 rounded-2xl font-black text-[10px] uppercase flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(201,111,141,0.28)] active:scale-95 transition-all"><UserPlus size={16}/> Nuevo Cliente</button>}
-              {activeTab === 'agenda' && <button onClick={() => { setSelectedData({ ...selectedData, appointment: { date: viewDate, time: '09:00', stylistId: defaultStylistId } }); setModals({ ...modals, appointment: true }); }} className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-500 text-white px-5 md:px-6 py-3 rounded-2xl font-black text-[10px] uppercase flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(201,111,141,0.28)] active:scale-95 transition-all"><Plus size={16}/> Nueva Cita</button>}
+              {activeTab === 'agenda' && <button onClick={() => { setSelectedData({ ...selectedData, appointment: { date: viewDate, time: currentSalonHours[0] || DEFAULT_SALON_OPEN_TIME, stylistId: defaultStylistId } }); setModals({ ...modals, appointment: true }); }} className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-500 text-white px-5 md:px-6 py-3 rounded-2xl font-black text-[10px] uppercase flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(201,111,141,0.28)] active:scale-95 transition-all"><Plus size={16}/> Nueva Cita</button>}
             </div>
           )}
         </header>
@@ -3939,8 +4042,8 @@ export default function App() {
           {['dashboard', 'caja', 'reportes'].includes(activeTab) && operationalWarnings.length > 0 && renderPersistentWarningBanner('Datos operativos con advertencias', operationalWarnings)}
           {activeTab === 'clientes' && clientDirectoryWarnings.length > 0 && renderPersistentWarningBanner('Clientes cargados parcialmente', clientDirectoryWarnings)}
           {activeTab === 'dashboard' && <DashboardView appointments={appointments} clients={clients} onUpdate={handleUpdateStatus} onOpenAppointment={openAppointmentActions} stylists={stylists} onNewWalkin={triggerWalkIn} posSales={activePosSales} />}
-          {activeTab === 'agenda' && <AgendaView viewDate={viewDate} setViewDate={setViewDate} appointments={appointments} clients={clients} stylists={stylists} onSlotClick={(h, b) => { setSelectedData({ ...selectedData, appointment: { date: viewDate, time: h, stylistId: b } }); setModals({ ...modals, appointment: true }); }} onAptClick={handleAgendaAppointmentClick} onTransferApt={openTransferAppointment} />}
-          {activeTab === 'clientes' && <ClientsTableView clients={effectiveClientDirectory.clients} appointments={effectiveClientDirectory.appointments} stylists={effectiveClientDirectory.stylists} onRowClick={(c) => { setSelectedData({...selectedData, client: c}); setModals({...modals, clientDetail: true}); }} onNewApt={(c) => { setSelectedData({ ...selectedData, appointment: { date: getTodayString(), time: '09:00', stylistId: defaultStylistId, client: c } }); setModals({ ...modals, appointment: true }); }} />}
+          {activeTab === 'agenda' && <AgendaView viewDate={viewDate} setViewDate={setViewDate} appointments={appointments} clients={clients} stylists={stylists} businessHours={currentSalonHours} openTime={currentSalonOpenTime} closeTime={currentSalonCloseTime} onSlotClick={(h, b) => { setSelectedData({ ...selectedData, appointment: { date: viewDate, time: h, stylistId: b } }); setModals({ ...modals, appointment: true }); }} onAptClick={handleAgendaAppointmentClick} onTransferApt={openTransferAppointment} />}
+          {activeTab === 'clientes' && <ClientsTableView clients={effectiveClientDirectory.clients} appointments={effectiveClientDirectory.appointments} stylists={effectiveClientDirectory.stylists} onRowClick={(c) => { setSelectedData({...selectedData, client: c}); setModals({...modals, clientDetail: true}); }} onNewApt={(c) => { setSelectedData({ ...selectedData, appointment: { date: getTodayString(), time: currentSalonHours[0] || DEFAULT_SALON_OPEN_TIME, stylistId: defaultStylistId, client: c } }); setModals({ ...modals, appointment: true }); }} />}
           {activeTab === 'estilistas' && (
             <StylistsView
               stylists={stylists}
@@ -4021,12 +4124,12 @@ export default function App() {
         </div>
       </main>
 
-      {modals.appointment && <AppointmentModal onClose={() => setModals({...modals, appointment: false})} onSave={handleSaveAppointment} services={services} clients={clients} stylists={stylists} initial={selectedData.appointment || { date: viewDate, time: '09:00', stylistId: defaultStylistId }} appointments={appointments} />}
+      {modals.appointment && <AppointmentModal onClose={() => setModals({...modals, appointment: false})} onSave={handleSaveAppointment} services={services} clients={clients} stylists={stylists} initial={selectedData.appointment || { date: viewDate, time: currentSalonHours[0] || DEFAULT_SALON_OPEN_TIME, stylistId: defaultStylistId }} appointments={appointments} businessHours={currentSalonHours} openTime={currentSalonOpenTime} closeTime={currentSalonCloseTime} />}
       {modals.appointmentActions && <AppointmentActionsModal appointment={selectedData.appointmentActions} clients={clients} stylists={stylists} onClose={() => setModals({...modals, appointmentActions: false})} onUpdate={(id, status) => { setModals((prev) => ({ ...prev, appointmentActions: false })); handleUpdateStatus(id, status); }} onMove={(appointment) => { setModals((prev) => ({ ...prev, appointmentActions: false })); openRescheduleAppointment(appointment); }} onTransfer={(appointment) => { setModals((prev) => ({ ...prev, appointmentActions: false })); openTransferAppointment(appointment); }} onCancel={handleCancelAppointment} onMarkLost={handleMarkAppointmentLost} />}
-      {modals.rescheduleAppointment && <RescheduleAppointmentModal appointment={selectedData.rescheduleAppointment} appointments={appointments} clients={clients} stylists={stylists} onClose={() => setModals({...modals, rescheduleAppointment: false})} onSave={handleRescheduleAppointment} />}
+      {modals.rescheduleAppointment && <RescheduleAppointmentModal appointment={selectedData.rescheduleAppointment} appointments={appointments} clients={clients} stylists={stylists} businessHours={currentSalonHours} onClose={() => setModals({...modals, rescheduleAppointment: false})} onSave={handleRescheduleAppointment} />}
       {modals.transferAppointment && <TransferAppointmentModal appointment={selectedData.transferAppointment} appointments={appointments} clients={clients} stylists={stylists} onClose={() => setModals({...modals, transferAppointment: false})} onSave={handleTransferAppointment} />}
       {modals.client && <ClientModal onClose={() => setModals({...modals, client: false})} onSave={handleSaveClient} clients={clients} initial={selectedData.client} />}
-      {modals.clientDetail && <ClientDetailModal client={selectedData.client} clients={effectiveClientDirectory.clients} appointments={effectiveClientDirectory.appointments} stylists={effectiveClientDirectory.stylists} onClose={() => setModals({...modals, clientDetail: false})} onEdit={() => { setModals({...modals, clientDetail: false, client: true}); }} onDelete={() => handleDeleteClient(selectedData.client.id)} onNewApt={() => { setModals({...modals, clientDetail: false, appointment: true}); setSelectedData({...selectedData, appointment: { date: getTodayString(), time: '09:00', stylistId: defaultStylistId, client: selectedData.client } }); }} />}
+      {modals.clientDetail && <ClientDetailModal client={selectedData.client} clients={effectiveClientDirectory.clients} appointments={effectiveClientDirectory.appointments} stylists={effectiveClientDirectory.stylists} onClose={() => setModals({...modals, clientDetail: false})} onEdit={() => { setModals({...modals, clientDetail: false, client: true}); }} onDelete={() => handleDeleteClient(selectedData.client.id)} onNewApt={() => { setModals({...modals, clientDetail: false, appointment: true}); setSelectedData({...selectedData, appointment: { date: getTodayString(), time: currentSalonHours[0] || DEFAULT_SALON_OPEN_TIME, stylistId: defaultStylistId, client: selectedData.client } }); }} />}
       {modals.finalize && <FinalizeModal onClose={() => setModals({...modals, finalize: false})} onConfirm={(ex) => handleUpdateStatus(selectedData.finalize.id, 'Finalizada', ex)} services={services} clients={clients} initial={selectedData.finalize} />}
       {modals.service && <ServiceEditorModal services={services} onClose={() => setModals({...modals, service: false})} onSave={handleSaveService} initial={selectedData.service} />}
       {modals.paymentReceipt && <PaymentReceiptModal data={selectedData.paymentReceipt} onClose={() => setModals({...modals, paymentReceipt: false})} onConfirmPayment={handleConfirmPayment} confirmAction={confirmAction} />}
@@ -4168,16 +4271,19 @@ export default function App() {
   );
 }
 
-function AgendaView({ viewDate, setViewDate, appointments, clients, stylists, onSlotClick, onAptClick, onTransferApt }) {
+function AgendaView({ viewDate, setViewDate, appointments, clients, stylists, businessHours = HOURS, openTime = DEFAULT_SALON_OPEN_TIME, closeTime = DEFAULT_SALON_CLOSE_TIME, onSlotClick, onAptClick, onTransferApt }) {
   const today = getTodayString();
   const isToday = viewDate === today;
   const getAgendaServiceLabel = (serviceName) => normalizeFavoriteServiceName(serviceName) || 'Servicio';
   const [nowPos, setNowPos] = useState(0);
   const agendaStylists = (stylists && stylists.length > 0) ? stylists : [];
+  const agendaDefaultSlot = businessHours[0] || DEFAULT_SALON_OPEN_TIME;
+  const agendaNowSlot = businessHours.includes(getCurrentTimeHHmm()) ? getCurrentTimeHHmm() : agendaDefaultSlot;
   const agendaTimeColumnWidth = 112;
   const agendaStylistColumnWidth = 168;
   const agendaMinWidth = Math.max(760, agendaTimeColumnWidth + (agendaStylists.length * agendaStylistColumnWidth));
   const agendaGridColumns = `${agendaTimeColumnWidth}px repeat(${agendaStylists.length}, minmax(${agendaStylistColumnWidth}px, 1fr))`;
+  const agendaIntervalCount = Math.max((businessHours?.length || 1) - 1, 1);
   const dayAppointments = useMemo(
     () => (appointments || [])
       .filter((appointment) => standardizeDate(appointment.date) === viewDate)
@@ -4187,19 +4293,24 @@ function AgendaView({ viewDate, setViewDate, appointments, clients, stylists, on
   );
 
   useEffect(() => {
+    const toMinutes = (time = '00:00') => {
+      const [hours, minutes] = `${time}`.split(':').map(Number);
+      return ((Number(hours) || 0) * 60) + (Number(minutes) || 0);
+    };
+    const openMinutes = toMinutes(openTime);
+    const closeMinutes = toMinutes(closeTime);
+    const totalDuration = Math.max(closeMinutes - openMinutes, 30);
     const updateNow = () => {
       const now = new Date();
-      const h = now.getHours();
-      const m = now.getMinutes();
-      if (h < 8 || h > 18) { setNowPos(-1); return; }
-      const totalMinFromStart = (h - 8) * 60 + m;
-      const totalDuration = (18 - 8) * 60;
+      const nowMinutes = (now.getHours() * 60) + now.getMinutes();
+      if (nowMinutes < openMinutes || nowMinutes > closeMinutes) { setNowPos(-1); return; }
+      const totalMinFromStart = nowMinutes - openMinutes;
       setNowPos((totalMinFromStart / totalDuration) * 100);
     };
     updateNow();
     const interval = setInterval(updateNow, 60000);
     return () => clearInterval(interval);
-  }, []);
+  }, [openTime, closeTime]);
 
   const changeDay = (v) => { 
     const d = new Date(viewDate + 'T00:00:00'); 
@@ -4240,7 +4351,7 @@ function AgendaView({ viewDate, setViewDate, appointments, clients, stylists, on
                     {stylistAppointments.length ? `${stylistAppointments.length} cita${stylistAppointments.length === 1 ? '' : 's'} en agenda` : 'Disponible'}
                   </p>
                 </div>
-                <button onClick={() => onSlotClick(getCurrentTimeHHmm(), stylist.id)} className="rounded-xl border border-indigo-500/30 bg-indigo-600/10 p-3 text-indigo-300">
+                <button onClick={() => onSlotClick(agendaNowSlot, stylist.id)} className="rounded-xl border border-indigo-500/30 bg-indigo-600/10 p-3 text-indigo-300">
                   <Plus size={18} />
                 </button>
               </div>
@@ -4278,7 +4389,7 @@ function AgendaView({ viewDate, setViewDate, appointments, clients, stylists, on
                   })}
                 </div>
               ) : (
-                <button onClick={() => onSlotClick('09:00', stylist.id)} className="mt-4 w-full rounded-[1.4rem] border border-dashed border-indigo-500/30 bg-indigo-500/5 px-4 py-4 text-[10px] font-black uppercase tracking-[0.22em] text-indigo-300">
+                <button onClick={() => onSlotClick(agendaDefaultSlot, stylist.id)} className="mt-4 w-full rounded-[1.4rem] border border-dashed border-indigo-500/30 bg-indigo-500/5 px-4 py-4 text-[10px] font-black uppercase tracking-[0.22em] text-indigo-300">
                   Agendar cita
                 </button>
               )}
@@ -4307,12 +4418,12 @@ function AgendaView({ viewDate, setViewDate, appointments, clients, stylists, on
             </div>
 
             {isToday && nowPos >= 0 && (
-              <div className="absolute left-0 w-full h-1 bg-rose-500 z-20 pointer-events-none flex items-center justify-start shadow-[0_0_20px_rgba(244,63,94,0.8)]" style={{ top: `calc(76px + ((${nowPos} / 100) * (21 * 100px)))` }}>
+              <div className="absolute left-0 w-full h-1 bg-rose-500 z-20 pointer-events-none flex items-center justify-start shadow-[0_0_20px_rgba(244,63,94,0.8)]" style={{ top: `calc(76px + ((${nowPos} / 100) * (${agendaIntervalCount} * 100px)))` }}>
                 <div className="px-3 py-1 bg-rose-600 text-white text-[8px] font-black uppercase rounded-full -translate-y-1/2 shadow-lg text-white" style={{ marginLeft: agendaTimeColumnWidth }}>Ahora</div>
               </div>
             )}
 
-            {HOURS.map(h => (
+            {businessHours.map(h => (
               <div 
                 key={h} 
                 className="grid min-h-[100px] group/row border-b border-slate-900 hover:bg-indigo-600/[0.03] transition-colors"
@@ -6386,9 +6497,9 @@ function TransferAppointmentModal({ appointment, appointments, clients, stylists
   );
 }
 
-function RescheduleAppointmentModal({ appointment, appointments, clients, stylists, onClose, onSave }) {
+function RescheduleAppointmentModal({ appointment, appointments, clients, stylists, businessHours = HOURS, onClose, onSave }) {
   const [targetDate, setTargetDate] = useState(appointment?.date || getTodayString());
-  const [targetTime, setTargetTime] = useState(appointment?.time || '09:00');
+  const [targetTime, setTargetTime] = useState(appointment?.time || businessHours[0] || DEFAULT_SALON_OPEN_TIME);
 
   const client = clients.find((item) => String(item.id) === String(appointment?.clientId));
   const stylist = stylists.find((item) => String(item.id) === String(appointment?.stylistId));
@@ -6404,7 +6515,7 @@ function RescheduleAppointmentModal({ appointment, appointments, clients, stylis
     targetTime,
   });
 
-  const freeSlots = HOURS.filter((time) => {
+  const freeSlots = businessHours.filter((time) => {
     if (isSameDate && time === appointment?.time) return true;
     return !hasAppointmentStylistConflict({
       appointments,
@@ -6453,14 +6564,14 @@ function RescheduleAppointmentModal({ appointment, appointments, clients, stylis
               onChange={(event) => {
                 const nextDate = event.target.value;
                 setTargetDate(nextDate);
-                const firstFree = HOURS.find((time) => !hasAppointmentStylistConflict({
+                const firstFree = businessHours.find((time) => !hasAppointmentStylistConflict({
                   appointments,
                   appointment,
                   targetStylistId: appointment.stylistId,
                   targetDate: nextDate,
                   targetTime: time,
                 }));
-                setTargetTime(firstFree || appointment.time || '09:00');
+                setTargetTime(firstFree || appointment.time || businessHours[0] || DEFAULT_SALON_OPEN_TIME);
               }}
               className="w-full rounded-2xl border border-slate-800 bg-black px-5 py-4 text-sm font-black italic text-white outline-none focus:border-indigo-500"
             />
@@ -6625,8 +6736,9 @@ function AppointmentActionsModal({ appointment, clients, stylists, onClose, onUp
   );
 }
 
-function AppointmentModal({ onClose, onSave, services, clients, stylists, initial, appointments }) {
+function AppointmentModal({ onClose, onSave, services, clients, stylists, initial, appointments, businessHours = HOURS, openTime = DEFAULT_SALON_OPEN_TIME, closeTime = DEFAULT_SALON_CLOSE_TIME }) {
   const availableStylists = (stylists && stylists.length > 0) ? stylists : [];
+  const defaultAppointmentTime = initial?.time || businessHours[0] || DEFAULT_SALON_OPEN_TIME;
   const [searchTerm, setSearchTerm] = useState(initial?.client?.name || '');
   const [phoneVal, setPhoneVal] = useState(formatPhoneNumber(initial?.client?.phone || ''));
   const [selectedClient, setSelectedClient] = useState(initial?.client || null);
@@ -6637,7 +6749,7 @@ function AppointmentModal({ onClose, onSave, services, clients, stylists, initia
   const [showServiceList, setShowServiceList] = useState(false);
   const [form, setForm] = useState({ 
     date: initial?.date || getTodayString(), 
-    time: initial?.time || '09:00', 
+    time: defaultAppointmentTime, 
     stylistId: initial?.stylistId || availableStylists[0]?.id || '', 
     service: initial?.service || '', 
     price: initial?.price || 0,
@@ -6706,7 +6818,7 @@ function AppointmentModal({ onClose, onSave, services, clients, stylists, initia
   };
 
   const getWalkinQueueTime = (stylistId, date) => {
-    return resolveWalkinQueueTime({ appointments, stylistId, date });
+    return resolveWalkinQueueTime({ appointments, stylistId, date, businessHours });
   };
 
   const handleSubmit = (e) => { 
@@ -6729,6 +6841,12 @@ function AppointmentModal({ onClose, onSave, services, clients, stylists, initia
     const newStartMinutes = toMinutes(form.time);
     const newDurationMinutes = Number(form.durationMinutes) > 0 ? Number(form.durationMinutes) : 30;
     const newEndMinutes = newStartMinutes + newDurationMinutes;
+    const salonOpenMinutes = toMinutes(openTime);
+    const salonCloseMinutes = toMinutes(closeTime);
+    if (form.type !== 'walkin' && (newStartMinutes < salonOpenMinutes || newStartMinutes > salonCloseMinutes)) {
+      setModalError(`El horario del salón es de ${openTime} a ${closeTime}.`);
+      return;
+    }
     const hasReservationConflict = form.type !== 'walkin' && (appointments || []).some(a => {
       if (standardizeDate(a.date) !== standardizeDate(form.date) || String(a.stylistId) !== String(form.stylistId) || a.status === 'Cancelada' || a.status === 'Finalizada' || a.status === 'Cita Perdida') return false;
       const existingStartMinutes = toMinutes(a.time);
@@ -6856,7 +6974,7 @@ function AppointmentModal({ onClose, onSave, services, clients, stylists, initia
                     <span className="text-[11px] font-black text-indigo-400 uppercase italic leading-none">Cola (auto): {form.time || '--:--'}</span>
                   </div>
                 ) : (
-                  <input type="time" className="w-full bg-black border border-slate-800 py-3.5 px-5 rounded-[1.2rem] text-[12px] font-black text-white outline-none italic" value={form.time} onChange={e => setForm({...form, time: e.target.value})} />
+                  <input type="time" min={openTime} max={closeTime} step="1800" className="w-full bg-black border border-slate-800 py-3.5 px-5 rounded-[1.2rem] text-[12px] font-black text-white outline-none italic" value={form.time} onChange={e => setForm({...form, time: e.target.value})} />
                 )}
               </div>
               </div>

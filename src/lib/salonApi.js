@@ -344,6 +344,8 @@ const toUiSalon = (row) => ({
   phone: row.phone || '',
   city: row.city || '',
   plan: row.plan || 'starter',
+  openTime: safeTime(row.open_time || '08:00'),
+  closeTime: safeTime(row.close_time || '18:00'),
   isActive: row.is_active ?? true,
   createdAt: row.created_at,
 });
@@ -478,6 +480,8 @@ const toDbSalon = (salon) => ({
   phone: salon.phone || null,
   city: salon.city || null,
   plan: salon.plan || 'starter',
+  open_time: salon.openTime || '08:00',
+  close_time: salon.closeTime || '18:00',
   is_active: salon.isActive ?? true,
 });
 

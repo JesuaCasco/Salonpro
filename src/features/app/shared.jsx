@@ -1125,12 +1125,43 @@ export const formatPromotionValue = (promotion) => {
   return `${discountValue}%`;
 };
 
+export const DEFAULT_SALON_OPEN_TIME = '08:00';
+export const DEFAULT_SALON_CLOSE_TIME = '18:00';
+
 export const HOURS = [
   '08:00', '08:30', '09:00', '09:30', '10:00', '10:30',
   '11:00', '11:30', '12:00', '12:30', '13:00', '13:30',
   '14:00', '14:30', '15:00', '15:30', '16:00', '16:30',
   '17:00', '17:30', '18:00',
 ];
+
+export const normalizeBusinessTime = (value, fallback = DEFAULT_SALON_OPEN_TIME) => {
+  const match = `${value || ''}`.match(/^(\d{1,2}):(\d{2})/);
+  if (!match) return fallback;
+  const hours = Math.min(Math.max(Number(match[1]) || 0, 0), 23);
+  const minutes = Number(match[2]) || 0;
+  const roundedMinutes = minutes < 15 ? 0 : (minutes < 45 ? 30 : 0);
+  const normalizedHours = minutes >= 45 ? Math.min(hours + 1, 23) : hours;
+  return `${String(normalizedHours).padStart(2, '0')}:${String(roundedMinutes).padStart(2, '0')}`;
+};
+
+export const generateBusinessHours = (openTime = DEFAULT_SALON_OPEN_TIME, closeTime = DEFAULT_SALON_CLOSE_TIME) => {
+  const toMinutes = (time) => {
+    const [hours, minutes] = normalizeBusinessTime(time).split(':').map(Number);
+    return (hours * 60) + minutes;
+  };
+  const start = toMinutes(openTime);
+  const end = toMinutes(closeTime);
+  if (end <= start) return HOURS;
+
+  const slots = [];
+  for (let minutes = start; minutes <= end; minutes += 30) {
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    slots.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
+  }
+  return slots.length ? slots : HOURS;
+};
 
 export const PASSWORD_MIN_LENGTH = 6;
 export const LOYALTY_REWARD_VISITS = 10;
