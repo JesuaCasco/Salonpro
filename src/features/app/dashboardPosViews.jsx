@@ -568,6 +568,7 @@ export function POSView({
       return summary;
     }, { card: 0, transfer: 0, other: 0 })
   ), [posSales]);
+  const totalSalesSummary = cashSummary.sales + systemPaymentSummary.card + systemPaymentSummary.transfer + systemPaymentSummary.other;
   const closingCardCounted = Number(closingCardAmount || 0);
   const closingTransferCounted = Number(closingTransferAmount || 0);
   const closingDifferences = {
@@ -1034,20 +1035,20 @@ export function POSView({
                 ) : (
                   <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                     <div className="rounded-2xl border border-[#f2c1d4] bg-[#fff9fc] px-4 py-3">
-                      <p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#9b6076]">Esperado</p>
+                      <p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#9b6076]">Efectivo caja</p>
                       <p className="mt-1 text-lg font-black italic text-[#426f64]">{formatCurrency(cashSummary.expectedCash)}</p>
                     </div>
                     <div className="rounded-2xl border border-[#f2c1d4] bg-[#fff9fc] px-4 py-3">
-                      <p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#9b6076]">Ventas</p>
-                      <p className="mt-1 text-lg font-black italic text-[#c24f82]">{formatCurrency(cashSummary.sales)}</p>
+                      <p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#9b6076]">Ventas total</p>
+                      <p className="mt-1 text-lg font-black italic text-[#c24f82]">{formatCurrency(totalSalesSummary)}</p>
                     </div>
                     <div className="rounded-2xl border border-[#f2c1d4] bg-[#fff9fc] px-4 py-3">
-                      <p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#9b6076]">Entradas</p>
-                      <p className="mt-1 text-lg font-black italic text-[#72a58f]">{formatCurrency(cashSummary.manualIn)}</p>
+                      <p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#9b6076]">POS / tarjeta</p>
+                      <p className="mt-1 text-lg font-black italic text-[#426f64]">{formatCurrency(systemPaymentSummary.card)}</p>
                     </div>
                     <div className="rounded-2xl border border-[#f2c1d4] bg-[#fff9fc] px-4 py-3">
-                      <p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#9b6076]">Salidas</p>
-                      <p className="mt-1 text-lg font-black italic text-[#b35a7b]">{formatCurrency(cashSummary.manualOut)}</p>
+                      <p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#9b6076]">Transferencia</p>
+                      <p className="mt-1 text-lg font-black italic text-[#426f64]">{formatCurrency(systemPaymentSummary.transfer)}</p>
                     </div>
                   </div>
                 )}
