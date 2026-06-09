@@ -1114,6 +1114,7 @@ export const calculatePromotionDiscount = (promotion, items = []) => {
 export const getApplicablePromotions = (services = [], items = []) =>
   (Array.isArray(services) ? services : [])
     .filter((service) => isPromotionService(service))
+    .filter((promotion) => promotion.isActive !== false)
     .filter((promotion) => getPromotionEligibleItems(promotion, items).length > 0);
 
 export const formatPromotionValue = (promotion) => {
