@@ -1005,10 +1005,10 @@ export function POSView({
     <div className="pos-view relative h-full flex flex-col bg-[#fff7fb] text-[#34242b] animate-in fade-in no-print">
       <div className="flex-1 flex flex-col min-w-0">
         <div className="p-4 md:p-8 space-y-4 md:space-y-6 border-b border-[#f5b6cf] bg-gradient-to-br from-white via-[#fff7fb] to-[#ffe3ef]">
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)]">
+          <div className="grid gap-4 2xl:grid-cols-[minmax(0,1.35fr)_minmax(280px,0.65fr)]">
             <div className="rounded-[2rem] border border-[#f0a6c3] bg-white p-5 shadow-[0_16px_38px_rgba(196,74,126,0.12)]">
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <div>
+              <div className="grid gap-5 lg:grid-cols-[10rem_minmax(0,1fr)] lg:items-center">
+                <div className="min-w-0">
                   <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#c24f82]">Caja operativa</p>
                   <h3 className="mt-2 text-2xl font-black uppercase italic tracking-tighter text-[#34242b]">
                     {cashSession ? 'Caja abierta' : 'Abrir caja'}
@@ -1033,28 +1033,28 @@ export function POSView({
                     </div>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
-                    <div className="rounded-2xl border border-[#f2c1d4] bg-[#fff9fc] px-4 py-3">
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6 2xl:grid-cols-3">
+                    <div className="rounded-2xl border border-[#f2c1d4] bg-[#fff9fc] px-3 py-3">
                       <p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#9b6076]">Efectivo caja</p>
                       <p className="mt-1 text-lg font-black italic text-[#426f64]">{formatCurrency(cashSummary.expectedCash)}</p>
                     </div>
-                    <div className="rounded-2xl border border-[#f2c1d4] bg-[#fff9fc] px-4 py-3">
+                    <div className="rounded-2xl border border-[#f2c1d4] bg-[#fff9fc] px-3 py-3">
                       <p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#9b6076]">Ventas total</p>
                       <p className="mt-1 text-lg font-black italic text-[#c24f82]">{formatCurrency(totalSalesSummary)}</p>
                     </div>
-                    <div className="rounded-2xl border border-[#f2c1d4] bg-[#fff9fc] px-4 py-3">
+                    <div className="rounded-2xl border border-[#f2c1d4] bg-[#fff9fc] px-3 py-3">
                       <p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#9b6076]">POS / tarjeta</p>
                       <p className="mt-1 text-lg font-black italic text-[#426f64]">{formatCurrency(systemPaymentSummary.card)}</p>
                     </div>
-                    <div className="rounded-2xl border border-[#f2c1d4] bg-[#fff9fc] px-4 py-3">
+                    <div className="rounded-2xl border border-[#f2c1d4] bg-[#fff9fc] px-3 py-3">
                       <p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#9b6076]">Transferencia</p>
                       <p className="mt-1 text-lg font-black italic text-[#426f64]">{formatCurrency(systemPaymentSummary.transfer)}</p>
                     </div>
-                    <div className="rounded-2xl border border-[#f2c1d4] bg-[#fff9fc] px-4 py-3">
+                    <div className="rounded-2xl border border-[#f2c1d4] bg-[#fff9fc] px-3 py-3">
                       <p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#9b6076]">Entradas</p>
                       <p className="mt-1 text-lg font-black italic text-[#72a58f]">{formatCurrency(cashSummary.manualIn)}</p>
                     </div>
-                    <div className="rounded-2xl border border-[#f2c1d4] bg-[#fff9fc] px-4 py-3">
+                    <div className="rounded-2xl border border-[#f2c1d4] bg-[#fff9fc] px-3 py-3">
                       <p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#9b6076]">Salidas</p>
                       <p className="mt-1 text-lg font-black italic text-[#b35a7b]">{formatCurrency(cashSummary.manualOut)}</p>
                     </div>
