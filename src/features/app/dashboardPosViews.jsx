@@ -28,6 +28,7 @@ import {
 import {
   calculatePromotionDiscount,
   formatPromotionValue,
+  getPhoneDigits,
   getTodayString,
   isPromotionService,
   standardizeDate,
@@ -472,6 +473,8 @@ export function POSView({
   const [cashHistoryOpen, setCashHistoryOpen] = useState(false);
   const [movementSearch, setMovementSearch] = useState('');
   const [selectedClientId, setSelectedClientId] = useState('');
+  const [clientSearch, setClientSearch] = useState('');
+  const [clientPickerOpen, setClientPickerOpen] = useState(false);
   const [genericClientSale, setGenericClientSale] = useState(false);
   const [openingModalSuppressed, setOpeningModalSuppressed] = useState(false);
   const [openingBreakdown, setOpeningBreakdown] = useState({
@@ -587,6 +590,18 @@ export function POSView({
     () => (clients || []).find((client) => String(client.id) === String(selectedClientId || '')) || null,
     [clients, selectedClientId],
   );
+  const filteredTicketClients = useMemo(() => {
+    const query = clientSearch.trim().toLowerCase();
+    const phoneQuery = getPhoneDigits(clientSearch);
+    if (!query && !phoneQuery) return (clients || []).slice(0, 6);
+    return (clients || [])
+      .filter((client) => {
+        const name = `${client.name || ''}`.toLowerCase();
+        const phone = getPhoneDigits(client.phone || '');
+        return name.includes(query) || (phoneQuery && phone.includes(phoneQuery));
+      })
+      .slice(0, 8);
+  }, [clientSearch, clients]);
 
   const savedPromotions = useMemo(
     () => (services || [])
@@ -977,6 +992,8 @@ export function POSView({
       setCart([]);
       setSelectedPromotionId('');
       setSelectedClientId('');
+      setClientSearch('');
+      setClientPickerOpen(false);
       setGenericClientSale(false);
       setPromotionPickerOpen(false);
       setTicketOpen(false);
@@ -1664,29 +1681,93 @@ export function POSView({
                         checked={genericClientSale}
                         onChange={(event) => {
                           setGenericClientSale(event.target.checked);
-                          if (event.target.checked) setSelectedClientId('');
+                          if (event.target.checked) {
+                            setSelectedClientId('');
+                            setClientSearch('');
+                            setClientPickerOpen(false);
+                          }
                         }}
                         className="h-3 w-3 accent-[#72b79b]"
                       />
                       Genérico
                     </label>
                   </div>
-                  <select
-                    value={selectedClientId}
-                    disabled={genericClientSale}
-                    onChange={(event) => {
-                      setSelectedClientId(event.target.value);
-                      if (event.target.value) setGenericClientSale(false);
-                    }}
-                    className="w-full rounded-2xl border border-[#f2c1d4] bg-white px-4 py-3 text-[10px] font-black uppercase tracking-[0.12em] text-[#34242b] outline-none transition-all disabled:opacity-60 focus:border-[#d94f83]"
-                  >
-                    <option value="">Sin cliente asignado</option>
-                    {(clients || []).map((client) => (
-                      <option key={client.id} value={client.id}>
-                        {client.name || client.phone || 'Cliente'}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="relative">
+                    <Search size={15} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#b07089]" />
+                    <input
+                      type="text"
+                      value={genericClientSale ? 'CLIENTE GENÉRICO' : clientSearch}
+                      disabled={genericClientSale}
+                      onChange={(event) => {
+                        setClientSearch(event.target.value);
+                        setSelectedClientId('');
+                        setGenericClientSale(false);
+                        setClientPickerOpen(true);
+                      }}
+                      onFocus={() => {
+                        if (!genericClientSale) setClientPickerOpen(true);
+                      }}
+                      onBlur={() => {
+                        window.setTimeout(() => setClientPickerOpen(false), 120);
+                      }}
+                      placeholder={selectedClient ? selectedClient.name : 'Buscar cliente por nombre o celular'}
+                      className="w-full rounded-2xl border border-[#f2c1d4] bg-white px-11 py-3 text-[10px] font-black uppercase tracking-[0.1em] text-[#34242b] outline-none transition-all placeholder:text-[#b4899c] disabled:opacity-60 focus:border-[#d94f83] focus:shadow-[0_0_0_3px_rgba(217,79,131,0.08)]"
+                    />
+                    {!genericClientSale && (selectedClientId || clientSearch) ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedClientId('');
+                          setClientSearch('');
+                          setClientPickerOpen(false);
+                        }}
+                        className="absolute right-3 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-xl text-[#b07089] transition-colors hover:bg-[#fff0f6] hover:text-[#8f2d5b]"
+                      >
+                        <X size={14} />
+                      </button>
+                    ) : null}
+
+                    {clientPickerOpen && !genericClientSale ? (
+                      <div className="absolute left-0 right-0 top-[calc(100%+0.4rem)] z-30 max-h-56 overflow-y-auto rounded-2xl border border-[#efabc7] bg-white shadow-[0_18px_45px_rgba(143,45,91,0.18)] custom-scrollbar">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedClientId('');
+                            setClientSearch('');
+                            setClientPickerOpen(false);
+                          }}
+                          className={`flex w-full items-center justify-between gap-3 border-b border-[#f8d8e4] px-4 py-3 text-left text-[10px] font-black uppercase tracking-[0.1em] transition-colors hover:bg-[#fff7fb] ${selectedClientId ? 'text-[#9b6076]' : 'bg-[#fff7fb] text-[#8f2d5b]'}`}
+                        >
+                          Sin cliente asignado
+                          {!selectedClientId ? <Check size={14} /> : null}
+                        </button>
+
+                        {filteredTicketClients.length > 0 ? filteredTicketClients.map((client) => (
+                          <button
+                            key={client.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedClientId(client.id);
+                              setClientSearch(client.name || client.phone || 'Cliente');
+                              setGenericClientSale(false);
+                              setClientPickerOpen(false);
+                            }}
+                            className={`flex w-full items-center justify-between gap-3 border-b border-[#f8d8e4] px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-[#fff7fb] ${String(selectedClientId) === String(client.id) ? 'bg-[#fff0f6]' : 'bg-white'}`}
+                          >
+                            <span className="min-w-0">
+                              <span className="block truncate text-[10px] font-black uppercase tracking-[0.1em] text-[#34242b]">{client.name || 'Cliente sin nombre'}</span>
+                              <span className="mt-1 block truncate text-[8px] font-black uppercase tracking-[0.12em] text-[#9b6076]">{client.phone || 'Sin celular'}</span>
+                            </span>
+                            {String(selectedClientId) === String(client.id) ? <Check size={14} className="shrink-0 text-[#d94f83]" /> : null}
+                          </button>
+                        )) : (
+                          <div className="px-4 py-4 text-[9px] font-black uppercase tracking-[0.14em] text-[#b4899c]">
+                            No hay clientes con esa búsqueda.
+                          </div>
+                        )}
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
 
                 <div className="mb-5 rounded-[1.7rem] border border-[#efabc7] bg-[#fff7fb] p-3 shadow-[0_12px_28px_rgba(196,74,126,0.08)]">
