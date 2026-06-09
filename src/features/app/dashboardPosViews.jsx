@@ -1583,9 +1583,9 @@ export function POSView({
         </div>
       ), document.body) : null}
 
-      {ticketOpen && cart.length > 0 ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 backdrop-blur-sm xl:items-center">
-          <div className="w-full max-w-2xl overflow-hidden rounded-[2.6rem] border border-slate-800 bg-black text-white shadow-[0_30px_120px_rgba(0,0,0,0.65)] xl:max-w-4xl">
+      {ticketOpen && cart.length > 0 ? createPortal((
+        <div className="fixed inset-0 z-[300] flex items-end justify-center bg-black/75 p-4 backdrop-blur-sm xl:items-center">
+          <div className="max-h-[calc(100vh-2rem)] w-full max-w-2xl overflow-hidden rounded-[2.6rem] border border-slate-800 bg-black text-white shadow-[0_30px_120px_rgba(0,0,0,0.65)] xl:max-w-4xl">
             <div className="flex items-center justify-between gap-4 border-b border-slate-900 px-6 py-5 md:px-8 md:py-6">
               <div className="flex items-center gap-4">
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-600 text-white shadow-lg shadow-indigo-600/40">
@@ -1878,7 +1878,7 @@ export function POSView({
             </div>
           ) : null}
         </div>
-      ) : null}
+      ), document.body) : null}
     </div>
   );
 }
