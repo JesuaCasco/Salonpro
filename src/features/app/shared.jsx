@@ -893,16 +893,16 @@ const LEGACY_STYLIST_NAME_BY_ID = {
 };
 
 export const STYLIST_THEME_PALETTE = [
-  { id: 'petal', label: 'Rosa pétalo', color: 'border-rose-500', bg: 'bg-rose-600', shadow: 'shadow-rose-500/50' },
-  { id: 'champagne', label: 'Champagne', color: 'border-amber-500', bg: 'bg-amber-600', shadow: 'shadow-amber-500/50' },
-  { id: 'sage', label: 'Salvia', color: 'border-emerald-500', bg: 'bg-emerald-600', shadow: 'shadow-emerald-500/50' },
-  { id: 'mauve', label: 'Malva', color: 'border-fuchsia-500', bg: 'bg-fuchsia-600', shadow: 'shadow-fuchsia-500/50' },
-  { id: 'orchid', label: 'Orquídea suave', color: 'border-violet-500', bg: 'bg-violet-600', shadow: 'shadow-violet-500/50' },
-  { id: 'mint', label: 'Menta spa', color: 'border-teal-500', bg: 'bg-teal-600', shadow: 'shadow-teal-500/50' },
-  { id: 'blush', label: 'Blush profundo', color: 'border-indigo-500', bg: 'bg-indigo-600', shadow: 'shadow-indigo-500/50' },
-  { id: 'olive', label: 'Oliva suave', color: 'border-lime-500', bg: 'bg-lime-600', shadow: 'shadow-lime-500/50' },
-  { id: 'copper', label: 'Cobre claro', color: 'border-orange-500', bg: 'bg-orange-600', shadow: 'shadow-orange-500/50' },
-  { id: 'pearl', label: 'Perla gris', color: 'border-stone-500', bg: 'bg-stone-600', shadow: 'shadow-stone-500/50' },
+  { id: 'rose', label: 'Rosa salón', color: 'border-pink-500', bg: 'bg-pink-500', shadow: 'shadow-pink-500/50' },
+  { id: 'coral', label: 'Coral suave', color: 'border-rose-400', bg: 'bg-rose-400', shadow: 'shadow-rose-400/50' },
+  { id: 'gold', label: 'Dorado miel', color: 'border-amber-400', bg: 'bg-amber-400', shadow: 'shadow-amber-400/50' },
+  { id: 'sage', label: 'Verde salvia', color: 'border-emerald-500', bg: 'bg-emerald-500', shadow: 'shadow-emerald-500/50' },
+  { id: 'mint', label: 'Menta spa', color: 'border-teal-400', bg: 'bg-teal-400', shadow: 'shadow-teal-400/50' },
+  { id: 'sky', label: 'Azul claro', color: 'border-sky-500', bg: 'bg-sky-500', shadow: 'shadow-sky-500/50' },
+  { id: 'violet', label: 'Violeta', color: 'border-violet-500', bg: 'bg-violet-500', shadow: 'shadow-violet-500/50' },
+  { id: 'lavender', label: 'Lavanda', color: 'border-purple-400', bg: 'bg-purple-400', shadow: 'shadow-purple-400/50' },
+  { id: 'apricot', label: 'Durazno', color: 'border-orange-400', bg: 'bg-orange-400', shadow: 'shadow-orange-400/50' },
+  { id: 'graphite', label: 'Grafito', color: 'border-zinc-600', bg: 'bg-zinc-600', shadow: 'shadow-zinc-600/50' },
 ];
 
 export const standardizeDate = (dateStr) => {
