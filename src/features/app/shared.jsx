@@ -648,7 +648,7 @@
 
   @media print {
     @page {
-      margin: 5mm;
+      margin: 2mm;
     }
 
     html,
@@ -751,7 +751,7 @@
       position: static !important;
       left: 0 !important;
       top: 0 !important;
-      width: 287mm !important;
+      width: 244mm !important;
       max-width: 100% !important;
       height: auto !important;
       max-height: none !important;
@@ -759,8 +759,10 @@
       background: white !important;
       color: black !important;
       margin: 0 auto !important;
-      padding: 4mm !important;
+      padding: 2mm !important;
       box-sizing: border-box !important;
+      transform: scale(1.2) !important;
+      transform-origin: top center !important;
     }
 
     #printable-staff-settlement * {
