@@ -4919,6 +4919,24 @@ function StylistsView({ stylists, appointments, branches, currentSalonId, curren
           {filteredStylists.length === 0 && <p className="text-[#7b4d5e] col-span-full">No se encontraron estilistas.</p>}
           {filteredStylists.map((b) => {
              const earnings = getStylistEarnings(b);
+             const paymentSummary = (() => {
+               if (b.paymentMode === 'porcentaje') {
+                 return {
+                   label: 'Comisión',
+                   value: `${Number(b.commission || 0)}%`,
+                 };
+               }
+               if (b.paymentMode === 'mixto') {
+                 return {
+                   label: 'Pago mixto',
+                   value: `C$ ${Number(b.salary || 0).toLocaleString()} + ${Number(b.commission || 0)}%`,
+                 };
+               }
+               return {
+                 label: 'Pago base',
+                 value: `C$ ${Number(b.salary || 0).toLocaleString()}`,
+               };
+             })();
              return (
               <div key={b.id} onClick={() => openEdit(b)} className={`bg-white border ${b.color || 'border-[#ff9fc1]'} rounded-[2.5rem] p-6 shadow-[0_16px_34px_rgba(225,79,138,0.12)] hover:border-[#e14f8a] hover:bg-[#fff7fb] hover:shadow-[0_20px_42px_rgba(225,79,138,0.26)] transition-all relative overflow-hidden group cursor-pointer flex flex-col justify-between h-full`}>
                 <div className="absolute inset-0 bg-gradient-to-br from-[#ffeaf3] via-transparent to-[#fff7fb] opacity-80 pointer-events-none z-0"></div>
@@ -4945,8 +4963,8 @@ function StylistsView({ stylists, appointments, branches, currentSalonId, curren
                         <span className="text-[10px] font-black text-[#5a3442] italic">{formatCedula(b.cedula) || 'Sin registrar'}</span>
                     </div>
                     <div className="flex justify-between items-center">
-                          <span className="text-[9px] font-black text-[#9b6076] uppercase tracking-widest">Pago Base</span>
-                          <span className="text-xs font-black text-[#34242b] italic">{stylistHasBasePay(b.paymentMode) ? `C$ ${Number(b.salary || 0).toLocaleString()}` : 'N/A'}</span>
+                          <span className="text-[9px] font-black text-[#9b6076] uppercase tracking-widest">{paymentSummary.label}</span>
+                          <span className="text-xs font-black text-[#34242b] italic">{paymentSummary.value}</span>
                     </div>
                     <div className="flex justify-between items-center">
                         <span className="text-[9px] font-black text-[#e14f8a] uppercase tracking-widest">Pendiente Pago</span>
