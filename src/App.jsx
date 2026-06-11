@@ -4476,24 +4476,34 @@ function AgendaView({ viewDate, setViewDate, appointments, clients, stylists, bu
                     return normalizedAptDate === viewDate && isWithinSlot && String(a.stylistId) === String(b.id) && a.status !== 'Cancelada';
                   });
 
-                  let statusStyles = "bg-indigo-600 hover:bg-indigo-500 border-indigo-400 shadow-[0_10px_20px_rgba(201,111,141,0.28)]";
-                  if (apt?.status === 'En Servicio') statusStyles = "bg-emerald-600 hover:bg-emerald-500 border-emerald-400 shadow-[0_10px_20px_rgba(16,185,129,0.3)]";
-                  if (apt?.status === 'Finalizada' || apt?.status === 'Cita Perdida') statusStyles = "bg-slate-800 border-slate-700 opacity-60";
+                  const stylistTextTone = ['bg-amber-400', 'bg-orange-400', 'bg-teal-400'].includes(b.bg)
+                    ? 'text-slate-950'
+                    : 'text-white';
+                  const stylistMutedTextTone = stylistTextTone === 'text-white' ? 'text-white/80' : 'text-slate-700';
+                  let statusStyles = `${b.bg || 'bg-pink-500'} ${b.color || 'border-pink-500'} ${b.shadow || 'shadow-pink-500/40'} hover:brightness-105`;
+                  let appointmentTextTone = stylistTextTone;
+                  let appointmentMutedTextTone = stylistMutedTextTone;
+                  if (apt?.status === 'En Servicio') statusStyles = `${b.bg || 'bg-emerald-500'} ${b.color || 'border-emerald-500'} ${b.shadow || 'shadow-emerald-500/40'} ring-2 ring-white/35 hover:brightness-105`;
+                  if (apt?.status === 'Finalizada' || apt?.status === 'Cita Perdida') {
+                    statusStyles = "bg-slate-800 border-slate-700 opacity-60 shadow-slate-900/30";
+                    appointmentTextTone = 'text-white';
+                    appointmentMutedTextTone = 'text-white/70';
+                  }
                   
                   return (
                     <div key={`${h}-${b.id}`} onClick={() => !apt ? onSlotClick(h, b.id) : onAptClick(apt)} className={`p-2 border-r border-slate-900 last:border-r-0 relative transition-all flex items-stretch group/cell ${!apt ? 'cursor-pointer hover:bg-indigo-500/[0.05]' : ''}`}>
                       {apt ? (
-                        <div className={`w-full ${statusStyles} rounded-2xl p-4 text-[10px] font-black uppercase italic shadow-2xl flex flex-col justify-between animate-in zoom-in-95 border-l-4 transition-all hover:scale-[1.02] cursor-pointer text-white`}>
-                          <div className="flex justify-between items-start text-white">
+                        <div className={`w-full ${statusStyles} ${appointmentTextTone} rounded-2xl p-4 text-[10px] font-black uppercase italic shadow-2xl flex flex-col justify-between animate-in zoom-in-95 border-l-4 transition-all hover:scale-[1.02] cursor-pointer`}>
+                          <div className={`flex justify-between items-start ${appointmentTextTone}`}>
                             <span className="drop-shadow-lg truncate w-24">{clients.find(c => c.id === apt.clientId)?.name}</span>
-                            {apt.status === 'Cita Perdida' ? <UserX size={12} className="text-rose-400" /> : (apt.status === 'Finalizada' ? <CheckCircle2 size={12} className="text-emerald-400" /> : <Clock size={12} className="text-white" />)}
+                            {apt.status === 'Cita Perdida' ? <UserX size={12} className="text-rose-300" /> : (apt.status === 'Finalizada' ? <CheckCircle2 size={12} className="text-emerald-300" /> : <Clock size={12} className={appointmentTextTone} />)}
                           </div>
-                          <div className="flex items-center justify-between mt-2 text-white">
-                            <span className="text-white text-[8px] font-black truncate flex items-center gap-1">
+                          <div className={`flex items-center justify-between mt-2 ${appointmentTextTone}`}>
+                            <span className={`${appointmentTextTone} text-[8px] font-black truncate flex items-center gap-1`}>
                               {apt.service?.toLowerCase().includes('uñas') ? <Sparkles size={10}/> : <Scissors size={10}/>}
                           {apt.status === 'Cita Perdida' ? 'NO LLEGÓ' : getAgendaServiceLabel(apt.service)}
                             </span>
-                            <span className="text-[7px] opacity-70 font-black">{formatTime12h(apt.time)}</span>
+                            <span className={`text-[7px] font-black ${appointmentMutedTextTone}`}>{formatTime12h(apt.time)}</span>
                           </div>
                           {apt.status !== 'Finalizada' && apt.status !== 'Cita Perdida' && (
                             <button
