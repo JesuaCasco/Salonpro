@@ -589,7 +589,7 @@ export function FinalizeModal({ onClose, onConfirm, services, clients, initial }
               <button
                 disabled={billItems.length === 0 || !cashPaymentIsEnough}
                 onClick={confirmFinalCharge}
-                className="w-full flex-1 bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-3.5 md:py-3 rounded-[1.2rem] md:rounded-[1.35rem] font-black uppercase italic text-[10px] tracking-[0.1em] disabled:opacity-20 shadow-xl shadow-emerald-950/20 active:scale-95 transition-all flex items-center justify-center gap-2.5 leading-tight"
+                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-3.5 md:py-3 rounded-[1.2rem] md:rounded-[1.35rem] font-black uppercase italic text-[10px] tracking-[0.1em] disabled:opacity-20 shadow-xl shadow-emerald-950/20 active:scale-95 transition-all flex items-center justify-center gap-2.5 leading-tight"
               >
                 <CheckCircle2 size={18} strokeWidth={3} /> Confirmar cobro
               </button>

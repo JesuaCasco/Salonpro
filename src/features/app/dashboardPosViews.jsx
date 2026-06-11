@@ -1819,8 +1819,8 @@ export function POSView({
                 </div>
               </div>
 
-              <div className="bg-slate-950 p-5 md:p-6">
-                <div className="mb-6 rounded-[1.8rem] border border-emerald-500/20 bg-black/40 p-4">
+              <div className="flex max-h-[70vh] flex-col overflow-y-auto bg-slate-950 p-5 md:p-6 custom-scrollbar">
+                <div className="mb-4 rounded-[1.8rem] border border-emerald-500/20 bg-black/40 p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-300">Promociones</p>
@@ -1868,7 +1868,7 @@ export function POSView({
                   ) : null}
                 </div>
 
-                <div className="space-y-3 mb-8 text-white">
+                <div className="space-y-3 mb-5 text-white">
                   <div className="flex justify-between items-center text-white"><span className="text-slate-500 text-[10px] font-black uppercase tracking-widest leading-none">Subtotal</span><span className="text-base font-black italic text-white">C$ {subtotal.toLocaleString('es-NI')}</span></div>
                   {selectedPromotion ? <div className="flex justify-between items-center text-white"><span className="text-emerald-300 text-[10px] font-black uppercase tracking-widest leading-none">{selectedPromotion.name}</span><span className="text-base font-black italic text-emerald-300">- C$ {promotionDiscount.toLocaleString('es-NI')}</span></div> : null}
                   <div className="flex justify-between items-center text-white"><span className="text-slate-500 text-[10px] font-black uppercase tracking-widest leading-none">Monto Total</span><span className="text-4xl font-black italic tracking-tighter leading-none text-white shadow-[0_0_15px_rgba(201,111,141,0.16)]">C$ {totalToCharge.toLocaleString('es-NI')}</span></div>
@@ -2015,7 +2015,7 @@ export function POSView({
                       </div>
 
                       {cashPaymentCurrency === 'NIO' ? (
-                        <div className="mt-3 grid grid-cols-1 gap-2">
+                        <div className="mt-2 grid grid-cols-1 gap-2">
                           <input
                             type="number"
                             min="0"
@@ -2023,9 +2023,9 @@ export function POSView({
                             value={nioReceived}
                             onChange={(event) => setNioReceived(event.target.value)}
                             placeholder="C$ recibido"
-                            className="rounded-2xl border border-[#efabc7] bg-[#fff9fc] px-4 py-3 text-sm font-black outline-none focus:border-[#d94f83]"
+                            className="rounded-2xl border border-[#efabc7] bg-[#fff9fc] px-4 py-2.5 text-sm font-black outline-none focus:border-[#d94f83]"
                           />
-                          <div className="rounded-2xl border border-[#b9dccd] bg-[#eef8f4] px-4 py-3 text-[9px] font-black uppercase tracking-[0.12em] text-[#426f64]">
+                          <div className="rounded-2xl border border-[#b9dccd] bg-[#eef8f4] px-4 py-2.5 text-[9px] font-black uppercase tracking-[0.12em] text-[#426f64]">
                             <p>Cliente paga: {formatCurrency(nioReceivedAmount)}</p>
                             <p className={nioPaymentIsEnough ? 'text-[#426f64]' : 'text-[#b35a7b]'}>
                               {nioPaymentIsEnough ? `Vuelto sugerido: ${formatCurrency(nioChangeNio)}` : `Faltan: ${formatCurrency(Math.max(totalToCharge - nioReceivedAmount, 0))}`}
@@ -2072,7 +2072,9 @@ export function POSView({
                   </p>
                 ) : null}
 
-                <button disabled={cart.length === 0 || !cashSession || !cashPaymentIsEnough} onClick={handleCompleteSale} className="w-full bg-[#d94f83] hover:bg-[#c94a7a] disabled:opacity-30 py-6 rounded-[2rem] font-black uppercase italic text-xs shadow-xl active:scale-95 transition-all text-white flex items-center justify-center gap-3"><Check size={18} strokeWidth={3} /> COMPLETAR VENTA</button>
+                <div className="sticky bottom-0 -mx-5 -mb-5 mt-auto border-t border-[#f4c6d9] bg-slate-950/95 px-5 py-4 backdrop-blur md:-mx-6 md:-mb-6 md:px-6">
+                  <button disabled={cart.length === 0 || !cashSession || !cashPaymentIsEnough} onClick={handleCompleteSale} className="w-full bg-[#d94f83] hover:bg-[#c94a7a] disabled:opacity-30 py-4 rounded-[1.6rem] font-black uppercase italic text-xs shadow-xl active:scale-95 transition-all text-white flex items-center justify-center gap-3"><Check size={18} strokeWidth={3} /> COMPLETAR VENTA</button>
+                </div>
               </div>
             </div>
           </div>
