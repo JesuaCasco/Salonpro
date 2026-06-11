@@ -648,7 +648,7 @@
 
   @media print {
     @page {
-      margin: 10mm;
+      margin: 5mm;
     }
 
     html,
@@ -728,7 +728,7 @@
       position: static !important;
       left: 0 !important;
       top: 0 !important;
-      width: 190mm !important;
+      width: 200mm !important;
       max-width: 100% !important;
       height: auto !important;
       max-height: none !important;
@@ -751,7 +751,7 @@
       position: static !important;
       left: 0 !important;
       top: 0 !important;
-      width: 270mm !important;
+      width: 287mm !important;
       max-width: 100% !important;
       height: auto !important;
       max-height: none !important;
@@ -759,7 +759,7 @@
       background: white !important;
       color: black !important;
       margin: 0 auto !important;
-      padding: 6mm !important;
+      padding: 4mm !important;
       box-sizing: border-box !important;
     }
 
