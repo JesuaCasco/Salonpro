@@ -751,7 +751,7 @@
       position: static !important;
       left: 0 !important;
       top: 0 !important;
-      width: 260mm !important;
+      width: 270mm !important;
       max-width: 100% !important;
       height: auto !important;
       max-height: none !important;
@@ -759,7 +759,7 @@
       background: white !important;
       color: black !important;
       margin: 0 auto !important;
-      padding: 8mm !important;
+      padding: 6mm !important;
       box-sizing: border-box !important;
     }
 
@@ -775,7 +775,7 @@
     }
     #printable-staff-settlement th:nth-child(1),
     #printable-staff-settlement td:nth-child(1) {
-      width: 34% !important;
+      width: 40% !important;
     }
     #printable-staff-settlement th:nth-child(2),
     #printable-staff-settlement td:nth-child(2) {
@@ -783,19 +783,19 @@
     }
     #printable-staff-settlement th:nth-child(3),
     #printable-staff-settlement td:nth-child(3) {
-      width: 10% !important;
+      width: 8% !important;
     }
     #printable-staff-settlement th:nth-child(4),
     #printable-staff-settlement td:nth-child(4) {
-      width: 11% !important;
+      width: 10% !important;
     }
     #printable-staff-settlement th:nth-child(5),
     #printable-staff-settlement td:nth-child(5) {
-      width: 11% !important;
+      width: 10% !important;
     }
     #printable-staff-settlement th:nth-child(6),
     #printable-staff-settlement td:nth-child(6) {
-      width: 12% !important;
+      width: 10% !important;
     }
     #printable-staff-settlement td:first-child .flex {
       display: block !important;
@@ -811,10 +811,10 @@
       line-height: 1.25 !important;
     }
     #printable-staff-settlement td:first-child p:first-child {
-      font-size: 10px !important;
+      font-size: 13px !important;
     }
     #printable-staff-settlement td:first-child p:not(:first-child) {
-      font-size: 8px !important;
+      font-size: 10px !important;
     }
     #printable-staff-settlement thead {
       display: table-header-group !important;
