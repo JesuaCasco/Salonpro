@@ -1231,11 +1231,6 @@ export function POSView({
                     </div>
                     <input type="text" value={movementNotes} onChange={(event) => setMovementNotes(event.target.value)} placeholder="Nota" className="block w-full rounded-2xl border border-[#efabc7] bg-[#fff9fc] px-4 py-3 text-sm font-bold outline-none focus:border-[#d94f83]" />
                   </div>
-                  {movementCurrency === 'USD' ? (
-                    <p className="rounded-2xl border border-[#b9dccd] bg-[#eef8f4] px-4 py-2 text-[9px] font-black uppercase tracking-[0.12em] text-[#426f64]">
-                      Equivalente: {formatCurrency(roundMoney(Number(movementAmount || 0) * Number(movementExchangeRate || 0)))}
-                    </p>
-                  ) : null}
                   <button type="button" onClick={handleManualMovement} className="w-full rounded-2xl border border-[#72b79b]/40 bg-[#eef8f4] px-4 py-3 text-[10px] font-black uppercase tracking-[0.16em] text-[#426f64] transition-all hover:bg-[#dff2eb]">
                     Registrar movimiento
                   </button>
