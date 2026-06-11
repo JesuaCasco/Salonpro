@@ -673,7 +673,9 @@
     }
 
     .print-modal.no-print {
-      display: block !important;
+      display: flex !important;
+      justify-content: center !important;
+      align-items: flex-start !important;
       visibility: visible !important;
     }
 
@@ -726,15 +728,16 @@
       position: static !important;
       left: 0 !important;
       top: 0 !important;
-      width: 100% !important;
-      max-width: none !important;
+      width: min(100%, 250mm) !important;
+      max-width: 250mm !important;
       height: auto !important;
       max-height: none !important;
       overflow: visible !important;
       background: white !important;
       color: black !important;
-      margin: 0 !important;
+      margin: 0 auto !important;
       padding: 0 !important;
+      box-sizing: border-box !important;
     }
 
     #printable-receipt * {
@@ -748,15 +751,16 @@
       position: static !important;
       left: 0 !important;
       top: 0 !important;
-      width: 100% !important;
-      max-width: none !important;
+      width: min(100%, 250mm) !important;
+      max-width: 250mm !important;
       height: auto !important;
       max-height: none !important;
       overflow: visible !important;
       background: white !important;
       color: black !important;
-      margin: 0 !important;
+      margin: 0 auto !important;
       padding: 24px !important;
+      box-sizing: border-box !important;
     }
 
     #printable-staff-settlement * {
