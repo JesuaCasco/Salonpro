@@ -519,6 +519,7 @@ export function POSView({
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [cashPaymentCurrency, setCashPaymentCurrency] = useState('NIO');
   const [saleExchangeRate, setSaleExchangeRate] = useState(String(DEFAULT_EXCHANGE_RATE));
+  const [nioReceived, setNioReceived] = useState('');
   const [usdReceived, setUsdReceived] = useState('');
   const deferredSearch = useDeferredValue(search);
   const subtotal = cart.reduce((acc, item) => acc + (item.price * item.qty), 0);
@@ -734,10 +735,14 @@ export function POSView({
   const promotionDiscount = promotionPreview.amount;
   const totalToCharge = Math.max(subtotal - promotionDiscount, 0);
   const activeSaleExchangeRate = Math.max(Number(saleExchangeRate || 0), 0);
+  const nioReceivedAmount = Math.max(Number(nioReceived || 0), 0);
+  const nioChangeNio = Math.max(roundMoney(nioReceivedAmount - totalToCharge), 0);
+  const nioPaymentIsEnough = cashPaymentCurrency !== 'NIO' || nioReceivedAmount + 0.01 >= totalToCharge;
   const usdReceivedAmount = Math.max(Number(usdReceived || 0), 0);
   const usdReceivedEquivalent = roundMoney(usdReceivedAmount * activeSaleExchangeRate);
   const usdChangeNio = Math.max(roundMoney(usdReceivedEquivalent - totalToCharge), 0);
   const usdPaymentIsEnough = cashPaymentCurrency !== 'USD' || usdReceivedEquivalent + 0.01 >= totalToCharge;
+  const cashPaymentIsEnough = paymentMethod !== 'cash' || (cashPaymentCurrency === 'USD' ? usdPaymentIsEnough : nioPaymentIsEnough);
   const applicablePromotionIds = useMemo(
     () => new Set(
       savedPromotions
@@ -1104,18 +1109,22 @@ export function POSView({
   };
 
   const handleCompleteSale = async () => {
-    if (paymentMethod === 'cash' && cashPaymentCurrency === 'USD' && !usdPaymentIsEnough) return;
+    if (paymentMethod === 'cash' && !cashPaymentIsEnough) return;
     const saleClientName = genericClientSale
       ? 'Cliente genérico'
       : (selectedClient?.name || '');
-    const paymentMeta = paymentMethod === 'cash' && cashPaymentCurrency === 'USD'
-      ? {
+    const paymentMeta = paymentMethod === 'cash'
+      ? (cashPaymentCurrency === 'USD' ? {
           currency: 'USD',
           receivedUsd: usdReceivedAmount,
           exchangeRate: activeSaleExchangeRate,
           receivedEquivalentNio: usdReceivedEquivalent,
           changeNio: usdChangeNio,
-        }
+        } : {
+          currency: 'NIO',
+          receivedNio: nioReceivedAmount,
+          changeNio: nioChangeNio,
+        })
       : { currency: 'NIO' };
     const result = await onSale({
       items: cart,
@@ -1134,6 +1143,7 @@ export function POSView({
       setSelectedPromotionId('');
       setPaymentMethod('cash');
       setCashPaymentCurrency('NIO');
+      setNioReceived('');
       setUsdReceived('');
       setSelectedClientId('');
       setClientSearch('');
@@ -2004,6 +2014,26 @@ export function POSView({
                         </button>
                       </div>
 
+                      {cashPaymentCurrency === 'NIO' ? (
+                        <div className="mt-3 grid grid-cols-1 gap-2">
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={nioReceived}
+                            onChange={(event) => setNioReceived(event.target.value)}
+                            placeholder="C$ recibido"
+                            className="rounded-2xl border border-[#efabc7] bg-[#fff9fc] px-4 py-3 text-sm font-black outline-none focus:border-[#d94f83]"
+                          />
+                          <div className="rounded-2xl border border-[#b9dccd] bg-[#eef8f4] px-4 py-3 text-[9px] font-black uppercase tracking-[0.12em] text-[#426f64]">
+                            <p>Cliente paga: {formatCurrency(nioReceivedAmount)}</p>
+                            <p className={nioPaymentIsEnough ? 'text-[#426f64]' : 'text-[#b35a7b]'}>
+                              {nioPaymentIsEnough ? `Vuelto sugerido: ${formatCurrency(nioChangeNio)}` : `Faltan: ${formatCurrency(Math.max(totalToCharge - nioReceivedAmount, 0))}`}
+                            </p>
+                          </div>
+                        </div>
+                      ) : null}
+
                       {cashPaymentCurrency === 'USD' ? (
                         <div className="mt-3 grid grid-cols-2 gap-2">
                           <input
@@ -2042,7 +2072,7 @@ export function POSView({
                   </p>
                 ) : null}
 
-                <button disabled={cart.length === 0 || !cashSession || !usdPaymentIsEnough} onClick={handleCompleteSale} className="w-full bg-[#d94f83] hover:bg-[#c94a7a] disabled:opacity-30 py-6 rounded-[2rem] font-black uppercase italic text-xs shadow-xl active:scale-95 transition-all text-white flex items-center justify-center gap-3"><Check size={18} strokeWidth={3} /> COMPLETAR VENTA</button>
+                <button disabled={cart.length === 0 || !cashSession || !cashPaymentIsEnough} onClick={handleCompleteSale} className="w-full bg-[#d94f83] hover:bg-[#c94a7a] disabled:opacity-30 py-6 rounded-[2rem] font-black uppercase italic text-xs shadow-xl active:scale-95 transition-all text-white flex items-center justify-center gap-3"><Check size={18} strokeWidth={3} /> COMPLETAR VENTA</button>
               </div>
             </div>
           </div>

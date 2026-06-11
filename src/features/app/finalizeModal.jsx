@@ -44,6 +44,7 @@ export function FinalizeModal({ onClose, onConfirm, services, clients, initial }
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [cashPaymentCurrency, setCashPaymentCurrency] = useState('NIO');
   const [saleExchangeRate, setSaleExchangeRate] = useState(String(DEFAULT_EXCHANGE_RATE));
+  const [nioReceived, setNioReceived] = useState('');
   const [usdReceived, setUsdReceived] = useState('');
 
   const billingClient = useMemo(
@@ -101,10 +102,14 @@ export function FinalizeModal({ onClose, onConfirm, services, clients, initial }
   const promotionDiscount = promotionPreview.amount;
   const total = Math.max(subtotal - promotionDiscount, 0);
   const activeSaleExchangeRate = Math.max(Number(saleExchangeRate || 0), 0);
+  const nioReceivedAmount = Math.max(Number(nioReceived || 0), 0);
+  const nioChangeNio = Math.max(roundMoney(nioReceivedAmount - total), 0);
+  const nioPaymentIsEnough = cashPaymentCurrency !== 'NIO' || nioReceivedAmount + 0.01 >= total;
   const usdReceivedAmount = Math.max(Number(usdReceived || 0), 0);
   const usdReceivedEquivalent = roundMoney(usdReceivedAmount * activeSaleExchangeRate);
   const usdChangeNio = Math.max(roundMoney(usdReceivedEquivalent - total), 0);
   const usdPaymentIsEnough = cashPaymentCurrency !== 'USD' || usdReceivedEquivalent + 0.01 >= total;
+  const cashPaymentIsEnough = paymentMethod !== 'cash' || (cashPaymentCurrency === 'USD' ? usdPaymentIsEnough : nioPaymentIsEnough);
 
   const addToBill = (item) => {
     setBillItems((current) => [...current, { ...item, uniqueId: makeId() }]);
@@ -116,17 +121,21 @@ export function FinalizeModal({ onClose, onConfirm, services, clients, initial }
 
   const confirmFinalCharge = () => {
     if (billItems.length === 0) return;
-    if (paymentMethod === 'cash' && cashPaymentCurrency === 'USD' && !usdPaymentIsEnough) return;
+    if (paymentMethod === 'cash' && !cashPaymentIsEnough) return;
 
     const serviceNames = billItems.map((item) => item.name).join(' + ');
-    const paymentMeta = paymentMethod === 'cash' && cashPaymentCurrency === 'USD'
-      ? {
+    const paymentMeta = paymentMethod === 'cash'
+      ? (cashPaymentCurrency === 'USD' ? {
           currency: 'USD',
           receivedUsd: usdReceivedAmount,
           exchangeRate: activeSaleExchangeRate,
           receivedEquivalentNio: usdReceivedEquivalent,
           changeNio: usdChangeNio,
-        }
+        } : {
+          currency: 'NIO',
+          receivedNio: nioReceivedAmount,
+          changeNio: nioChangeNio,
+        })
       : { currency: 'NIO' };
     onConfirm({
       serviceName: serviceNames,
@@ -527,6 +536,26 @@ export function FinalizeModal({ onClose, onConfirm, services, clients, initial }
                       Paga US$
                     </button>
                   </div>
+                  {cashPaymentCurrency === 'NIO' ? (
+                    <div className="mt-2 grid grid-cols-1 gap-2">
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={nioReceived}
+                        onChange={(event) => setNioReceived(event.target.value)}
+                        placeholder="C$ recibido"
+                        className="rounded-xl border border-slate-800 bg-black px-3 py-2 text-[10px] font-black text-white outline-none focus:border-emerald-500"
+                      />
+                      <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-[8px] font-black uppercase tracking-[0.1em] text-emerald-200">
+                        <p>Cliente paga: C$ {nioReceivedAmount.toLocaleString('es-NI')}</p>
+                        <p className={nioPaymentIsEnough ? 'text-emerald-200' : 'text-rose-300'}>
+                          {nioPaymentIsEnough ? `Vuelto C$: ${nioChangeNio.toLocaleString('es-NI')}` : `Faltan C$: ${Math.max(total - nioReceivedAmount, 0).toLocaleString('es-NI')}`}
+                        </p>
+                      </div>
+                    </div>
+                  ) : null}
+
                   {cashPaymentCurrency === 'USD' ? (
                     <div className="mt-2 grid grid-cols-2 gap-2">
                       <input
@@ -558,7 +587,7 @@ export function FinalizeModal({ onClose, onConfirm, services, clients, initial }
                 </div>
               ) : null}
               <button
-                disabled={billItems.length === 0 || !usdPaymentIsEnough}
+                disabled={billItems.length === 0 || !cashPaymentIsEnough}
                 onClick={confirmFinalCharge}
                 className="w-full flex-1 bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-3.5 md:py-3 rounded-[1.2rem] md:rounded-[1.35rem] font-black uppercase italic text-[10px] tracking-[0.1em] disabled:opacity-20 shadow-xl shadow-emerald-950/20 active:scale-95 transition-all flex items-center justify-center gap-2.5 leading-tight"
               >
