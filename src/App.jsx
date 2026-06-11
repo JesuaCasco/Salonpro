@@ -4363,7 +4363,7 @@ function AgendaView({ viewDate, setViewDate, appointments, clients, stylists, bu
         >
           <div className="flex items-center justify-center sm:justify-start gap-3">
             <button onClick={() => changeDay(-1)} className="p-3 md:p-4 bg-slate-900 rounded-2xl text-white shadow-lg transition-all hover:bg-indigo-600"><ChevronLeft size={20}/></button>
-            <button onClick={() => setViewDate(today)} className="px-5 md:px-6 py-3 md:py-4 bg-indigo-600/10 hover:bg-indigo-600 text-[10px] font-black uppercase tracking-widest text-indigo-400 hover:text-white transition-all rounded-xl border border-indigo-600/30">Hoy</button>
+            <button onClick={() => setViewDate(today)} className="px-5 md:px-6 py-3 md:py-4 bg-pink-50 hover:bg-pink-100 text-[10px] font-black uppercase tracking-widest text-pink-600 hover:text-pink-700 transition-all rounded-xl border border-pink-300 shadow-sm">Hoy</button>
             <button onClick={() => changeDay(1)} className="p-3 md:p-4 bg-slate-900 rounded-2xl text-white shadow-lg transition-all hover:bg-indigo-600"><ChevronRight size={20}/></button>
           </div>
           <div className="text-center lg:text-right">
