@@ -353,10 +353,12 @@ export function PosSaleReceiptModal({ data, onClose, onCancelSale, confirmAction
                 <span className="font-bold">C$ {Number(sale.rawSubtotal || 0).toLocaleString()}</span>
               </div>
             ) : null}
-            <div className={`flex justify-between text-slate-600 ${Number(sale.productTotal || 0) > 0 || Number(sale.discountTotal || 0) > 0 ? '' : 'border-b border-slate-200 pb-3'}`}>
-              <span className="text-[10px] font-black uppercase">Servicios:</span>
-              <span className="font-bold">C$ {Number(sale.serviceTotal || 0).toLocaleString()}</span>
-            </div>
+            {Number(sale.serviceTotal || 0) > 0 ? (
+              <div className={`flex justify-between text-slate-600 ${Number(sale.productTotal || 0) > 0 || Number(sale.discountTotal || 0) > 0 ? '' : 'border-b border-slate-200 pb-3'}`}>
+                <span className="text-[10px] font-black uppercase">Servicios:</span>
+                <span className="font-bold">C$ {Number(sale.serviceTotal || 0).toLocaleString()}</span>
+              </div>
+            ) : null}
             {Number(sale.productTotal || 0) > 0 ? (
               <div className="flex justify-between text-slate-600 border-b border-slate-200 pb-3">
                 <span className="text-[10px] font-black uppercase">Productos:</span>
