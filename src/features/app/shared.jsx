@@ -751,7 +751,7 @@
       position: static !important;
       left: 0 !important;
       top: 0 !important;
-      width: 220mm !important;
+      width: 260mm !important;
       max-width: 100% !important;
       height: auto !important;
       max-height: none !important;
@@ -759,7 +759,7 @@
       background: white !important;
       color: black !important;
       margin: 0 auto !important;
-      padding: 10mm !important;
+      padding: 8mm !important;
       box-sizing: border-box !important;
     }
 
@@ -772,6 +772,49 @@
       min-width: 0 !important;
       border-collapse: collapse !important;
       table-layout: fixed !important;
+    }
+    #printable-staff-settlement th:nth-child(1),
+    #printable-staff-settlement td:nth-child(1) {
+      width: 30% !important;
+    }
+    #printable-staff-settlement th:nth-child(2),
+    #printable-staff-settlement td:nth-child(2) {
+      width: 24% !important;
+    }
+    #printable-staff-settlement th:nth-child(3),
+    #printable-staff-settlement td:nth-child(3) {
+      width: 10% !important;
+    }
+    #printable-staff-settlement th:nth-child(4),
+    #printable-staff-settlement td:nth-child(4) {
+      width: 12% !important;
+    }
+    #printable-staff-settlement th:nth-child(5),
+    #printable-staff-settlement td:nth-child(5) {
+      width: 12% !important;
+    }
+    #printable-staff-settlement th:nth-child(6),
+    #printable-staff-settlement td:nth-child(6) {
+      width: 12% !important;
+    }
+    #printable-staff-settlement td:first-child .flex {
+      display: block !important;
+    }
+    #printable-staff-settlement td:first-child .w-11 {
+      display: none !important;
+    }
+    #printable-staff-settlement td:first-child p {
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: clip !important;
+      letter-spacing: 0 !important;
+      line-height: 1.25 !important;
+    }
+    #printable-staff-settlement td:first-child p:first-child {
+      font-size: 8px !important;
+    }
+    #printable-staff-settlement td:first-child p:not(:first-child) {
+      font-size: 7px !important;
     }
     #printable-staff-settlement thead {
       display: table-header-group !important;
