@@ -469,41 +469,41 @@ export function StaffSettlementModal({ data, onClose, onConfirmSettlement, confi
             </div>
           </div>
 
-          <div className="rounded-[1.5rem] md:rounded-[2rem] border border-slate-200 overflow-x-auto custom-scrollbar">
-            <table className="min-w-[1100px] w-full">
+          <div className="rounded-[1.5rem] md:rounded-[2rem] border border-slate-200 overflow-hidden">
+            <table className="w-full table-fixed">
               <thead className="bg-slate-100">
-                <tr className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
-                  <th className="px-5 py-4 text-left">Estilista</th>
-                  <th className="px-5 py-4 text-left">Desglose</th>
-                  <th className="px-5 py-4 text-center">Base</th>
-                  <th className="px-5 py-4 text-center">Comisiones</th>
-                  <th className="px-5 py-4 text-center">Total</th>
-                  <th className="px-5 py-4 text-center">Firma Física</th>
+                <tr className="text-[9px] font-black uppercase tracking-[0.14em] text-slate-500 xl:text-[10px]">
+                  <th className="w-[30%] px-3 py-4 text-left xl:px-5">Estilista</th>
+                  <th className="w-[24%] px-3 py-4 text-left xl:px-5">Desglose</th>
+                  <th className="w-[9%] px-2 py-4 text-center xl:px-4">Base</th>
+                  <th className="w-[12%] px-2 py-4 text-center xl:px-4">Comisiones</th>
+                  <th className="w-[10%] px-2 py-4 text-center xl:px-4">Total</th>
+                  <th className="w-[15%] px-2 py-4 text-center xl:px-4">Firma Física</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map(({ stylist, nomina }) => (
                   <tr key={stylist.id} className="border-t border-slate-200">
-                    <td className="px-5 py-4">
-                      <div className="flex items-center gap-4">
-                        <div className={`w-11 h-11 ${stylist.bg} rounded-xl flex items-center justify-center font-black italic text-white`}>
+                    <td className="px-3 py-4 xl:px-5">
+                      <div className="flex min-w-0 items-center gap-3 xl:gap-4">
+                        <div className={`w-10 h-10 shrink-0 ${stylist.bg} rounded-xl flex items-center justify-center font-black italic text-white xl:h-11 xl:w-11`}>
                           {stylist.avatar}
                         </div>
-                        <div>
-                          <p className="text-sm font-black uppercase italic text-slate-900">{stylist.fullName || stylist.name}</p>
-                          <p className="text-[10px] font-bold uppercase text-slate-400 mt-1">{stylist.cedula?.trim() || `ID STAFF ${stylist.id}`}</p>
+                        <div className="min-w-0">
+                          <p className="truncate text-[12px] font-black uppercase italic text-slate-900 xl:text-sm">{stylist.fullName || stylist.name}</p>
+                          <p className="mt-1 truncate text-[9px] font-bold uppercase text-slate-400 xl:text-[10px]">{stylist.cedula?.trim() || `ID STAFF ${stylist.id}`}</p>
                         </div>
                       </div>
                     </td>
-                    <td className="px-5 py-4">
+                    <td className="px-3 py-4 xl:px-5">
                       <p className="text-[11px] font-black uppercase text-slate-700">{getStylistPaymentModeLabel(stylist.paymentMode, nomina.commissionRate)}</p>
                       <p className="text-[11px] text-slate-500 mt-2">Servicios: {nomina.pendingServices}</p>
                       <p className="text-[11px] text-slate-500">Ventas base comisión: C$ {nomina.salesTotal.toLocaleString()}</p>
                     </td>
-                    <td className="px-5 py-4 text-center text-sm font-black italic">C$ {nomina.base.toLocaleString()}</td>
-                    <td className="px-5 py-4 text-center text-sm font-black italic text-emerald-600">C$ {nomina.comission.toLocaleString()}</td>
-                    <td className="px-5 py-4 text-center text-base font-black italic">C$ {nomina.total.toLocaleString()}</td>
-                    <td className="px-5 py-4 signature-cell">
+                    <td className="px-2 py-4 text-center text-sm font-black italic xl:px-4">C$ {nomina.base.toLocaleString()}</td>
+                    <td className="px-2 py-4 text-center text-sm font-black italic text-emerald-600 xl:px-4">C$ {nomina.comission.toLocaleString()}</td>
+                    <td className="px-2 py-4 text-center text-base font-black italic xl:px-4">C$ {nomina.total.toLocaleString()}</td>
+                    <td className="px-2 py-4 signature-cell xl:px-4">
                       <div className="h-full min-h-[70px] flex flex-col justify-end">
                         <div className="border-t border-slate-400 pt-2 text-center">
                           <span className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">Firma</span>
@@ -515,11 +515,11 @@ export function StaffSettlementModal({ data, onClose, onConfirmSettlement, confi
               </tbody>
               <tfoot className="bg-slate-100">
                 <tr>
-                  <td colSpan="2" className="px-5 py-4 text-right text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">Totales</td>
-                  <td className="px-5 py-4 text-center text-sm font-black italic">C$ {summary.base.toLocaleString()}</td>
-                  <td className="px-5 py-4 text-center text-sm font-black italic text-emerald-600">C$ {summary.comission.toLocaleString()}</td>
-                  <td className="px-5 py-4 text-center text-base font-black italic">C$ {summary.total.toLocaleString()}</td>
-                  <td className="px-5 py-4"></td>
+                  <td colSpan="2" className="px-3 py-4 text-right text-[11px] font-black uppercase tracking-[0.18em] text-slate-500 xl:px-5">Totales</td>
+                  <td className="px-2 py-4 text-center text-sm font-black italic xl:px-4">C$ {summary.base.toLocaleString()}</td>
+                  <td className="px-2 py-4 text-center text-sm font-black italic text-emerald-600 xl:px-4">C$ {summary.comission.toLocaleString()}</td>
+                  <td className="px-2 py-4 text-center text-base font-black italic xl:px-4">C$ {summary.total.toLocaleString()}</td>
+                  <td className="px-2 py-4 xl:px-4"></td>
                 </tr>
               </tfoot>
             </table>
