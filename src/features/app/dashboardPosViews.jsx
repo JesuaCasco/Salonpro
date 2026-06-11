@@ -1216,15 +1216,19 @@ export function POSView({
                     <button type="button" onClick={() => setMovementType('in')} className={`flex-1 rounded-2xl px-4 py-3 text-[9px] font-black uppercase tracking-[0.14em] transition-all ${movementType === 'in' ? 'bg-[#72b79b] text-white' : 'border border-[#efabc7] text-[#9b6076]'}`}><ArrowUp size={14} className="inline" /> Entrada</button>
                     <button type="button" onClick={() => setMovementType('out')} className={`flex-1 rounded-2xl px-4 py-3 text-[9px] font-black uppercase tracking-[0.14em] transition-all ${movementType === 'out' ? 'bg-[#d56b95] text-white' : 'border border-[#efabc7] text-[#9b6076]'}`}><ArrowDown size={14} className="inline" /> Salida</button>
                   </div>
-                  <div className="grid grid-cols-[6rem_minmax(0,1fr)] gap-2">
-                    <select value={movementCurrency} onChange={(event) => setMovementCurrency(event.target.value)} className="rounded-2xl border border-[#efabc7] bg-[#fff9fc] px-3 py-3 text-sm font-black outline-none focus:border-[#d94f83]">
-                      <option value="NIO">C$</option>
-                      <option value="USD">US$</option>
-                    </select>
-                    <input type="number" min="0" value={movementAmount} onChange={(event) => setMovementAmount(event.target.value)} placeholder={movementCurrency === 'USD' ? 'Monto en US$' : 'Monto en C$'} className="rounded-2xl border border-[#efabc7] bg-[#fff9fc] px-4 py-3 text-sm font-black outline-none focus:border-[#d94f83]" />
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_7rem]">
+                      <div className="flex overflow-hidden rounded-2xl border border-[#efabc7] bg-[#fff9fc] focus-within:border-[#d94f83]">
+                        <select value={movementCurrency} onChange={(event) => setMovementCurrency(event.target.value)} className="w-20 shrink-0 border-r border-[#efabc7] bg-white px-3 py-3 text-sm font-black text-[#8f2d5b] outline-none">
+                          <option value="NIO">C$</option>
+                          <option value="USD">US$</option>
+                        </select>
+                        <input type="number" min="0" value={movementAmount} onChange={(event) => setMovementAmount(event.target.value)} placeholder={movementCurrency === 'USD' ? 'Monto en US$' : 'Monto en C$'} className="min-w-0 flex-1 bg-transparent px-4 py-3 text-sm font-black outline-none" />
+                      </div>
                     {movementCurrency === 'USD' ? (
                       <input type="number" min="0" step="0.01" value={movementExchangeRate} onChange={(event) => setMovementExchangeRate(event.target.value)} placeholder="Tasa" className="rounded-2xl border border-[#efabc7] bg-[#fff9fc] px-4 py-3 text-sm font-black outline-none focus:border-[#d94f83]" />
                     ) : null}
+                    </div>
                     <input type="text" value={movementNotes} onChange={(event) => setMovementNotes(event.target.value)} placeholder="Nota" className="rounded-2xl border border-[#efabc7] bg-[#fff9fc] px-4 py-3 text-sm font-bold outline-none focus:border-[#d94f83]" />
                   </div>
                   {movementCurrency === 'USD' ? (
