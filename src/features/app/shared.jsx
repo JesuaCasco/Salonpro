@@ -728,8 +728,8 @@
       position: static !important;
       left: 0 !important;
       top: 0 !important;
-      width: min(100%, 250mm) !important;
-      max-width: 250mm !important;
+      width: 190mm !important;
+      max-width: 100% !important;
       height: auto !important;
       max-height: none !important;
       overflow: visible !important;
@@ -751,15 +751,15 @@
       position: static !important;
       left: 0 !important;
       top: 0 !important;
-      width: min(100%, 250mm) !important;
-      max-width: 250mm !important;
+      width: 220mm !important;
+      max-width: 100% !important;
       height: auto !important;
       max-height: none !important;
       overflow: visible !important;
       background: white !important;
       color: black !important;
       margin: 0 auto !important;
-      padding: 24px !important;
+      padding: 10mm !important;
       box-sizing: border-box !important;
     }
 
