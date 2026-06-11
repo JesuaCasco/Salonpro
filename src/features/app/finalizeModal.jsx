@@ -24,6 +24,9 @@ import {
   makeId,
 } from './shared';
 
+const DEFAULT_EXCHANGE_RATE = 36.7;
+const roundMoney = (value) => Math.round((Number(value) || 0) * 100) / 100;
+
 export function FinalizeModal({ onClose, onConfirm, services, clients, initial }) {
   const [billItems, setBillItems] = useState(() => {
     if (initial?.service && initial.service !== 'POR DEFINIR') {
@@ -39,6 +42,9 @@ export function FinalizeModal({ onClose, onConfirm, services, clients, initial }
   const [promotionPickerOpen, setPromotionPickerOpen] = useState(false);
   const [mobilePanel, setMobilePanel] = useState('catalog');
   const [paymentMethod, setPaymentMethod] = useState('cash');
+  const [cashPaymentCurrency, setCashPaymentCurrency] = useState('NIO');
+  const [saleExchangeRate, setSaleExchangeRate] = useState(String(DEFAULT_EXCHANGE_RATE));
+  const [usdReceived, setUsdReceived] = useState('');
 
   const billingClient = useMemo(
     () => (clients || []).find((client) => String(client.id) === String(initial?.clientId || initial?.client?.id || '')) || null,
@@ -94,6 +100,11 @@ export function FinalizeModal({ onClose, onConfirm, services, clients, initial }
   );
   const promotionDiscount = promotionPreview.amount;
   const total = Math.max(subtotal - promotionDiscount, 0);
+  const activeSaleExchangeRate = Math.max(Number(saleExchangeRate || 0), 0);
+  const usdReceivedAmount = Math.max(Number(usdReceived || 0), 0);
+  const usdReceivedEquivalent = roundMoney(usdReceivedAmount * activeSaleExchangeRate);
+  const usdChangeNio = Math.max(roundMoney(usdReceivedEquivalent - total), 0);
+  const usdPaymentIsEnough = cashPaymentCurrency !== 'USD' || usdReceivedEquivalent + 0.01 >= total;
 
   const addToBill = (item) => {
     setBillItems((current) => [...current, { ...item, uniqueId: makeId() }]);
@@ -105,8 +116,18 @@ export function FinalizeModal({ onClose, onConfirm, services, clients, initial }
 
   const confirmFinalCharge = () => {
     if (billItems.length === 0) return;
+    if (paymentMethod === 'cash' && cashPaymentCurrency === 'USD' && !usdPaymentIsEnough) return;
 
     const serviceNames = billItems.map((item) => item.name).join(' + ');
+    const paymentMeta = paymentMethod === 'cash' && cashPaymentCurrency === 'USD'
+      ? {
+          currency: 'USD',
+          receivedUsd: usdReceivedAmount,
+          exchangeRate: activeSaleExchangeRate,
+          receivedEquivalentNio: usdReceivedEquivalent,
+          changeNio: usdChangeNio,
+        }
+      : { currency: 'NIO' };
     onConfirm({
       serviceName: serviceNames,
       price: total,
@@ -115,6 +136,7 @@ export function FinalizeModal({ onClose, onConfirm, services, clients, initial }
       promotionName: selectedPromotion?.name || '',
       discountAmount: promotionDiscount,
       paymentMethod,
+      notes: JSON.stringify({ paymentMeta }),
       items: billItems.map((item) => ({
         id: item.id,
         name: item.name,
@@ -487,8 +509,56 @@ export function FinalizeModal({ onClose, onConfirm, services, clients, initial }
                   );
                 })}
               </div>
+              {paymentMethod === 'cash' ? (
+                <div className="rounded-[1.15rem] border border-slate-800 bg-slate-950/70 p-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setCashPaymentCurrency('NIO')}
+                      className={`rounded-xl px-3 py-2 text-[8px] font-black uppercase tracking-[0.1em] transition-all ${cashPaymentCurrency === 'NIO' ? 'bg-emerald-600 text-white' : 'bg-slate-900 text-slate-500 hover:text-white'}`}
+                    >
+                      Paga C$
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCashPaymentCurrency('USD')}
+                      className={`rounded-xl px-3 py-2 text-[8px] font-black uppercase tracking-[0.1em] transition-all ${cashPaymentCurrency === 'USD' ? 'bg-emerald-600 text-white' : 'bg-slate-900 text-slate-500 hover:text-white'}`}
+                    >
+                      Paga US$
+                    </button>
+                  </div>
+                  {cashPaymentCurrency === 'USD' ? (
+                    <div className="mt-2 grid grid-cols-2 gap-2">
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={usdReceived}
+                        onChange={(event) => setUsdReceived(event.target.value)}
+                        placeholder="US$ recibido"
+                        className="rounded-xl border border-slate-800 bg-black px-3 py-2 text-[10px] font-black text-white outline-none focus:border-emerald-500"
+                      />
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={saleExchangeRate}
+                        onChange={(event) => setSaleExchangeRate(event.target.value)}
+                        placeholder="Tasa"
+                        className="rounded-xl border border-slate-800 bg-black px-3 py-2 text-[10px] font-black text-white outline-none focus:border-emerald-500"
+                      />
+                      <div className="col-span-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-[8px] font-black uppercase tracking-[0.1em] text-emerald-200">
+                        <p>Equivalente: C$ {usdReceivedEquivalent.toLocaleString('es-NI')}</p>
+                        <p className={usdPaymentIsEnough ? 'text-emerald-200' : 'text-rose-300'}>
+                          {usdPaymentIsEnough ? `Vuelto C$: ${usdChangeNio.toLocaleString('es-NI')}` : 'No cubre el total'}
+                        </p>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
               <button
-                disabled={billItems.length === 0}
+                disabled={billItems.length === 0 || !usdPaymentIsEnough}
                 onClick={confirmFinalCharge}
                 className="w-full flex-1 bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-3.5 md:py-3 rounded-[1.2rem] md:rounded-[1.35rem] font-black uppercase italic text-[10px] tracking-[0.1em] disabled:opacity-20 shadow-xl shadow-emerald-950/20 active:scale-95 transition-all flex items-center justify-center gap-2.5 leading-tight"
               >

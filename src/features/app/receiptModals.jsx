@@ -5,6 +5,7 @@ import { getStylistPaymentModeLabel } from './shared';
 const noopConfirm = async () => false;
 
 const formatCurrency = (value) => `C$ ${Number(value || 0).toLocaleString('es-NI')}`;
+const formatUsd = (value) => `$ ${Number(value || 0).toLocaleString('es-NI')}`;
 
 const parseJsonNote = (value) => {
   try {
@@ -41,12 +42,19 @@ export function CashClosureReceiptModal({ data, onClose }) {
   const expectedCash = Number(closureNotes?.expectedCashAmount ?? cashSession.expectedCashAmount ?? 0);
   const countedCash = Number(closureNotes?.countedCashAmount ?? cashSession.countedCashAmount ?? cashSession.closingAmount ?? 0);
   const cashDifference = countedCash - expectedCash;
+  const expectedNio = Number(closureNotes?.expectedNioAmount ?? expectedCash);
+  const countedNio = Number(closureNotes?.countedNioAmount ?? countedCash);
+  const expectedUsd = Number(closureNotes?.expectedUsdAmount ?? 0);
+  const countedUsd = Number(closureNotes?.countedUsdAmount ?? 0);
+  const nioDifference = countedNio - expectedNio;
+  const usdDifference = countedUsd - expectedUsd;
   const cardExpected = Number(closureNotes?.expectedCardAmount ?? salesByMethod.card ?? 0);
   const cardCounted = Number(closureNotes?.countedCardAmount ?? 0);
   const transferExpected = Number(closureNotes?.expectedTransferAmount ?? salesByMethod.transfer ?? 0);
   const transferCounted = Number(closureNotes?.countedTransferAmount ?? 0);
   const differenceReason = closureNotes?.differenceReason || '';
-  const allBalanced = Math.abs(cashDifference) < 0.01
+  const hasCurrencyBreakdown = closureNotes?.expectedNioAmount !== undefined || closureNotes?.expectedUsdAmount !== undefined;
+  const allBalanced = (hasCurrencyBreakdown ? (Math.abs(nioDifference) < 0.01 && Math.abs(usdDifference) < 0.01) : Math.abs(cashDifference) < 0.01)
     && Math.abs(cardCounted - cardExpected) < 0.01
     && Math.abs(transferCounted - transferExpected) < 0.01;
 
@@ -55,7 +63,13 @@ export function CashClosureReceiptModal({ data, onClose }) {
   };
 
   const rows = [
-    { label: 'Efectivo', system: expectedCash, counted: countedCash, diff: cashDifference },
+    ...(hasCurrencyBreakdown
+      ? [
+          { label: 'Efectivo C$', system: expectedNio, counted: countedNio, diff: nioDifference, formatter: formatCurrency },
+          { label: 'Dólares', system: expectedUsd, counted: countedUsd, diff: usdDifference, formatter: formatUsd },
+          { label: 'Equivalente efectivo', system: expectedCash, counted: countedCash, diff: cashDifference, formatter: formatCurrency },
+        ]
+      : [{ label: 'Efectivo', system: expectedCash, counted: countedCash, diff: cashDifference, formatter: formatCurrency }]),
     { label: 'POS / tarjeta', system: cardExpected, counted: cardCounted, diff: cardCounted - cardExpected },
     { label: 'Transferencia', system: transferExpected, counted: transferCounted, diff: transferCounted - transferExpected },
   ];
@@ -109,10 +123,10 @@ export function CashClosureReceiptModal({ data, onClose }) {
                 {rows.map((row) => (
                   <tr key={row.label} className="border-t border-slate-200 text-[11px] md:text-sm">
                     <td className="px-2 py-2 font-black uppercase italic md:px-4 md:py-3">{row.label}</td>
-                    <td className="px-2 py-2 text-right font-bold md:px-4 md:py-3">{formatCurrency(row.system)}</td>
-                    <td className="px-2 py-2 text-right font-bold md:px-4 md:py-3">{formatCurrency(row.counted)}</td>
+                    <td className="px-2 py-2 text-right font-bold md:px-4 md:py-3">{(row.formatter || formatCurrency)(row.system)}</td>
+                    <td className="px-2 py-2 text-right font-bold md:px-4 md:py-3">{(row.formatter || formatCurrency)(row.counted)}</td>
                     <td className={`px-2 py-2 text-right font-black md:px-4 md:py-3 ${Math.abs(row.diff) < 0.01 ? 'text-emerald-700' : 'text-rose-700'}`}>
-                      {formatCurrency(row.diff)}
+                      {(row.formatter || formatCurrency)(row.diff)}
                     </td>
                   </tr>
                 ))}

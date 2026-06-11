@@ -134,6 +134,24 @@ const CartLine = memo(function CartLine({ item, onRemove }) {
 const NIO_BILL_DENOMINATIONS = [1000, 500, 200, 100, 50, 20, 10];
 const NIO_COIN_DENOMINATIONS = [10, 5, 1];
 const USD_BILL_DENOMINATIONS = [100, 50, 20, 10, 5, 1];
+const DEFAULT_EXCHANGE_RATE = 36.7;
+
+const roundMoney = (value) => Math.round((Number(value) || 0) * 100) / 100;
+
+const parseJsonNote = (value) => {
+  if (!value || typeof value !== 'string') return null;
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch {
+    return null;
+  }
+};
+
+const getNoteLabel = (value, fallback = '') => {
+  const parsed = parseJsonNote(value);
+  return parsed?.label || parsed?.source || fallback || value || '';
+};
 
 function DenominationGrid({ title, currency, denominations, values, onChange, compact = false }) {
   return (
@@ -496,7 +514,12 @@ export function POSView({
   const [movementAmount, setMovementAmount] = useState('');
   const [movementNotes, setMovementNotes] = useState('');
   const [movementType, setMovementType] = useState('in');
+  const [movementCurrency, setMovementCurrency] = useState('NIO');
+  const [movementExchangeRate, setMovementExchangeRate] = useState(String(DEFAULT_EXCHANGE_RATE));
   const [paymentMethod, setPaymentMethod] = useState('cash');
+  const [cashPaymentCurrency, setCashPaymentCurrency] = useState('NIO');
+  const [saleExchangeRate, setSaleExchangeRate] = useState(String(DEFAULT_EXCHANGE_RATE));
+  const [usdReceived, setUsdReceived] = useState('');
   const deferredSearch = useDeferredValue(search);
   const subtotal = cart.reduce((acc, item) => acc + (item.price * item.qty), 0);
   const normalizedSearch = deferredSearch.trim().toLowerCase();
@@ -570,15 +593,95 @@ export function POSView({
       return summary;
     }, { card: 0, transfer: 0, other: 0 })
   ), [posSales]);
+  const cashCurrencySummary = useMemo(() => {
+    const summary = {
+      expectedNio: 0,
+      expectedUsd: 0,
+      openingNio: 0,
+      openingUsd: 0,
+      salesNio: 0,
+      salesUsd: 0,
+      changeNio: 0,
+      manualInNio: 0,
+      manualOutNio: 0,
+      manualInUsd: 0,
+      manualOutUsd: 0,
+      exchangeRate: Number(closingExchangeRate || openingExchangeRate || DEFAULT_EXCHANGE_RATE) || DEFAULT_EXCHANGE_RATE,
+    };
+
+    (cashMovements || []).forEach((movement) => {
+      if ((movement.paymentMethod || 'cash') !== 'cash') return;
+      if (movement.movementKind === 'sale') return;
+
+      const parsed = parseJsonNote(movement.notes);
+      const amount = Number(movement.amount || 0);
+
+      if (movement.movementKind === 'opening') {
+        const nioTotal = Number(parsed?.nioTotal ?? amount);
+        const usdTotal = Number(parsed?.usdTotal ?? 0);
+        summary.openingNio += nioTotal;
+        summary.openingUsd += usdTotal;
+        summary.expectedNio += nioTotal;
+        summary.expectedUsd += usdTotal;
+        if (parsed?.exchangeRate) summary.exchangeRate = Number(parsed.exchangeRate) || summary.exchangeRate;
+        return;
+      }
+
+      const direction = movement.type === 'out' ? -1 : 1;
+      const currency = parsed?.currency === 'USD' ? 'USD' : 'NIO';
+      const originalAmount = Number(parsed?.amountOriginal ?? (currency === 'USD' ? 0 : amount));
+
+      if (currency === 'USD') {
+        summary.expectedUsd += direction * originalAmount;
+        if (movement.type === 'out') summary.manualOutUsd += originalAmount;
+        else summary.manualInUsd += originalAmount;
+        if (parsed?.exchangeRate) summary.exchangeRate = Number(parsed.exchangeRate) || summary.exchangeRate;
+        return;
+      }
+
+      summary.expectedNio += direction * amount;
+      if (movement.type === 'out') summary.manualOutNio += amount;
+      else summary.manualInNio += amount;
+    });
+
+    (posSales || []).forEach((sale) => {
+      if ((sale.paymentMethod || 'cash') !== 'cash') return;
+      const parsed = parseJsonNote(sale.notes);
+      const paymentMeta = parsed?.paymentMeta;
+      const saleAmount = Number(sale.subtotal || 0);
+
+      if (paymentMeta?.currency === 'USD') {
+        const receivedUsd = Number(paymentMeta.receivedUsd || 0);
+        const changeNio = Number(paymentMeta.changeNio || 0);
+        summary.expectedUsd += receivedUsd;
+        summary.expectedNio -= changeNio;
+        summary.salesUsd += receivedUsd;
+        summary.changeNio += changeNio;
+        if (paymentMeta.exchangeRate) summary.exchangeRate = Number(paymentMeta.exchangeRate) || summary.exchangeRate;
+        return;
+      }
+
+      summary.expectedNio += saleAmount;
+      summary.salesNio += saleAmount;
+    });
+
+    summary.expectedNio = roundMoney(summary.expectedNio);
+    summary.expectedUsd = roundMoney(summary.expectedUsd);
+    summary.expectedEquivalent = roundMoney(summary.expectedNio + (summary.expectedUsd * summary.exchangeRate));
+    return summary;
+  }, [cashMovements, closingExchangeRate, openingExchangeRate, posSales]);
   const totalSalesSummary = cashSummary.sales + systemPaymentSummary.card + systemPaymentSummary.transfer + systemPaymentSummary.other;
   const closingCardCounted = Number(closingCardAmount || 0);
   const closingTransferCounted = Number(closingTransferAmount || 0);
   const closingDifferences = {
-    cash: closingTotals.total - cashSummary.expectedCash,
+    cash: closingTotals.total - cashCurrencySummary.expectedEquivalent,
+    nio: closingTotals.nioTotal - cashCurrencySummary.expectedNio,
+    usd: closingTotals.usdTotal - cashCurrencySummary.expectedUsd,
     card: closingCardCounted - systemPaymentSummary.card,
     transfer: closingTransferCounted - systemPaymentSummary.transfer,
   };
-  const isBalancedClose = Math.abs(closingDifferences.cash) < 0.01
+  const isBalancedClose = Math.abs(closingDifferences.nio) < 0.01
+    && Math.abs(closingDifferences.usd) < 0.01
     && Math.abs(closingDifferences.card) < 0.01
     && Math.abs(closingDifferences.transfer) < 0.01;
   const shouldShowOpeningModal = !cashSession && !openingModalSuppressed;
@@ -630,6 +733,11 @@ export function POSView({
 
   const promotionDiscount = promotionPreview.amount;
   const totalToCharge = Math.max(subtotal - promotionDiscount, 0);
+  const activeSaleExchangeRate = Math.max(Number(saleExchangeRate || 0), 0);
+  const usdReceivedAmount = Math.max(Number(usdReceived || 0), 0);
+  const usdReceivedEquivalent = roundMoney(usdReceivedAmount * activeSaleExchangeRate);
+  const usdChangeNio = Math.max(roundMoney(usdReceivedEquivalent - totalToCharge), 0);
+  const usdPaymentIsEnough = cashPaymentCurrency !== 'USD' || usdReceivedEquivalent + 0.01 >= totalToCharge;
   const applicablePromotionIds = useMemo(
     () => new Set(
       savedPromotions
@@ -696,6 +804,7 @@ export function POSView({
       .map((movement) => {
         const ticketNumber = movement.ticketNumber || getMovementTicketNumber(movement);
         const ticketLabel = formatTicketNumber(ticketNumber);
+        const movementLabel = getNoteLabel(movement.notes, movement.type === 'out' ? 'Salida manual' : 'Entrada manual');
         return {
           id: `movement-${movement.id}`,
           rawId: movement.id,
@@ -709,7 +818,7 @@ export function POSView({
                 ? 'Apertura de caja'
                 : (movement.movementKind === 'sale'
                   ? (movement.notes || 'Venta sin detalle')
-                  : (movement.notes || (movement.type === 'out' ? 'Salida manual' : 'Entrada manual'))))),
+                  : movementLabel))),
           detail: movement.referenceType?.includes('void')
             ? 'Reverso / auditoría'
             : (movement.movementKind === 'opening'
@@ -723,7 +832,7 @@ export function POSView({
               ? 'Fondo inicial de caja'
               : (movement.movementKind === 'sale'
                 ? 'Sin detalle guardado'
-                : (movement.notes || (movement.type === 'out' ? 'Salida manual de efectivo' : 'Entrada manual de efectivo')))),
+                : movementLabel)),
           method: movement.paymentMethod || 'cash',
           amount: Number(movement.amount || 0),
           ticketNumber,
@@ -834,8 +943,9 @@ export function POSView({
         sale.paymentMethod === 'transfer' ? total + Number(sale.subtotal || 0) : total
       ), 0);
       const saleTotal = sessionSales.reduce((total, sale) => total + Number(sale.subtotal || 0), 0);
-      const expectedCash = Number(session.expectedCashAmount ?? systemCash);
-      const countedCash = Number(session.countedCashAmount ?? session.closingAmount ?? 0);
+      const closureNotes = parseJsonNote(session.notes);
+      const expectedCash = Number(closureNotes?.expectedCashAmount ?? session.expectedCashAmount ?? systemCash);
+      const countedCash = Number(closureNotes?.countedCashAmount ?? session.countedCashAmount ?? session.closingAmount ?? 0);
       const difference = Number(session.differenceAmount ?? (countedCash - expectedCash));
 
       return {
@@ -931,14 +1041,27 @@ export function POSView({
   };
 
   const handleManualMovement = async () => {
+    const originalAmount = Math.max(Number(movementAmount || 0), 0);
+    const exchangeRate = Math.max(Number(movementExchangeRate || 0), 0);
+    const movementAmountNio = movementCurrency === 'USD'
+      ? roundMoney(originalAmount * exchangeRate)
+      : originalAmount;
+    const label = movementNotes.trim() || (movementType === 'out' ? 'Salida manual' : 'Entrada manual');
     const result = await onCashMovement?.({
       type: movementType,
-      amount: Number(movementAmount || 0),
-      notes: movementNotes.trim() || (movementType === 'out' ? 'Salida manual' : 'Entrada manual'),
+      amount: movementAmountNio,
+      notes: JSON.stringify({
+        label,
+        currency: movementCurrency,
+        amountOriginal: originalAmount,
+        exchangeRate: movementCurrency === 'USD' ? exchangeRate : null,
+        amountNio: movementAmountNio,
+      }),
     });
     if (result) {
       setMovementAmount('');
       setMovementNotes('');
+      setMovementCurrency('NIO');
     }
   };
 
@@ -958,7 +1081,11 @@ export function POSView({
         usdBills: closingBreakdown.usdBills,
         exchangeRate: closingTotals.exchangeRate,
         countedCashAmount: closingTotals.total,
-        expectedCashAmount: cashSummary.expectedCash,
+        expectedCashAmount: cashCurrencySummary.expectedEquivalent,
+        expectedNioAmount: cashCurrencySummary.expectedNio,
+        countedNioAmount: closingTotals.nioTotal,
+        expectedUsdAmount: cashCurrencySummary.expectedUsd,
+        countedUsdAmount: closingTotals.usdTotal,
         countedCardAmount: closingCardCounted,
         expectedCardAmount: systemPaymentSummary.card,
         countedTransferAmount: closingTransferCounted,
@@ -977,9 +1104,19 @@ export function POSView({
   };
 
   const handleCompleteSale = async () => {
+    if (paymentMethod === 'cash' && cashPaymentCurrency === 'USD' && !usdPaymentIsEnough) return;
     const saleClientName = genericClientSale
       ? 'Cliente genérico'
       : (selectedClient?.name || '');
+    const paymentMeta = paymentMethod === 'cash' && cashPaymentCurrency === 'USD'
+      ? {
+          currency: 'USD',
+          receivedUsd: usdReceivedAmount,
+          exchangeRate: activeSaleExchangeRate,
+          receivedEquivalentNio: usdReceivedEquivalent,
+          changeNio: usdChangeNio,
+        }
+      : { currency: 'NIO' };
     const result = await onSale({
       items: cart,
       rawSubtotal: subtotal,
@@ -989,11 +1126,15 @@ export function POSView({
       clientId: genericClientSale ? null : (selectedClient?.id || null),
       clientName: saleClientName,
       promotion: selectedPromotion ? { id: selectedPromotion.id, name: selectedPromotion.name } : null,
+      notes: JSON.stringify({ paymentMeta }),
     });
 
     if (result) {
       setCart([]);
       setSelectedPromotionId('');
+      setPaymentMethod('cash');
+      setCashPaymentCurrency('NIO');
+      setUsdReceived('');
       setSelectedClientId('');
       setClientSearch('');
       setClientPickerOpen(false);
@@ -1038,7 +1179,8 @@ export function POSView({
                   <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                     <div className="rounded-2xl border border-[#f2c1d4] bg-[#fff9fc] px-3 py-3">
                       <p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#9b6076]">Efectivo caja</p>
-                      <p className="mt-1 text-lg font-black italic text-[#426f64]">{formatCurrency(cashSummary.expectedCash)}</p>
+                      <p className="mt-1 text-lg font-black italic text-[#426f64]">{formatCurrency(cashCurrencySummary.expectedEquivalent)}</p>
+                      <p className="mt-1 text-[8px] font-black uppercase tracking-[0.1em] text-[#9b6076]">C$ {Number(cashCurrencySummary.expectedNio || 0).toLocaleString('es-NI')} · $ {Number(cashCurrencySummary.expectedUsd || 0).toLocaleString('es-NI')}</p>
                     </div>
                     <div className="rounded-2xl border border-[#f2c1d4] bg-[#fff9fc] px-3 py-3">
                       <p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#9b6076]">Ventas total</p>
@@ -1054,11 +1196,13 @@ export function POSView({
                     </div>
                     <div className="rounded-2xl border border-[#f2c1d4] bg-[#fff9fc] px-3 py-3">
                       <p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#9b6076]">Entradas</p>
-                      <p className="mt-1 text-lg font-black italic text-[#72a58f]">{formatCurrency(cashSummary.manualIn)}</p>
+                      <p className="mt-1 text-lg font-black italic text-[#72a58f]">{formatCurrency(cashCurrencySummary.manualInNio + (cashCurrencySummary.manualInUsd * cashCurrencySummary.exchangeRate))}</p>
+                      <p className="mt-1 text-[8px] font-black uppercase tracking-[0.1em] text-[#9b6076]">C$ {Number(cashCurrencySummary.manualInNio || 0).toLocaleString('es-NI')} · $ {Number(cashCurrencySummary.manualInUsd || 0).toLocaleString('es-NI')}</p>
                     </div>
                     <div className="rounded-2xl border border-[#f2c1d4] bg-[#fff9fc] px-3 py-3">
                       <p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#9b6076]">Salidas</p>
-                      <p className="mt-1 text-lg font-black italic text-[#b35a7b]">{formatCurrency(cashSummary.manualOut)}</p>
+                      <p className="mt-1 text-lg font-black italic text-[#b35a7b]">{formatCurrency(cashCurrencySummary.manualOutNio + (cashCurrencySummary.manualOutUsd * cashCurrencySummary.exchangeRate))}</p>
+                      <p className="mt-1 text-[8px] font-black uppercase tracking-[0.1em] text-[#9b6076]">C$ {Number(cashCurrencySummary.manualOutNio || 0).toLocaleString('es-NI')} · $ {Number(cashCurrencySummary.manualOutUsd || 0).toLocaleString('es-NI')}</p>
                     </div>
                   </div>
                 )}
@@ -1072,10 +1216,22 @@ export function POSView({
                     <button type="button" onClick={() => setMovementType('in')} className={`flex-1 rounded-2xl px-4 py-3 text-[9px] font-black uppercase tracking-[0.14em] transition-all ${movementType === 'in' ? 'bg-[#72b79b] text-white' : 'border border-[#efabc7] text-[#9b6076]'}`}><ArrowUp size={14} className="inline" /> Entrada</button>
                     <button type="button" onClick={() => setMovementType('out')} className={`flex-1 rounded-2xl px-4 py-3 text-[9px] font-black uppercase tracking-[0.14em] transition-all ${movementType === 'out' ? 'bg-[#d56b95] text-white' : 'border border-[#efabc7] text-[#9b6076]'}`}><ArrowDown size={14} className="inline" /> Salida</button>
                   </div>
-                  <div className="grid grid-cols-[7rem_minmax(0,1fr)] gap-2">
-                    <input type="number" min="0" value={movementAmount} onChange={(event) => setMovementAmount(event.target.value)} placeholder="Monto" className="rounded-2xl border border-[#efabc7] bg-[#fff9fc] px-4 py-3 text-sm font-black outline-none focus:border-[#d94f83]" />
+                  <div className="grid grid-cols-[6rem_minmax(0,1fr)] gap-2">
+                    <select value={movementCurrency} onChange={(event) => setMovementCurrency(event.target.value)} className="rounded-2xl border border-[#efabc7] bg-[#fff9fc] px-3 py-3 text-sm font-black outline-none focus:border-[#d94f83]">
+                      <option value="NIO">C$</option>
+                      <option value="USD">US$</option>
+                    </select>
+                    <input type="number" min="0" value={movementAmount} onChange={(event) => setMovementAmount(event.target.value)} placeholder={movementCurrency === 'USD' ? 'Monto en US$' : 'Monto en C$'} className="rounded-2xl border border-[#efabc7] bg-[#fff9fc] px-4 py-3 text-sm font-black outline-none focus:border-[#d94f83]" />
+                    {movementCurrency === 'USD' ? (
+                      <input type="number" min="0" step="0.01" value={movementExchangeRate} onChange={(event) => setMovementExchangeRate(event.target.value)} placeholder="Tasa" className="rounded-2xl border border-[#efabc7] bg-[#fff9fc] px-4 py-3 text-sm font-black outline-none focus:border-[#d94f83]" />
+                    ) : null}
                     <input type="text" value={movementNotes} onChange={(event) => setMovementNotes(event.target.value)} placeholder="Nota" className="rounded-2xl border border-[#efabc7] bg-[#fff9fc] px-4 py-3 text-sm font-bold outline-none focus:border-[#d94f83]" />
                   </div>
+                  {movementCurrency === 'USD' ? (
+                    <p className="rounded-2xl border border-[#b9dccd] bg-[#eef8f4] px-4 py-2 text-[9px] font-black uppercase tracking-[0.12em] text-[#426f64]">
+                      Equivalente: {formatCurrency(roundMoney(Number(movementAmount || 0) * Number(movementExchangeRate || 0)))}
+                    </p>
+                  ) : null}
                   <button type="button" onClick={handleManualMovement} className="w-full rounded-2xl border border-[#72b79b]/40 bg-[#eef8f4] px-4 py-3 text-[10px] font-black uppercase tracking-[0.16em] text-[#426f64] transition-all hover:bg-[#dff2eb]">
                     Registrar movimiento
                   </button>
@@ -1268,9 +1424,10 @@ export function POSView({
             </div>
 
             <div className="flex-1 overflow-y-auto p-3 custom-scrollbar md:p-4">
-              <div className="mb-3 grid gap-2.5 md:grid-cols-3">
+              <div className="mb-3 grid gap-2.5 md:grid-cols-4">
                 {[
-                  { label: 'Efectivo', system: cashSummary.expectedCash, counted: closingTotals.total, diff: closingDifferences.cash },
+                  { label: 'Efectivo C$', system: cashCurrencySummary.expectedNio, counted: closingTotals.nioTotal, diff: closingDifferences.nio, formatter: formatCurrency },
+                  { label: 'Dólares', system: cashCurrencySummary.expectedUsd, counted: closingTotals.usdTotal, diff: closingDifferences.usd, formatter: (value) => `$ ${Number(value || 0).toLocaleString('es-NI')}` },
                   { label: 'POS / tarjeta', system: systemPaymentSummary.card, counted: closingCardCounted, diff: closingDifferences.card },
                   { label: 'Transferencia', system: systemPaymentSummary.transfer, counted: closingTransferCounted, diff: closingDifferences.transfer },
                 ].map((row) => (
@@ -1282,9 +1439,9 @@ export function POSView({
                       </span>
                     </div>
                     <div className="mt-2 grid grid-cols-3 gap-2 text-[10px] font-black">
-                      <div><p className="uppercase tracking-[0.12em] text-[#9b6076]">Sistema</p><p className="mt-1 text-[#426f64]">{formatCurrency(row.system)}</p></div>
-                      <div><p className="uppercase tracking-[0.12em] text-[#9b6076]">Contado</p><p className="mt-1 text-[#34242b]">{formatCurrency(row.counted)}</p></div>
-                      <div><p className="uppercase tracking-[0.12em] text-[#9b6076]">Dif.</p><p className={`mt-1 ${Math.abs(row.diff) < 0.01 ? 'text-[#426f64]' : 'text-[#b35a7b]'}`}>{formatCurrency(row.diff)}</p></div>
+                      <div><p className="uppercase tracking-[0.12em] text-[#9b6076]">Sistema</p><p className="mt-1 text-[#426f64]">{(row.formatter || formatCurrency)(row.system)}</p></div>
+                      <div><p className="uppercase tracking-[0.12em] text-[#9b6076]">Contado</p><p className="mt-1 text-[#34242b]">{(row.formatter || formatCurrency)(row.counted)}</p></div>
+                      <div><p className="uppercase tracking-[0.12em] text-[#9b6076]">Dif.</p><p className={`mt-1 ${Math.abs(row.diff) < 0.01 ? 'text-[#426f64]' : 'text-[#b35a7b]'}`}>{(row.formatter || formatCurrency)(row.diff)}</p></div>
                     </div>
                   </div>
                 ))}
@@ -1368,7 +1525,8 @@ export function POSView({
             <div className={`grid grid-cols-2 gap-3 bg-white/65 px-5 transition-all duration-300 md:grid-cols-4 md:border-b md:border-[#f5cddd] md:px-7 md:py-3 ${movementsSummaryCollapsed ? 'max-md:max-h-0 max-md:overflow-hidden max-md:border-b-0 max-md:py-0 max-md:opacity-0' : 'max-md:max-h-[18rem] max-md:border-b max-md:border-[#f5cddd] max-md:py-3 max-md:opacity-100'}`}>
               <div className="rounded-[1.3rem] border border-[#f2c1d4] bg-white px-4 py-3">
                 <p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#9b6076]">Esperado efectivo</p>
-                <p className="mt-1 text-xl font-black italic text-[#426f64]">{formatCurrency(cashSummary.expectedCash)}</p>
+                <p className="mt-1 text-xl font-black italic text-[#426f64]">{formatCurrency(cashCurrencySummary.expectedEquivalent)}</p>
+                <p className="mt-1 text-[8px] font-black uppercase tracking-[0.1em] text-[#9b6076]">C$ {Number(cashCurrencySummary.expectedNio || 0).toLocaleString('es-NI')} · $ {Number(cashCurrencySummary.expectedUsd || 0).toLocaleString('es-NI')}</p>
               </div>
               <div className="rounded-[1.3rem] border border-[#f2c1d4] bg-white px-4 py-3">
                 <p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#9b6076]">Ventas efectivo</p>
@@ -1828,6 +1986,55 @@ export function POSView({
                       );
                     })}
                   </div>
+                  {paymentMethod === 'cash' ? (
+                    <div className="mt-3 rounded-[1.4rem] border border-[#f2c1d4] bg-white p-3">
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setCashPaymentCurrency('NIO')}
+                          className={`rounded-2xl px-3 py-2.5 text-[9px] font-black uppercase tracking-[0.14em] transition-all ${cashPaymentCurrency === 'NIO' ? 'bg-[#72b79b] text-white' : 'border border-[#efabc7] text-[#8f5d71]'}`}
+                        >
+                          Paga C$
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCashPaymentCurrency('USD')}
+                          className={`rounded-2xl px-3 py-2.5 text-[9px] font-black uppercase tracking-[0.14em] transition-all ${cashPaymentCurrency === 'USD' ? 'bg-[#72b79b] text-white' : 'border border-[#efabc7] text-[#8f5d71]'}`}
+                        >
+                          Paga US$
+                        </button>
+                      </div>
+
+                      {cashPaymentCurrency === 'USD' ? (
+                        <div className="mt-3 grid grid-cols-2 gap-2">
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={usdReceived}
+                            onChange={(event) => setUsdReceived(event.target.value)}
+                            placeholder="US$ recibido"
+                            className="rounded-2xl border border-[#efabc7] bg-[#fff9fc] px-4 py-3 text-sm font-black outline-none focus:border-[#d94f83]"
+                          />
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={saleExchangeRate}
+                            onChange={(event) => setSaleExchangeRate(event.target.value)}
+                            placeholder="Tasa"
+                            className="rounded-2xl border border-[#efabc7] bg-[#fff9fc] px-4 py-3 text-sm font-black outline-none focus:border-[#d94f83]"
+                          />
+                          <div className="col-span-2 rounded-2xl border border-[#b9dccd] bg-[#eef8f4] px-4 py-3 text-[9px] font-black uppercase tracking-[0.12em] text-[#426f64]">
+                            <p>Recibido equivalente: {formatCurrency(usdReceivedEquivalent)}</p>
+                            <p className={usdPaymentIsEnough ? 'text-[#426f64]' : 'text-[#b35a7b]'}>
+                              {usdPaymentIsEnough ? `Vuelto sugerido C$: ${usdChangeNio.toLocaleString('es-NI')}` : 'El monto recibido no cubre el total'}
+                            </p>
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
 
                 {!cashSession ? (
@@ -1836,7 +2043,7 @@ export function POSView({
                   </p>
                 ) : null}
 
-                <button disabled={cart.length === 0 || !cashSession} onClick={handleCompleteSale} className="w-full bg-[#d94f83] hover:bg-[#c94a7a] disabled:opacity-30 py-6 rounded-[2rem] font-black uppercase italic text-xs shadow-xl active:scale-95 transition-all text-white flex items-center justify-center gap-3"><Check size={18} strokeWidth={3} /> COMPLETAR VENTA</button>
+                <button disabled={cart.length === 0 || !cashSession || !usdPaymentIsEnough} onClick={handleCompleteSale} className="w-full bg-[#d94f83] hover:bg-[#c94a7a] disabled:opacity-30 py-6 rounded-[2rem] font-black uppercase italic text-xs shadow-xl active:scale-95 transition-all text-white flex items-center justify-center gap-3"><Check size={18} strokeWidth={3} /> COMPLETAR VENTA</button>
               </div>
             </div>
           </div>

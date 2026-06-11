@@ -2915,6 +2915,7 @@ export default function App() {
         subtotal: Number(extra.price || 0),
         paymentMethod: extra.paymentMethod || 'cash',
         promotion: extra.promotionName ? { id: null, name: extra.promotionName } : null,
+        notes: extra.notes || null,
       });
       if (!serviceSaleRecord) {
         setAppointments(prev => prev.map(a => (a.id === id ? apt : a)));
@@ -3676,11 +3677,11 @@ export default function App() {
         || (saleDraft?.manualDiscount
           ? `Descuento manual ${saleDraft.manualDiscount.type === 'percentage' ? `${saleDraft.manualDiscount.value}%` : `C$ ${Number(saleDraft.manualDiscount.value || 0).toLocaleString('es-NI')}`}`
           : ''),
-      notes: saleDraft?.promotion?.name
+      notes: saleDraft?.notes || (saleDraft?.promotion?.name
         ? `Promoción aplicada: ${saleDraft.promotion.name}`
         : (saleDraft?.manualDiscount
           ? `Descuento manual aplicado: ${saleDraft.manualDiscount.type === 'percentage' ? `${saleDraft.manualDiscount.value}%` : `C$ ${Number(saleDraft.manualDiscount.value || 0).toLocaleString('es-NI')}`}`
-          : ''),
+          : '')),
       cashSessionId: activeCashSession.id,
       paymentMethod: saleDraft?.paymentMethod || 'cash',
       clientId: saleDraft?.clientId || null,
@@ -3815,6 +3816,21 @@ export default function App() {
     if (!movementToCancel) return false;
     const canceledAt = new Date().toISOString();
     const cancellationReason = reason || 'Sin motivo especificado';
+    const movementNoteMeta = (() => {
+      try {
+        return movementToCancel.notes ? JSON.parse(movementToCancel.notes) : null;
+      } catch {
+        return null;
+      }
+    })();
+    const reversalNotes = JSON.stringify({
+      label: `Anulación movimiento: ${movementNoteMeta?.label || movementToCancel.notes || 'Sin detalle'} - ${cancellationReason}`,
+      currency: movementNoteMeta?.currency === 'USD' ? 'USD' : 'NIO',
+      amountOriginal: Number(movementNoteMeta?.amountOriginal ?? movementToCancel.amount ?? 0),
+      exchangeRate: movementNoteMeta?.exchangeRate ?? null,
+      amountNio: Number(movementToCancel.amount || 0),
+      reversalOf: movementToCancel.id,
+    });
     const reversalMovement = {
       id: makeId(),
       cashSessionId: movementToCancel.cashSessionId || activeCashSession?.id || null,
@@ -3824,7 +3840,7 @@ export default function App() {
       movementKind: 'manual',
       paymentMethod: movementToCancel.paymentMethod || 'cash',
       amount: Number(movementToCancel.amount || 0),
-      notes: `Anulación movimiento: ${movementToCancel.notes || 'Sin detalle'} - ${cancellationReason}`,
+      notes: reversalNotes,
       referenceType: 'cash_movement_void',
       referenceId: movementToCancel.id,
       createdBy: session?.user?.id || null,
@@ -3847,7 +3863,7 @@ export default function App() {
           movementKind: 'manual',
           paymentMethod: movementToCancel.paymentMethod || 'cash',
           amount: Number(movementToCancel.amount || 0),
-          notes: `Anulación movimiento: ${movementToCancel.notes || 'Sin detalle'} - ${cancellationReason}`,
+          notes: reversalNotes,
           referenceType: 'cash_movement_void',
           referenceId: movementToCancel.id,
         },
