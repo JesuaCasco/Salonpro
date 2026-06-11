@@ -1229,7 +1229,7 @@ export function POSView({
                       <input type="number" min="0" step="0.01" value={movementExchangeRate} onChange={(event) => setMovementExchangeRate(event.target.value)} placeholder="Tasa" className="rounded-2xl border border-[#efabc7] bg-[#fff9fc] px-4 py-3 text-sm font-black outline-none focus:border-[#d94f83]" />
                     ) : null}
                     </div>
-                    <input type="text" value={movementNotes} onChange={(event) => setMovementNotes(event.target.value)} placeholder="Nota" className="rounded-2xl border border-[#efabc7] bg-[#fff9fc] px-4 py-3 text-sm font-bold outline-none focus:border-[#d94f83]" />
+                    <input type="text" value={movementNotes} onChange={(event) => setMovementNotes(event.target.value)} placeholder="Nota" className="block w-full rounded-2xl border border-[#efabc7] bg-[#fff9fc] px-4 py-3 text-sm font-bold outline-none focus:border-[#d94f83]" />
                   </div>
                   {movementCurrency === 'USD' ? (
                     <p className="rounded-2xl border border-[#b9dccd] bg-[#eef8f4] px-4 py-2 text-[9px] font-black uppercase tracking-[0.12em] text-[#426f64]">
