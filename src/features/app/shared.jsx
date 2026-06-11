@@ -647,50 +647,118 @@
   }
 
   @media print {
+    @page {
+      margin: 10mm;
+    }
+
+    html,
     body {
       background: white !important;
       color: black !important;
+      height: auto !important;
+      min-height: 0 !important;
+      overflow: visible !important;
     }
-    aside, main, header, .no-print, .no-print * {
-      display: none !important;
+
+    body * {
       visibility: hidden !important;
     }
-    .fixed.inset-0 {
-      position: absolute !important;
+
+    aside,
+    main,
+    header,
+    .no-print:not(.print-modal),
+    .no-print:not(.print-modal) * {
+      display: none !important;
+    }
+
+    .print-modal.no-print {
       display: block !important;
+      visibility: visible !important;
+    }
+
+    .print-modal,
+    .print-modal * {
+      visibility: visible !important;
+    }
+
+    .print-modal {
+      position: absolute !important;
+      inset: 0 auto auto 0 !important;
+      width: 100% !important;
+      min-height: 0 !important;
       background: white !important;
       padding: 0 !important;
       margin: 0 !important;
       overflow: visible !important;
+      color: black !important;
+      box-shadow: none !important;
+      backdrop-filter: none !important;
     }
+
+    .print-modal > div {
+      width: 100% !important;
+      max-width: none !important;
+      height: auto !important;
+      max-height: none !important;
+      overflow: visible !important;
+      border: 0 !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+    }
+
+    .print-modal .custom-scrollbar,
+    .print-modal .overflow-y-auto,
+    .print-modal .overflow-x-auto {
+      overflow: visible !important;
+      max-height: none !important;
+    }
+
+    .print-modal .no-print,
+    .print-modal .no-print * {
+      display: none !important;
+      visibility: hidden !important;
+    }
+
     #printable-receipt {
       visibility: visible !important;
       display: block !important;
-      position: absolute !important;
+      position: static !important;
       left: 0 !important;
       top: 0 !important;
       width: 100% !important;
+      max-width: none !important;
+      height: auto !important;
+      max-height: none !important;
+      overflow: visible !important;
       background: white !important;
       color: black !important;
       margin: 0 !important;
       padding: 0 !important;
     }
+
     #printable-receipt * {
       visibility: visible !important;
       color: black !important;
     }
+
     #printable-staff-settlement {
       visibility: visible !important;
       display: block !important;
-      position: absolute !important;
+      position: static !important;
       left: 0 !important;
       top: 0 !important;
       width: 100% !important;
+      max-width: none !important;
+      height: auto !important;
+      max-height: none !important;
+      overflow: visible !important;
       background: white !important;
       color: black !important;
       margin: 0 !important;
       padding: 24px !important;
     }
+
     #printable-staff-settlement * {
       visibility: visible !important;
       color: black !important;
