@@ -1,4 +1,4 @@
-﻿import React, { memo, useCallback, useDeferredValue, useMemo, useState } from 'react';
+import React, { memo, useCallback, useDeferredValue, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Activity,
@@ -1158,8 +1158,8 @@ export function POSView({
     <div className="pos-view relative h-full flex flex-col bg-[#fff7fb] text-[#34242b] animate-in fade-in no-print">
       <div className="flex-1 flex flex-col min-w-0">
         <div className="p-4 md:p-8 space-y-4 md:space-y-6 border-b border-[#f5b6cf] bg-gradient-to-br from-white via-[#fff7fb] to-[#ffe3ef]">
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)]">
-            <div className="rounded-[2rem] border border-[#f0a6c3] bg-white p-5 shadow-[0_16px_38px_rgba(196,74,126,0.12)]">
+          <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)]">
+            <div className="self-start rounded-[1.7rem] border border-[#f0a6c3] bg-white p-4 shadow-[0_16px_38px_rgba(196,74,126,0.12)] md:p-5">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div>
                   <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#c24f82]">Caja operativa</p>
@@ -1186,30 +1186,30 @@ export function POSView({
                     </div>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                    <div className="rounded-2xl border border-[#f2c1d4] bg-[#fff9fc] px-3 py-3">
+                  <div className="grid w-full grid-cols-2 gap-3 sm:grid-cols-3 lg:max-w-[360px] xl:max-w-[390px]">
+                    <div className="rounded-[1.25rem] border border-[#f2c1d4] bg-[#fff9fc] px-3 py-2.5">
                       <p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#9b6076]">Efectivo caja</p>
                       <p className="mt-1 text-lg font-black italic text-[#426f64]">{formatCurrency(cashCurrencySummary.expectedEquivalent)}</p>
                       <p className="mt-1 text-[8px] font-black uppercase tracking-[0.1em] text-[#9b6076]">C$ {Number(cashCurrencySummary.expectedNio || 0).toLocaleString('es-NI')} · $ {Number(cashCurrencySummary.expectedUsd || 0).toLocaleString('es-NI')}</p>
                     </div>
-                    <div className="rounded-2xl border border-[#f2c1d4] bg-[#fff9fc] px-3 py-3">
+                    <div className="rounded-[1.25rem] border border-[#f2c1d4] bg-[#fff9fc] px-3 py-2.5">
                       <p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#9b6076]">Ventas total</p>
                       <p className="mt-1 text-lg font-black italic text-[#c24f82]">{formatCurrency(totalSalesSummary)}</p>
                     </div>
-                    <div className="rounded-2xl border border-[#f2c1d4] bg-[#fff9fc] px-3 py-3">
+                    <div className="rounded-[1.25rem] border border-[#f2c1d4] bg-[#fff9fc] px-3 py-2.5">
                       <p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#9b6076]">POS / tarjeta</p>
                       <p className="mt-1 text-lg font-black italic text-[#426f64]">{formatCurrency(systemPaymentSummary.card)}</p>
                     </div>
-                    <div className="rounded-2xl border border-[#f2c1d4] bg-[#fff9fc] px-3 py-3">
+                    <div className="rounded-[1.25rem] border border-[#f2c1d4] bg-[#fff9fc] px-3 py-2.5">
                       <p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#9b6076]">Transferencia</p>
                       <p className="mt-1 text-lg font-black italic text-[#426f64]">{formatCurrency(systemPaymentSummary.transfer)}</p>
                     </div>
-                    <div className="rounded-2xl border border-[#f2c1d4] bg-[#fff9fc] px-3 py-3">
+                    <div className="rounded-[1.25rem] border border-[#f2c1d4] bg-[#fff9fc] px-3 py-2.5">
                       <p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#9b6076]">Entradas</p>
                       <p className="mt-1 text-lg font-black italic text-[#72a58f]">{formatCurrency(cashCurrencySummary.manualInNio + (cashCurrencySummary.manualInUsd * cashCurrencySummary.exchangeRate))}</p>
                       <p className="mt-1 text-[8px] font-black uppercase tracking-[0.1em] text-[#9b6076]">C$ {Number(cashCurrencySummary.manualInNio || 0).toLocaleString('es-NI')} · $ {Number(cashCurrencySummary.manualInUsd || 0).toLocaleString('es-NI')}</p>
                     </div>
-                    <div className="rounded-2xl border border-[#f2c1d4] bg-[#fff9fc] px-3 py-3">
+                    <div className="rounded-[1.25rem] border border-[#f2c1d4] bg-[#fff9fc] px-3 py-2.5">
                       <p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#9b6076]">Salidas</p>
                       <p className="mt-1 text-lg font-black italic text-[#b35a7b]">{formatCurrency(cashCurrencySummary.manualOutNio + (cashCurrencySummary.manualOutUsd * cashCurrencySummary.exchangeRate))}</p>
                       <p className="mt-1 text-[8px] font-black uppercase tracking-[0.1em] text-[#9b6076]">C$ {Number(cashCurrencySummary.manualOutNio || 0).toLocaleString('es-NI')} · $ {Number(cashCurrencySummary.manualOutUsd || 0).toLocaleString('es-NI')}</p>
@@ -2155,3 +2155,4 @@ export function POSView({
     </div>
   );
 }
+
