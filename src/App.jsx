@@ -6306,10 +6306,10 @@ function ReportsView({ appointments, clients, stylists, branches = [], currentBr
                     style={{ width: '100%' }}
                   >
                     {/* CUADRÍCULA ESTRUCTURADA DE FONDO */}
-                    <div className="absolute inset-y-0 left-0 right-0 flex flex-col justify-between pointer-events-none border-l border-[#d8a5b9] ml-12 md:ml-14 mb-16 md:mb-20">
+                    <div className="absolute inset-y-0 left-0 right-0 flex flex-col justify-between pointer-events-none border-l border-[#d8a5b9] ml-12 md:ml-14 mb-16 md:mb-20 pt-5">
                       {[100, 80, 60, 40, 20, 0].map((val) => (
                         <div key={val} className="w-full flex items-center relative">
-                          <span className="absolute -left-12 md:-left-14 text-[9px] font-black text-[#9b6076] w-10 md:w-12 text-right italic leading-none">{val}%</span>
+                          <span className="absolute -left-12 md:-left-14 text-[10px] font-black text-[#9b6076] w-10 md:w-12 text-right italic leading-[1.1]">{val}%</span>
                           <div className="flex-1 h-px border-t border-dashed border-[#ead4dd]"></div>
                         </div>
                       ))}
