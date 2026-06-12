@@ -1786,9 +1786,9 @@ export function POSView({
       ), document.body) : null}
 
       {ticketOpen && cart.length > 0 ? createPortal((
-        <div className="fixed inset-0 z-[300] flex items-end justify-center bg-black/75 p-3 backdrop-blur-sm xl:items-center">
-          <div className="max-h-[calc(100vh-0.5rem)] w-full max-w-3xl overflow-hidden rounded-[2.2rem] border border-[#efabc7] bg-[#fff7fb] text-[#34242b] shadow-[0_30px_120px_rgba(143,45,91,0.28)] xl:max-w-7xl">
-            <div className="flex items-center justify-between gap-4 border-b border-[#f4c6d9] px-6 py-4 md:px-8">
+        <div className="fixed inset-0 z-[300] flex items-end justify-center bg-black/75 p-2 backdrop-blur-sm xl:items-center">
+          <div className="max-h-[calc(100vh-0.25rem)] w-full max-w-3xl overflow-hidden rounded-[2rem] border border-[#efabc7] bg-[#fff7fb] text-[#34242b] shadow-[0_30px_120px_rgba(143,45,91,0.28)] xl:max-w-7xl">
+            <div className="flex items-center justify-between gap-4 border-b border-[#f4c6d9] px-6 py-3.5 md:px-8">
               <div className="flex items-center gap-4">
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-600 text-white shadow-lg shadow-indigo-600/40">
                   <ShoppingBag size={22} />
@@ -1811,7 +1811,7 @@ export function POSView({
             </div>
 
             <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_32rem]">
-              <div className="max-h-[calc(100vh-7rem)] overflow-y-auto border-b border-[#f4c6d9] bg-white/45 p-5 md:p-6 xl:border-b-0 xl:border-r custom-scrollbar">
+              <div className="max-h-[calc(100vh-6.25rem)] overflow-y-auto border-b border-[#f4c6d9] bg-white/45 p-4 md:p-5 xl:border-b-0 xl:border-r custom-scrollbar">
                 <div className="space-y-4">
                   {cart.map((item) => (
                     <CartLine key={item.id} item={item} onRemove={removeItem} />
@@ -1819,8 +1819,8 @@ export function POSView({
                 </div>
               </div>
 
-              <div className="flex max-h-[calc(100vh-7rem)] flex-col bg-[#fff7fb] p-4 md:p-5">
-                <div className="mb-3 rounded-[1.4rem] border border-emerald-500/20 bg-white p-3">
+              <div className="flex max-h-[calc(100vh-6.25rem)] flex-col bg-[#fff7fb] p-3.5 md:p-4">
+                <div className="mb-2.5 rounded-[1.25rem] border border-emerald-500/20 bg-white p-2.5">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-300">Promociones</p>
@@ -1868,13 +1868,13 @@ export function POSView({
                   ) : null}
                 </div>
 
-                <div className="mb-3 rounded-[1.4rem] border border-[#efabc7] bg-white px-4 py-3 text-[#34242b]">
+                <div className="mb-2.5 rounded-[1.25rem] border border-[#efabc7] bg-white px-4 py-2.5 text-[#34242b]">
                   <div className="flex justify-between items-center"><span className="text-[#9b6076] text-[9px] font-black uppercase tracking-widest leading-none">Subtotal</span><span className="text-sm font-black italic">C$ {subtotal.toLocaleString('es-NI')}</span></div>
                   {selectedPromotion ? <div className="mt-2 flex justify-between items-center"><span className="text-[#426f64] text-[9px] font-black uppercase tracking-widest leading-none">{selectedPromotion.name}</span><span className="text-sm font-black italic text-[#426f64]">- C$ {promotionDiscount.toLocaleString('es-NI')}</span></div> : null}
                   <div className="mt-2 flex justify-between items-end border-t border-[#f4c6d9] pt-2"><span className="text-[#9b6076] text-[9px] font-black uppercase tracking-widest leading-none">Monto Total</span><span className="text-3xl font-black italic tracking-tighter leading-none text-[#34242b]">C$ {totalToCharge.toLocaleString('es-NI')}</span></div>
                 </div>
 
-                <div className="mb-3 rounded-[1.4rem] border border-[#efabc7] bg-[#fff7fb] p-2.5 shadow-[0_12px_28px_rgba(196,74,126,0.08)]">
+                <div className="mb-2.5 rounded-[1.25rem] border border-[#efabc7] bg-[#fff7fb] p-2.5 shadow-[0_12px_28px_rgba(196,74,126,0.08)]">
                   <div className="mb-2 flex items-center justify-between gap-3">
                     <p className="text-[9px] font-black uppercase tracking-[0.18em] text-[#9b6076]">Cliente</p>
                     <label className="flex items-center gap-2 rounded-full border border-[#f2c1d4] bg-white px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.12em] text-[#8f5d71]">
@@ -1972,7 +1972,7 @@ export function POSView({
                   </div>
                 </div>
 
-                <div className="mb-3 rounded-[1.4rem] border border-[#efabc7] bg-[#fff7fb] p-2.5 shadow-[0_12px_28px_rgba(196,74,126,0.08)]">
+                <div className="mb-2.5 rounded-[1.25rem] border border-[#efabc7] bg-[#fff7fb] p-2.5 shadow-[0_12px_28px_rgba(196,74,126,0.08)]">
                   <p className="mb-2 text-[9px] font-black uppercase tracking-[0.18em] text-[#9b6076]">Método de pago</p>
                   <div className="grid grid-cols-3 gap-2">
                     {[
@@ -2073,7 +2073,7 @@ export function POSView({
                 ) : null}
 
                 <div className="mt-auto border-t border-[#f4c6d9] pt-3">
-                  <button disabled={cart.length === 0 || !cashSession || !cashPaymentIsEnough} onClick={handleCompleteSale} className="w-full bg-[#d94f83] hover:bg-[#c94a7a] disabled:bg-[#f6d5e2] disabled:text-[#9b6076] disabled:shadow-none py-4 rounded-[1.6rem] font-black uppercase italic text-xs shadow-[0_16px_34px_rgba(217,79,131,0.28)] active:scale-95 transition-all text-white flex items-center justify-center gap-3"><Check size={18} strokeWidth={3} /> COMPLETAR VENTA</button>
+                  <button disabled={cart.length === 0 || !cashSession || !cashPaymentIsEnough} onClick={handleCompleteSale} className="w-full bg-[#d94f83] hover:bg-[#c94a7a] disabled:bg-[#f6d5e2] disabled:text-[#9b6076] disabled:shadow-none py-3.5 rounded-[1.35rem] font-black uppercase italic text-xs shadow-[0_16px_34px_rgba(217,79,131,0.28)] active:scale-95 transition-all text-white flex items-center justify-center gap-3"><Check size={18} strokeWidth={3} /> COMPLETAR VENTA</button>
                 </div>
               </div>
             </div>
