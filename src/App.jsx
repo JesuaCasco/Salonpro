@@ -6306,16 +6306,16 @@ function ReportsView({ appointments, clients, stylists, branches = [], currentBr
                     style={{ width: '100%' }}
                   >
                     {/* CUADRÍCULA ESTRUCTURADA DE FONDO */}
-                    <div className="absolute inset-0 flex flex-col justify-between opacity-[0.1] pointer-events-none border-l border-slate-700 ml-8 md:ml-10 mb-16 md:mb-20">
+                    <div className="absolute inset-y-0 left-0 right-0 flex flex-col justify-between pointer-events-none border-l border-[#d8a5b9] ml-12 md:ml-14 mb-16 md:mb-20">
                       {[100, 80, 60, 40, 20, 0].map((val) => (
                         <div key={val} className="w-full flex items-center relative">
-                          <span className="absolute -left-8 md:-left-10 text-[8px] font-black text-slate-500 w-7 md:w-8 text-right italic leading-none">{val}%</span>
-                          <div className="flex-1 h-px border-t border-dashed border-slate-600"></div>
+                          <span className="absolute -left-12 md:-left-14 text-[9px] font-black text-[#9b6076] w-10 md:w-12 text-right italic leading-none">{val}%</span>
+                          <div className="flex-1 h-px border-t border-dashed border-[#ead4dd]"></div>
                         </div>
                       ))}
                     </div>
 
-                    <div className="relative flex h-full items-end justify-between gap-2 md:gap-4 pl-10 pr-6 md:pl-12 md:pr-6 pt-7 md:pt-0">
+                    <div className="relative flex h-full items-end justify-between gap-2 md:gap-4 pl-14 pr-6 md:pl-16 md:pr-6 pt-7 md:pt-0">
                       {monthlyStaffMetrics.map((b) => {
                         const chartHeightCap = 84;
                         const countHeight = (b.count / maxMonthlyApts) * chartHeightCap;
