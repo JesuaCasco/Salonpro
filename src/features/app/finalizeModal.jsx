@@ -302,15 +302,15 @@ export function FinalizeModal({ onClose, onConfirm, services, clients, initial }
           </div>
         </div>
 
-        <div className="hidden md:flex flex-1 flex-col md:flex-row overflow-hidden">
-          <div className="w-full md:w-[360px] border-r border-slate-900 flex flex-col bg-black/40">
-            <div className="p-5 border-b border-slate-900">
+        <div className="hidden md:flex min-h-0 flex-1 flex-col md:flex-row overflow-hidden">
+          <div className="w-full md:w-[360px] border-r border-slate-900 flex min-h-0 flex-col bg-black/40">
+            <div className="shrink-0 p-4 border-b border-slate-900">
               <h4 className="text-[10px] font-black text-indigo-400 uppercase italic tracking-widest flex items-center gap-2">
                 <ShoppingBag size={14} /> Servicios Realizados
               </h4>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-5 space-y-3 custom-scrollbar">
+            <div className="min-h-0 flex-1 overflow-y-auto p-3.5 space-y-2 custom-scrollbar">
               {billItems.length === 0 ? (
                 <div className="min-h-[180px] h-full flex flex-col items-center justify-center text-slate-800 border-2 border-dashed border-slate-900 rounded-[2rem] p-6 text-center">
                   <Package size={30} className="mb-3 opacity-20" />
@@ -318,10 +318,10 @@ export function FinalizeModal({ onClose, onConfirm, services, clients, initial }
                 </div>
               ) : (
                 billItems.map((item) => (
-                  <div key={item.uniqueId} className="bg-slate-900 p-5 rounded-[1.5rem] flex justify-between items-center border border-white/5 group animate-in slide-in-from-left-4">
+                  <div key={item.uniqueId} className="bg-slate-900 px-4 py-3 rounded-[1.15rem] flex justify-between items-center border border-white/5 group animate-in slide-in-from-left-4">
                     <div className="min-w-0">
-                      <p className="text-xl font-black uppercase italic text-white truncate leading-tight mb-2">{item.name}</p>
-                      <p className="text-sm font-bold text-slate-400 uppercase tracking-widest leading-none">C$ {item.price}</p>
+                      <p className="text-sm font-black uppercase italic text-white truncate leading-tight">{item.name}</p>
+                      <p className="mt-1 text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">C$ {item.price}</p>
                     </div>
                     <button onClick={() => removeFromBill(item.uniqueId)} className="p-2 text-slate-600 hover:text-rose-500 transition-colors">
                       <X size={14} />
@@ -331,7 +331,7 @@ export function FinalizeModal({ onClose, onConfirm, services, clients, initial }
               )}
             </div>
 
-            <div className="p-5 bg-slate-950 border-t border-slate-900">
+            <div className="shrink-0 p-4 bg-slate-950 border-t border-slate-900">
               <div className="flex justify-between items-end">
                 <span className="text-slate-500 text-[10px] font-black uppercase tracking-widest leading-none mb-2">Total a Cobrar</span>
                 <span className="text-3xl font-black text-emerald-400 italic tracking-tighter leading-none">C$ {total.toLocaleString()}</span>
