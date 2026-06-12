@@ -41,6 +41,7 @@ export function FinalizeModal({ onClose, onConfirm, services, clients, initial }
   const [selectedPromotionId, setSelectedPromotionId] = useState('');
   const [promotionPickerOpen, setPromotionPickerOpen] = useState(false);
   const [mobilePanel, setMobilePanel] = useState('catalog');
+  const [desktopStep, setDesktopStep] = useState('services');
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [cashPaymentCurrency, setCashPaymentCurrency] = useState('NIO');
   const [saleExchangeRate, setSaleExchangeRate] = useState(String(DEFAULT_EXCHANGE_RATE));
@@ -117,6 +118,11 @@ export function FinalizeModal({ onClose, onConfirm, services, clients, initial }
 
   const removeFromBill = (uniqueId) => {
     setBillItems((current) => current.filter((item) => item.uniqueId !== uniqueId));
+  };
+
+  const goToDesktopCheckout = () => {
+    if (billItems.length === 0) return;
+    setDesktopStep('checkout');
   };
 
   const confirmFinalCharge = () => {
@@ -426,6 +432,43 @@ export function FinalizeModal({ onClose, onConfirm, services, clients, initial }
           </div>
         </div>
 
+        {desktopStep === 'services' ? (
+          <div className="hidden md:grid grid-cols-[minmax(220px,0.8fr)_minmax(260px,1fr)_240px] items-center gap-3 border-t border-slate-900 bg-black px-4 py-3 shrink-0">
+            <div className="flex items-center gap-4 rounded-[1.2rem] border border-slate-800 bg-slate-950/70 px-4 py-3">
+              <p className="text-[9px] font-black uppercase tracking-[0.16em] text-amber-500">Experiencia</p>
+              <div className="flex gap-2">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    onClick={() => setRating(star)}
+                    className={`transition-all ${star <= rating ? 'text-amber-500 scale-110 drop-shadow-[0_0_8px_rgba(245,158,11,0.5)]' : 'text-slate-800 hover:text-slate-600'}`}
+                  >
+                    <Star size={20} fill={star <= rating ? 'currentColor' : 'none'} />
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="rounded-[1.2rem] border border-slate-800 bg-slate-950/70 px-5 py-3">
+              <div className="flex items-end justify-between gap-4">
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-500">Total seleccionado</p>
+                  <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-600">{billItems.length} ítem{billItems.length === 1 ? '' : 's'}</p>
+                </div>
+                <span className="whitespace-nowrap text-3xl font-black italic tracking-tighter leading-none text-emerald-400">
+                  C$ {total.toLocaleString('es-NI')}
+                </span>
+              </div>
+            </div>
+            <button
+              type="button"
+              disabled={billItems.length === 0}
+              onClick={goToDesktopCheckout}
+              className="h-full rounded-[1.2rem] bg-emerald-600 px-5 py-3 text-[10px] font-black uppercase italic tracking-[0.12em] text-white shadow-xl shadow-emerald-950/20 transition-all hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-slate-900 disabled:text-slate-600"
+            >
+              Continuar al cobro
+            </button>
+          </div>
+        ) : (
         <div className="p-2.5 md:p-4 bg-black border-t border-slate-900 flex flex-col md:grid md:grid-cols-[240px_minmax(260px,1fr)_240px] items-stretch gap-2 md:gap-3 shrink-0">
           <div className="w-full bg-slate-950/50 border border-slate-800 px-3 md:px-4 py-2.5 md:py-3 rounded-[1.2rem] md:rounded-[1.35rem] flex flex-col items-center justify-center shrink-0">
             <p className="text-[8px] md:text-[10px] font-black text-amber-500 uppercase italic tracking-[0.14em] md:tracking-[0.2em] mb-1.5 md:mb-3 leading-none">Califica la experiencia</p>
@@ -593,10 +636,11 @@ export function FinalizeModal({ onClose, onConfirm, services, clients, initial }
               >
                 <CheckCircle2 size={18} strokeWidth={3} /> Confirmar cobro
               </button>
-              <button onClick={onClose} className="hidden md:block w-full rounded-[1.15rem] border border-slate-800 bg-slate-950/70 px-5 py-2.5 text-[10px] font-black uppercase text-slate-500 hover:text-white hover:border-slate-600 italic transition-colors leading-none">Cerrar</button>
+              <button onClick={() => setDesktopStep('services')} className="hidden md:block w-full rounded-[1.15rem] border border-slate-800 bg-slate-950/70 px-5 py-2.5 text-[10px] font-black uppercase text-slate-500 hover:text-white hover:border-slate-600 italic transition-colors leading-none">Volver a servicios</button>
             </div>
           </div>
         </div>
+        )}
 
         {promotionPickerOpen ? (
           <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
