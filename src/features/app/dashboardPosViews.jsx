@@ -1787,15 +1787,15 @@ export function POSView({
 
       {ticketOpen && cart.length > 0 ? createPortal((
         <div className="fixed inset-0 z-[300] flex items-end justify-center bg-black/75 p-3 backdrop-blur-sm xl:items-center">
-          <div className="max-h-[calc(100vh-1rem)] w-full max-w-3xl overflow-hidden rounded-[2.4rem] border border-[#efabc7] bg-[#fff7fb] text-[#34242b] shadow-[0_30px_120px_rgba(143,45,91,0.28)] xl:max-w-6xl">
-            <div className="flex items-center justify-between gap-4 border-b border-slate-900 px-6 py-5 md:px-8 md:py-6">
+          <div className="max-h-[calc(100vh-0.5rem)] w-full max-w-3xl overflow-hidden rounded-[2.2rem] border border-[#efabc7] bg-[#fff7fb] text-[#34242b] shadow-[0_30px_120px_rgba(143,45,91,0.28)] xl:max-w-7xl">
+            <div className="flex items-center justify-between gap-4 border-b border-[#f4c6d9] px-6 py-4 md:px-8">
               <div className="flex items-center gap-4">
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-600 text-white shadow-lg shadow-indigo-600/40">
                   <ShoppingBag size={22} />
                 </div>
                 <div>
-                  <h3 className="text-2xl font-black uppercase italic tracking-tighter text-white">Ticket de venta</h3>
-                  <p className="mt-1 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Aplica promociones guardadas antes de completar la venta</p>
+                  <h3 className="text-2xl font-black uppercase italic tracking-tighter text-[#34242b]">Ticket de venta</h3>
+                  <p className="mt-1 text-[10px] font-black uppercase tracking-[0.18em] text-[#9b6076]">Aplica promociones guardadas antes de completar la venta</p>
                 </div>
               </div>
               <button
@@ -1804,14 +1804,14 @@ export function POSView({
                   setPromotionPickerOpen(false);
                   setTicketOpen(false);
                 }}
-                className="flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-800 bg-slate-950 text-slate-400 transition-colors hover:text-white"
+                className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[#efabc7] bg-white text-[#9b6076] transition-colors hover:bg-[#fff0f6] hover:text-[#8f2d5b]"
               >
                 <X size={18} />
               </button>
             </div>
 
-            <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_28rem]">
-              <div className="max-h-[78vh] overflow-y-auto border-b border-[#f4c6d9] bg-white/45 p-5 md:p-6 xl:border-b-0 xl:border-r custom-scrollbar">
+            <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_32rem]">
+              <div className="max-h-[calc(100vh-7rem)] overflow-y-auto border-b border-[#f4c6d9] bg-white/45 p-5 md:p-6 xl:border-b-0 xl:border-r custom-scrollbar">
                 <div className="space-y-4">
                   {cart.map((item) => (
                     <CartLine key={item.id} item={item} onRemove={removeItem} />
@@ -1819,12 +1819,12 @@ export function POSView({
                 </div>
               </div>
 
-              <div className="flex max-h-[78vh] flex-col overflow-y-auto bg-[#fff7fb] p-5 md:p-6 custom-scrollbar">
-                <div className="mb-4 rounded-[1.8rem] border border-emerald-500/20 bg-black/40 p-4">
+              <div className="flex max-h-[calc(100vh-7rem)] flex-col bg-[#fff7fb] p-4 md:p-5">
+                <div className="mb-3 rounded-[1.4rem] border border-emerald-500/20 bg-white p-3">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-300">Promociones</p>
-                      <p className="mt-2 truncate text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                      <p className="mt-1 truncate text-[10px] font-bold uppercase tracking-[0.14em] text-[#9b6076]">
                         {selectedPromotion
                           ? `Aplicada: ${selectedPromotion.name}`
                           : savedPromotions.length > 0
@@ -1839,12 +1839,12 @@ export function POSView({
                     ) : null}
                   </div>
 
-                  <div className="mt-4 flex flex-wrap gap-2.5">
+                  <div className="mt-3 flex flex-wrap gap-2">
                     <button
                       type="button"
                       onClick={() => setPromotionPickerOpen(true)}
                       disabled={savedPromotions.length === 0}
-                      className={`inline-flex items-center gap-2 rounded-[1.1rem] border px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] transition-all ${savedPromotions.length > 0 ? 'border-emerald-400/30 bg-emerald-500/10 text-emerald-200 hover:border-emerald-300 hover:bg-emerald-500/15' : 'cursor-not-allowed border-slate-800 bg-slate-900 text-slate-500 opacity-70'}`}
+                      className={`inline-flex items-center gap-2 rounded-[1rem] border px-4 py-2.5 text-[9px] font-black uppercase tracking-[0.16em] transition-all ${savedPromotions.length > 0 ? 'border-[#b9dccd] bg-[#eef8f4] text-[#426f64] hover:border-[#72b79b] hover:bg-[#e2f3ec]' : 'cursor-not-allowed border-[#ead4dd] bg-[#f7edf2] text-[#b4899c] opacity-70'}`}
                     >
                       Elegir promoción
                       <ChevronDown size={16} className="text-current" />
@@ -1854,7 +1854,7 @@ export function POSView({
                       <button
                         type="button"
                         onClick={() => setSelectedPromotionId('')}
-                        className="rounded-[1.1rem] border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-rose-300 transition-all hover:border-rose-400/30"
+                        className="rounded-[1rem] border border-[#efabc7] bg-[#fff0f6] px-4 py-2.5 text-[9px] font-black uppercase tracking-[0.16em] text-[#b35a7b] transition-all hover:border-[#d94f83]"
                       >
                         Quitar
                       </button>
@@ -1868,14 +1868,14 @@ export function POSView({
                   ) : null}
                 </div>
 
-                <div className="space-y-3 mb-5 text-white">
-                  <div className="flex justify-between items-center text-white"><span className="text-slate-500 text-[10px] font-black uppercase tracking-widest leading-none">Subtotal</span><span className="text-base font-black italic text-white">C$ {subtotal.toLocaleString('es-NI')}</span></div>
-                  {selectedPromotion ? <div className="flex justify-between items-center text-white"><span className="text-emerald-300 text-[10px] font-black uppercase tracking-widest leading-none">{selectedPromotion.name}</span><span className="text-base font-black italic text-emerald-300">- C$ {promotionDiscount.toLocaleString('es-NI')}</span></div> : null}
-                  <div className="flex justify-between items-center text-white"><span className="text-slate-500 text-[10px] font-black uppercase tracking-widest leading-none">Monto Total</span><span className="text-4xl font-black italic tracking-tighter leading-none text-white shadow-[0_0_15px_rgba(201,111,141,0.16)]">C$ {totalToCharge.toLocaleString('es-NI')}</span></div>
+                <div className="mb-3 rounded-[1.4rem] border border-[#efabc7] bg-white px-4 py-3 text-[#34242b]">
+                  <div className="flex justify-between items-center"><span className="text-[#9b6076] text-[9px] font-black uppercase tracking-widest leading-none">Subtotal</span><span className="text-sm font-black italic">C$ {subtotal.toLocaleString('es-NI')}</span></div>
+                  {selectedPromotion ? <div className="mt-2 flex justify-between items-center"><span className="text-[#426f64] text-[9px] font-black uppercase tracking-widest leading-none">{selectedPromotion.name}</span><span className="text-sm font-black italic text-[#426f64]">- C$ {promotionDiscount.toLocaleString('es-NI')}</span></div> : null}
+                  <div className="mt-2 flex justify-between items-end border-t border-[#f4c6d9] pt-2"><span className="text-[#9b6076] text-[9px] font-black uppercase tracking-widest leading-none">Monto Total</span><span className="text-3xl font-black italic tracking-tighter leading-none text-[#34242b]">C$ {totalToCharge.toLocaleString('es-NI')}</span></div>
                 </div>
 
-                <div className="mb-5 rounded-[1.7rem] border border-[#efabc7] bg-[#fff7fb] p-3 shadow-[0_12px_28px_rgba(196,74,126,0.08)]">
-                  <div className="mb-3 flex items-center justify-between gap-3">
+                <div className="mb-3 rounded-[1.4rem] border border-[#efabc7] bg-[#fff7fb] p-2.5 shadow-[0_12px_28px_rgba(196,74,126,0.08)]">
+                  <div className="mb-2 flex items-center justify-between gap-3">
                     <p className="text-[9px] font-black uppercase tracking-[0.18em] text-[#9b6076]">Cliente</p>
                     <label className="flex items-center gap-2 rounded-full border border-[#f2c1d4] bg-white px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.12em] text-[#8f5d71]">
                       <input
@@ -1913,7 +1913,7 @@ export function POSView({
                         window.setTimeout(() => setClientPickerOpen(false), 120);
                       }}
                       placeholder={selectedClient ? selectedClient.name : 'Buscar cliente por nombre o celular'}
-                      className="w-full rounded-2xl border border-[#f2c1d4] bg-white px-11 py-3 text-[10px] font-black uppercase tracking-[0.1em] text-[#34242b] outline-none transition-all placeholder:text-[#b4899c] disabled:opacity-60 focus:border-[#d94f83] focus:shadow-[0_0_0_3px_rgba(217,79,131,0.08)]"
+                      className="w-full rounded-2xl border border-[#f2c1d4] bg-white px-11 py-2.5 text-[10px] font-black uppercase tracking-[0.1em] text-[#34242b] outline-none transition-all placeholder:text-[#b4899c] disabled:opacity-60 focus:border-[#d94f83] focus:shadow-[0_0_0_3px_rgba(217,79,131,0.08)]"
                     />
                     {!genericClientSale && (selectedClientId || clientSearch) ? (
                       <button
@@ -1972,8 +1972,8 @@ export function POSView({
                   </div>
                 </div>
 
-                <div className="mb-5 rounded-[1.7rem] border border-[#efabc7] bg-[#fff7fb] p-3 shadow-[0_12px_28px_rgba(196,74,126,0.08)]">
-                  <p className="mb-3 text-[9px] font-black uppercase tracking-[0.18em] text-[#9b6076]">Método de pago</p>
+                <div className="mb-3 rounded-[1.4rem] border border-[#efabc7] bg-[#fff7fb] p-2.5 shadow-[0_12px_28px_rgba(196,74,126,0.08)]">
+                  <p className="mb-2 text-[9px] font-black uppercase tracking-[0.18em] text-[#9b6076]">Método de pago</p>
                   <div className="grid grid-cols-3 gap-2">
                     {[
                       { id: 'cash', label: 'Efectivo', icon: DollarSign },
@@ -1987,7 +1987,7 @@ export function POSView({
                           key={method.id}
                           type="button"
                           onClick={() => setPaymentMethod(method.id)}
-                          className={`flex flex-col items-center justify-center gap-1 rounded-2xl border px-2 py-3 text-[8px] font-black uppercase tracking-[0.12em] transition-all active:scale-95 ${active ? 'border-[#6eb293] bg-[#72b79b] text-white shadow-[0_10px_20px_rgba(114,183,155,0.24)]' : 'border-[#f2c1d4] bg-white text-[#8f5d71] hover:border-[#d94f83] hover:bg-[#fff0f6] hover:text-[#8f2d5b]'}`}
+                          className={`flex flex-col items-center justify-center gap-1 rounded-2xl border px-2 py-2.5 text-[8px] font-black uppercase tracking-[0.12em] transition-all active:scale-95 ${active ? 'border-[#6eb293] bg-[#72b79b] text-white shadow-[0_10px_20px_rgba(114,183,155,0.24)]' : 'border-[#f2c1d4] bg-white text-[#8f5d71] hover:border-[#d94f83] hover:bg-[#fff0f6] hover:text-[#8f2d5b]'}`}
                         >
                           <Icon size={14} />
                           {method.label}
@@ -1996,26 +1996,26 @@ export function POSView({
                     })}
                   </div>
                   {paymentMethod === 'cash' ? (
-                    <div className="mt-3 rounded-[1.4rem] border border-[#f2c1d4] bg-white p-3">
+                    <div className="mt-2 rounded-[1.2rem] border border-[#f2c1d4] bg-white p-2">
                       <div className="grid grid-cols-2 gap-2">
                         <button
                           type="button"
                           onClick={() => setCashPaymentCurrency('NIO')}
-                          className={`rounded-2xl px-3 py-2.5 text-[9px] font-black uppercase tracking-[0.14em] transition-all ${cashPaymentCurrency === 'NIO' ? 'bg-[#72b79b] text-white' : 'border border-[#efabc7] text-[#8f5d71]'}`}
+                          className={`rounded-2xl px-3 py-2 text-[9px] font-black uppercase tracking-[0.14em] transition-all ${cashPaymentCurrency === 'NIO' ? 'bg-[#72b79b] text-white' : 'border border-[#efabc7] text-[#8f5d71]'}`}
                         >
                           Paga C$
                         </button>
                         <button
                           type="button"
                           onClick={() => setCashPaymentCurrency('USD')}
-                          className={`rounded-2xl px-3 py-2.5 text-[9px] font-black uppercase tracking-[0.14em] transition-all ${cashPaymentCurrency === 'USD' ? 'bg-[#72b79b] text-white' : 'border border-[#efabc7] text-[#8f5d71]'}`}
+                          className={`rounded-2xl px-3 py-2 text-[9px] font-black uppercase tracking-[0.14em] transition-all ${cashPaymentCurrency === 'USD' ? 'bg-[#72b79b] text-white' : 'border border-[#efabc7] text-[#8f5d71]'}`}
                         >
                           Paga US$
                         </button>
                       </div>
 
                       {cashPaymentCurrency === 'NIO' ? (
-                        <div className="mt-2 grid grid-cols-1 gap-2">
+                        <div className="mt-2 grid grid-cols-2 gap-2">
                           <input
                             type="number"
                             min="0"
@@ -2072,7 +2072,7 @@ export function POSView({
                   </p>
                 ) : null}
 
-                <div className="sticky bottom-0 -mx-5 -mb-5 mt-auto border-t border-[#f4c6d9] bg-[#fff7fb]/95 px-5 py-4 backdrop-blur md:-mx-6 md:-mb-6 md:px-6">
+                <div className="mt-auto border-t border-[#f4c6d9] pt-3">
                   <button disabled={cart.length === 0 || !cashSession || !cashPaymentIsEnough} onClick={handleCompleteSale} className="w-full bg-[#d94f83] hover:bg-[#c94a7a] disabled:bg-[#f6d5e2] disabled:text-[#9b6076] disabled:shadow-none py-4 rounded-[1.6rem] font-black uppercase italic text-xs shadow-[0_16px_34px_rgba(217,79,131,0.28)] active:scale-95 transition-all text-white flex items-center justify-center gap-3"><Check size={18} strokeWidth={3} /> COMPLETAR VENTA</button>
                 </div>
               </div>
