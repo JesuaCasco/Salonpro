@@ -591,9 +591,9 @@ export function FinalizeModal({ onClose, onConfirm, services, clients, initial }
                         placeholder="C$ recibido"
                         className="rounded-xl border border-slate-800 bg-black px-3 py-2 text-[10px] font-black text-white outline-none focus:border-emerald-500"
                       />
-                      <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-[8px] font-black uppercase tracking-[0.1em] text-emerald-200">
-                        <p>Cliente paga: C$ {nioReceivedAmount.toLocaleString('es-NI')}</p>
-                        <p className={nioPaymentIsEnough ? 'text-emerald-200' : 'text-rose-300'}>
+                      <div className={`rounded-xl border px-3 py-2 text-[8px] font-black uppercase tracking-[0.1em] ${nioPaymentIsEnough ? 'border-[#72b79b] bg-[#eef8f4] text-[#244f43]' : 'border-[#d94f83] bg-[#fff0f6] text-[#7f274d]'}`}>
+                        <p className="text-[#34242b]">Cliente paga: C$ {nioReceivedAmount.toLocaleString('es-NI')}</p>
+                        <p className={nioPaymentIsEnough ? 'text-[#2f6f5a]' : 'text-[#c0255a]'}>
                           {nioPaymentIsEnough ? `Vuelto C$: ${nioChangeNio.toLocaleString('es-NI')}` : `Faltan C$: ${Math.max(total - nioReceivedAmount, 0).toLocaleString('es-NI')}`}
                         </p>
                       </div>
@@ -620,9 +620,9 @@ export function FinalizeModal({ onClose, onConfirm, services, clients, initial }
                         placeholder="Tasa"
                         className="rounded-xl border border-slate-800 bg-black px-3 py-2 text-[10px] font-black text-white outline-none focus:border-emerald-500"
                       />
-                      <div className="col-span-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-[8px] font-black uppercase tracking-[0.1em] text-emerald-200">
-                        <p>Equivalente: C$ {usdReceivedEquivalent.toLocaleString('es-NI')}</p>
-                        <p className={usdPaymentIsEnough ? 'text-emerald-200' : 'text-rose-300'}>
+                      <div className={`col-span-2 rounded-xl border px-3 py-2 text-[8px] font-black uppercase tracking-[0.1em] ${usdPaymentIsEnough ? 'border-[#72b79b] bg-[#eef8f4] text-[#244f43]' : 'border-[#d94f83] bg-[#fff0f6] text-[#7f274d]'}`}>
+                        <p className="text-[#34242b]">Equivalente: C$ {usdReceivedEquivalent.toLocaleString('es-NI')}</p>
+                        <p className={usdPaymentIsEnough ? 'text-[#2f6f5a]' : 'text-[#c0255a]'}>
                           {usdPaymentIsEnough ? `Vuelto C$: ${usdChangeNio.toLocaleString('es-NI')}` : 'No cubre el total'}
                         </p>
                       </div>

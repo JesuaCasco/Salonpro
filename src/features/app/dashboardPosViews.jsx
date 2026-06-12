@@ -2025,9 +2025,9 @@ export function POSView({
                             placeholder="C$ recibido"
                             className="rounded-2xl border border-[#efabc7] bg-[#fff9fc] px-4 py-2.5 text-sm font-black outline-none focus:border-[#d94f83]"
                           />
-                          <div className="rounded-2xl border border-[#b9dccd] bg-[#eef8f4] px-4 py-2.5 text-[9px] font-black uppercase tracking-[0.12em] text-[#426f64]">
-                            <p>Cliente paga: {formatCurrency(nioReceivedAmount)}</p>
-                            <p className={nioPaymentIsEnough ? 'text-[#426f64]' : 'text-[#b35a7b]'}>
+                          <div className={`rounded-2xl border px-4 py-2.5 text-[9px] font-black uppercase tracking-[0.12em] ${nioPaymentIsEnough ? 'border-[#72b79b] bg-[#eef8f4] text-[#244f43]' : 'border-[#d94f83] bg-[#fff0f6] text-[#7f274d]'}`}>
+                            <p className="text-[#34242b]">Cliente paga: {formatCurrency(nioReceivedAmount)}</p>
+                            <p className={nioPaymentIsEnough ? 'text-[#2f6f5a]' : 'text-[#c0255a]'}>
                               {nioPaymentIsEnough ? `Vuelto sugerido: ${formatCurrency(nioChangeNio)}` : `Faltan: ${formatCurrency(Math.max(totalToCharge - nioReceivedAmount, 0))}`}
                             </p>
                           </div>
@@ -2054,9 +2054,9 @@ export function POSView({
                             placeholder="Tasa"
                             className="rounded-2xl border border-[#efabc7] bg-[#fff9fc] px-4 py-3 text-sm font-black outline-none focus:border-[#d94f83]"
                           />
-                          <div className="col-span-2 rounded-2xl border border-[#b9dccd] bg-[#eef8f4] px-4 py-3 text-[9px] font-black uppercase tracking-[0.12em] text-[#426f64]">
-                            <p>Recibido equivalente: {formatCurrency(usdReceivedEquivalent)}</p>
-                            <p className={usdPaymentIsEnough ? 'text-[#426f64]' : 'text-[#b35a7b]'}>
+                          <div className={`col-span-2 rounded-2xl border px-4 py-3 text-[9px] font-black uppercase tracking-[0.12em] ${usdPaymentIsEnough ? 'border-[#72b79b] bg-[#eef8f4] text-[#244f43]' : 'border-[#d94f83] bg-[#fff0f6] text-[#7f274d]'}`}>
+                            <p className="text-[#34242b]">Recibido equivalente: {formatCurrency(usdReceivedEquivalent)}</p>
+                            <p className={usdPaymentIsEnough ? 'text-[#2f6f5a]' : 'text-[#c0255a]'}>
                               {usdPaymentIsEnough ? `Vuelto sugerido C$: ${usdChangeNio.toLocaleString('es-NI')}` : 'El monto recibido no cubre el total'}
                             </p>
                           </div>
