@@ -1786,8 +1786,8 @@ export function POSView({
       ), document.body) : null}
 
       {ticketOpen && cart.length > 0 ? createPortal((
-        <div className="fixed inset-0 z-[300] flex items-end justify-center bg-black/75 p-4 backdrop-blur-sm xl:items-center">
-          <div className="max-h-[calc(100vh-2rem)] w-full max-w-2xl overflow-hidden rounded-[2.6rem] border border-slate-800 bg-black text-white shadow-[0_30px_120px_rgba(0,0,0,0.65)] xl:max-w-4xl">
+        <div className="fixed inset-0 z-[300] flex items-end justify-center bg-black/75 p-3 backdrop-blur-sm xl:items-center">
+          <div className="max-h-[calc(100vh-1rem)] w-full max-w-3xl overflow-hidden rounded-[2.4rem] border border-[#efabc7] bg-[#fff7fb] text-[#34242b] shadow-[0_30px_120px_rgba(143,45,91,0.28)] xl:max-w-6xl">
             <div className="flex items-center justify-between gap-4 border-b border-slate-900 px-6 py-5 md:px-8 md:py-6">
               <div className="flex items-center gap-4">
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-600 text-white shadow-lg shadow-indigo-600/40">
@@ -1810,8 +1810,8 @@ export function POSView({
               </button>
             </div>
 
-            <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_24rem]">
-              <div className="max-h-[70vh] overflow-y-auto border-b border-slate-900 p-5 md:p-6 xl:border-b-0 xl:border-r custom-scrollbar">
+            <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_28rem]">
+              <div className="max-h-[78vh] overflow-y-auto border-b border-[#f4c6d9] bg-white/45 p-5 md:p-6 xl:border-b-0 xl:border-r custom-scrollbar">
                 <div className="space-y-4">
                   {cart.map((item) => (
                     <CartLine key={item.id} item={item} onRemove={removeItem} />
@@ -1819,7 +1819,7 @@ export function POSView({
                 </div>
               </div>
 
-              <div className="flex max-h-[70vh] flex-col overflow-y-auto bg-slate-950 p-5 md:p-6 custom-scrollbar">
+              <div className="flex max-h-[78vh] flex-col overflow-y-auto bg-[#fff7fb] p-5 md:p-6 custom-scrollbar">
                 <div className="mb-4 rounded-[1.8rem] border border-emerald-500/20 bg-black/40 p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
@@ -2072,8 +2072,8 @@ export function POSView({
                   </p>
                 ) : null}
 
-                <div className="sticky bottom-0 -mx-5 -mb-5 mt-auto border-t border-[#f4c6d9] bg-slate-950/95 px-5 py-4 backdrop-blur md:-mx-6 md:-mb-6 md:px-6">
-                  <button disabled={cart.length === 0 || !cashSession || !cashPaymentIsEnough} onClick={handleCompleteSale} className="w-full bg-[#d94f83] hover:bg-[#c94a7a] disabled:opacity-30 py-4 rounded-[1.6rem] font-black uppercase italic text-xs shadow-xl active:scale-95 transition-all text-white flex items-center justify-center gap-3"><Check size={18} strokeWidth={3} /> COMPLETAR VENTA</button>
+                <div className="sticky bottom-0 -mx-5 -mb-5 mt-auto border-t border-[#f4c6d9] bg-[#fff7fb]/95 px-5 py-4 backdrop-blur md:-mx-6 md:-mb-6 md:px-6">
+                  <button disabled={cart.length === 0 || !cashSession || !cashPaymentIsEnough} onClick={handleCompleteSale} className="w-full bg-[#d94f83] hover:bg-[#c94a7a] disabled:bg-[#f6d5e2] disabled:text-[#9b6076] disabled:shadow-none py-4 rounded-[1.6rem] font-black uppercase italic text-xs shadow-[0_16px_34px_rgba(217,79,131,0.28)] active:scale-95 transition-all text-white flex items-center justify-center gap-3"><Check size={18} strokeWidth={3} /> COMPLETAR VENTA</button>
                 </div>
               </div>
             </div>
