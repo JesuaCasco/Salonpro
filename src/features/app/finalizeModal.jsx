@@ -469,7 +469,8 @@ export function FinalizeModal({ onClose, onConfirm, services, clients, initial }
             </button>
           </div>
         ) : (
-        <div className="p-2.5 md:p-4 bg-black border-t border-slate-900 flex flex-col md:grid md:grid-cols-[240px_minmax(260px,1fr)_240px] items-stretch gap-2 md:gap-3 shrink-0">
+        <div className="absolute inset-0 z-20 hidden items-center justify-center bg-black/70 p-6 backdrop-blur-sm md:flex">
+        <div className="grid w-[min(92vw,72rem)] grid-cols-[230px_minmax(320px,1fr)_260px] items-stretch gap-3 rounded-[2rem] border border-slate-800 bg-black p-4 shadow-[0_30px_120px_rgba(0,0,0,0.65)]">
           <div className="w-full bg-slate-950/50 border border-slate-800 px-3 md:px-4 py-2.5 md:py-3 rounded-[1.2rem] md:rounded-[1.35rem] flex flex-col items-center justify-center shrink-0">
             <p className="text-[8px] md:text-[10px] font-black text-amber-500 uppercase italic tracking-[0.14em] md:tracking-[0.2em] mb-1.5 md:mb-3 leading-none">Califica la experiencia</p>
             <div className="flex gap-1.5 md:gap-4">
@@ -639,6 +640,7 @@ export function FinalizeModal({ onClose, onConfirm, services, clients, initial }
               <button onClick={() => setDesktopStep('services')} className="hidden md:block w-full rounded-[1.15rem] border border-slate-800 bg-slate-950/70 px-5 py-2.5 text-[10px] font-black uppercase text-slate-500 hover:text-white hover:border-slate-600 italic transition-colors leading-none">Volver a servicios</button>
             </div>
           </div>
+        </div>
         </div>
         )}
 
