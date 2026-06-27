@@ -5638,9 +5638,6 @@ function NominaView({ stylists, appointments, payrollPayments = [], onClose, onP
                         <div>
                           <p className="text-sm font-black uppercase italic text-[#302530]">{formatPayrollHistoryDate(payment.timestamp)}</p>
                           <p className="mt-1 text-[10px] font-black uppercase tracking-[0.16em] text-[#856a75]">{formatPayrollHistoryTime(payment.timestamp)} · {payment.services.length} {payment.services.length === 1 ? 'servicio' : 'servicios'}</p>
-                          <p className="mt-3 text-[10px] font-bold uppercase tracking-[0.08em] text-[#9b6076]">
-                            {payment.services.map((service) => service.service || 'Servicio').join(' · ')}
-                          </p>
                         </div>
                         <div className="grid grid-cols-3 gap-3 text-right md:min-w-[20rem]">
                           <div>
