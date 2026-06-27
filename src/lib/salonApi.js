@@ -323,6 +323,7 @@ const toUiAppointment = (row) => ({
   reminderSentAt: row.reminder_sent_at,
   clientConfirmedAt: row.client_confirmed_at,
   isPaid: Boolean(row.is_paid),
+  paidAt: row.paid_at,
   rating: row.rating,
   notes: row.notes || '',
   createdBy: row.created_by,
@@ -334,6 +335,40 @@ const toUiAppointment = (row) => ({
 const toUiRole = (row) => ({
   roleName: row.role_name,
   description: row.description || '',
+});
+
+const toUiPayrollPayment = (row) => ({
+  id: row.id,
+  salonId: row.salon_id,
+  branchId: row.branch_id,
+  stylistId: row.stylist_id,
+  paymentScope: row.payment_scope || 'individual',
+  periodStart: row.period_start,
+  periodEnd: row.period_end,
+  paymentDate: row.payment_date,
+  paymentMethod: row.payment_method || 'cash',
+  baseAmount: Number(row.base_amount || 0),
+  commissionAmount: Number(row.commission_amount || 0),
+  totalAmount: Number(row.total_amount || 0),
+  servicesCount: Number(row.services_count || 0),
+  salesTotal: Number(row.sales_total || 0),
+  commissionRate: Number(row.commission_rate || 0),
+  notes: row.notes || '',
+  status: row.status || 'paid',
+  createdBy: row.created_by,
+  createdAt: row.created_at,
+  updatedAt: row.updated_at,
+  items: (row.payroll_payment_items || row.items || []).map((item) => ({
+    id: item.id,
+    payrollPaymentId: item.payroll_payment_id,
+    appointmentId: item.appointment_id,
+    stylistId: item.stylist_id,
+    serviceName: item.service_name || '',
+    serviceAmount: Number(item.service_amount || 0),
+    commissionRate: Number(item.commission_rate || 0),
+    commissionAmount: Number(item.commission_amount || 0),
+    createdAt: item.created_at,
+  })),
 });
 
 const toUiSalon = (row) => ({
@@ -638,6 +673,7 @@ export async function fetchSalonSnapshot(currentUserId, scopeOverride = {}) {
     posSalesResult,
     cashSessionsResult,
     cashMovementsResult,
+    payrollPaymentsResult,
   ] = await Promise.all([
     applyTenantScope(
       supabase
@@ -705,6 +741,16 @@ export async function fetchSalonSnapshot(currentUserId, scopeOverride = {}) {
       scope,
       { includeGlobalBranchRows: false },
     ).then((result) => result, (error) => ({ data: [], error })),
+    applyTenantScope(
+      supabase
+        .from('payroll_payments')
+        .select('*, payroll_payment_items(*)')
+        .gte('payment_date', `${appointmentsRange.from}T00:00:00`)
+        .lte('payment_date', `${appointmentsRange.to}T23:59:59.999`)
+        .order('payment_date', { ascending: false }),
+      scope,
+      { includeGlobalBranchRows: false },
+    ).then((result) => result, (error) => ({ data: [], error })),
   ]);
 
   if (servicesError) throw normalizeError(servicesError, 'No se pudieron cargar los servicios.');
@@ -740,6 +786,19 @@ export async function fetchSalonSnapshot(currentUserId, scopeOverride = {}) {
     cashMovementsData = cashMovementsResult?.data || [];
   }
 
+  let payrollPaymentsData = [];
+  let payrollLoadError = null;
+  if (payrollPaymentsResult?.error) {
+    const normalizedError = normalizeError(
+      payrollPaymentsResult.error,
+      'No se pudo cargar el historial de nómina.',
+    );
+    payrollLoadError = normalizedError.message;
+    console.warn('No se pudo cargar historial de nómina:', normalizedError);
+  } else {
+    payrollPaymentsData = payrollPaymentsResult?.data || [];
+  }
+
   const scopedServiceIds = new Set((servicesData || []).map((row) => row.id));
   const comboMap = new Map();
   for (const row of comboItemsData || []) {
@@ -761,6 +820,7 @@ export async function fetchSalonSnapshot(currentUserId, scopeOverride = {}) {
   const posSales = (posSalesData || []).map(toUiPosSale);
   const cashSessions = (cashSessionsData || []).map(toUiCashSession);
   const cashMovements = (cashMovementsData || []).map(toUiCashMovement);
+  const payrollPayments = (payrollPaymentsData || []).map(toUiPayrollPayment);
   return {
     services,
     clients,
@@ -769,8 +829,10 @@ export async function fetchSalonSnapshot(currentUserId, scopeOverride = {}) {
     posSales,
     cashSessions,
     cashMovements,
+    payrollPayments,
     posSalesLoadError,
     cashLoadError,
+    payrollLoadError,
   };
 }
 
@@ -1570,6 +1632,85 @@ export async function upsertAppointments(appointments, services, salonId = null,
     .from('appointments')
     .upsert(payload, { onConflict: 'id' });
   if (error) throw normalizeError(error, 'No se pudo guardar la cita.');
+}
+
+export async function createPayrollPayment(payment, currentUserId, scopeOverride = {}) {
+  assertSupabase();
+  if (!payment) return null;
+
+  const scope = await resolveUserScope(currentUserId, scopeOverride);
+  const resolvedSalonId = payment.salonId || scope.currentSalonId || null;
+  const resolvedBranchId = payment.branchId ?? scope.currentBranchId ?? null;
+
+  if (!resolvedSalonId) throw normalizeError(null, 'No se pudo resolver el salón para registrar nómina.');
+  if (!resolvedBranchId) throw normalizeError(null, 'No se pudo resolver la sucursal para registrar nómina.');
+  await validateBranchBelongsToSalon(resolvedSalonId, resolvedBranchId);
+
+  const paymentDate = payment.paymentDate || new Date().toISOString();
+  const appointmentIds = (payment.appointmentIds || [])
+    .filter(Boolean)
+    .map((id) => String(id));
+
+  const paymentPayload = {
+    salon_id: resolvedSalonId,
+    branch_id: resolvedBranchId,
+    stylist_id: payment.stylistId || null,
+    payment_scope: payment.paymentScope || 'individual',
+    period_start: payment.periodStart || null,
+    period_end: payment.periodEnd || null,
+    payment_date: paymentDate,
+    payment_method: payment.paymentMethod || 'cash',
+    base_amount: Number(payment.baseAmount || 0),
+    commission_amount: Number(payment.commissionAmount || 0),
+    total_amount: Number(payment.totalAmount || 0),
+    services_count: Number(payment.servicesCount || 0),
+    sales_total: Number(payment.salesTotal || 0),
+    commission_rate: Number(payment.commissionRate || 0),
+    notes: payment.notes || null,
+    status: payment.status || 'paid',
+    created_by: currentUserId || null,
+  };
+
+  const { data: paymentRow, error: paymentError } = await supabase
+    .from('payroll_payments')
+    .insert(paymentPayload)
+    .select('*')
+    .single();
+  if (paymentError) throw normalizeError(paymentError, 'No se pudo registrar el pago de nómina.');
+
+  const itemPayload = (payment.items || []).map((item) => ({
+    payroll_payment_id: paymentRow.id,
+    appointment_id: item.appointmentId || null,
+    stylist_id: item.stylistId || payment.stylistId || null,
+    service_name: item.serviceName || null,
+    service_amount: Number(item.serviceAmount || 0),
+    commission_rate: Number(item.commissionRate || payment.commissionRate || 0),
+    commission_amount: Number(item.commissionAmount || 0),
+  }));
+
+  let itemRows = [];
+  if (itemPayload.length) {
+    const { data, error } = await supabase
+      .from('payroll_payment_items')
+      .insert(itemPayload)
+      .select('*');
+    if (error) throw normalizeError(error, 'No se pudo registrar el detalle de nómina.');
+    itemRows = data || [];
+  }
+
+  if (appointmentIds.length) {
+    const { error } = await supabase
+      .from('appointments')
+      .update({ is_paid: true, paid_at: paymentDate })
+      .in('id', appointmentIds)
+      .eq('salon_id', resolvedSalonId);
+    if (error) throw normalizeError(error, 'No se pudieron marcar los servicios como pagados.');
+  }
+
+  return toUiPayrollPayment({
+    ...paymentRow,
+    payroll_payment_items: itemRows,
+  });
 }
 
 export async function createPosSale(sale, currentUserId, scopeOverride = {}) {

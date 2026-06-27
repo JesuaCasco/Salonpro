@@ -4,6 +4,7 @@ import {
   cancelPosSaleWithReversal,
   createCashAuditMovement,
   createCashMovement,
+  createPayrollPayment,
   createManagedUser,
   createPosSale,
   assignProfileSalon,
@@ -1707,6 +1708,10 @@ export default function App() {
     const saved = localDevStorage?.getItem('sp_dev_cash_movements') || null;
     return saved ? JSON.parse(saved) : [];
   });
+  const [payrollPayments, setPayrollPayments] = useState(() => {
+    const saved = localDevStorage?.getItem('sp_dev_payroll_payments') || null;
+    return saved ? JSON.parse(saved) : [];
+  });
   
   const [viewDate, setViewDate] = useState(getTodayString());
   const bootstrapCompletedRef = useRef(false);
@@ -1804,6 +1809,7 @@ export default function App() {
     setPosSales([]);
     setCashSessions([]);
     setCashMovements([]);
+    setPayrollPayments([]);
     setOperationalWarnings([]);
     setClientDirectoryData({ clients: [], appointments: [], stylists: [] });
     setClientDirectoryLoaded(false);
@@ -1835,6 +1841,7 @@ export default function App() {
     setPosSales(Array.isArray(cached.posSales) ? cached.posSales : []);
     setCashSessions(Array.isArray(cached.cashSessions) ? cached.cashSessions : []);
     setCashMovements(Array.isArray(cached.cashMovements) ? cached.cashMovements : []);
+    setPayrollPayments(Array.isArray(cached.payrollPayments) ? cached.payrollPayments : []);
     setOperationalWarnings(Array.isArray(cached.operationalWarnings) ? cached.operationalWarnings : []);
     setClientDirectoryData(cached.clientDirectoryData || { clients: [], appointments: [], stylists: [] });
     setClientDirectoryLoaded(Boolean(cached.clientDirectoryLoaded));
@@ -1891,6 +1898,10 @@ export default function App() {
     if (!useBrowserCache) return;
     localDevStorage?.setItem('sp_dev_cash_movements', JSON.stringify(cashMovements));
   }, [cashMovements, useBrowserCache, localDevStorage]);
+  useEffect(() => {
+    if (!useBrowserCache) return;
+    localDevStorage?.setItem('sp_dev_payroll_payments', JSON.stringify(payrollPayments));
+  }, [payrollPayments, useBrowserCache, localDevStorage]);
   useEffect(() => {
     if (!useBrowserCache) return;
     localDevStorage?.removeItem('sp_dev_revenue');
@@ -2036,9 +2047,11 @@ export default function App() {
           setPosSales(snapshot.posSales || []);
           setCashSessions(snapshot.cashSessions || []);
           setCashMovements(snapshot.cashMovements || []);
+          setPayrollPayments(snapshot.payrollPayments || []);
           const nextOperationalWarnings = [
             snapshot.posSalesLoadError,
             snapshot.cashLoadError,
+            snapshot.payrollLoadError,
           ].filter(Boolean);
           setOperationalWarnings(nextOperationalWarnings);
           if (nextOperationalWarnings.length) {
@@ -2087,6 +2100,7 @@ export default function App() {
       posSales,
       cashSessions,
       cashMovements,
+      payrollPayments,
       operationalWarnings,
       clientDirectoryData,
       clientDirectoryLoaded,
@@ -2111,6 +2125,7 @@ export default function App() {
     posSales,
     cashSessions,
     cashMovements,
+    payrollPayments,
     operationalWarnings,
     clientDirectoryData,
     clientDirectoryLoaded,
@@ -3113,43 +3128,121 @@ export default function App() {
     }
   };
 
-  const handleConfirmPayment = async (stylistId) => {
-    const updatedAppointments = appointments
-      .filter(a => String(a.stylistId) === String(stylistId) && a.status === 'Finalizada')
-      .map(a => ({ ...a, isPaid: true }));
+  const buildPayrollPaymentDraft = (stylist, pendingAppointments, paidAt, paymentScope = 'individual') => {
+    const sortedDates = pendingAppointments
+      .map((appointment) => appointment.date)
+      .filter(Boolean)
+      .sort();
+    const salesTotal = pendingAppointments.reduce((sum, appointment) => sum + Number(appointment.price || 0), 0);
+    const commissionRate = Number(stylist.commission || 0);
+    const baseAmount = stylistHasBasePay(stylist.paymentMode) ? Number(stylist.salary || 0) : 0;
+    const commissionAmount = stylistHasCommissionPay(stylist.paymentMode) ? salesTotal * (commissionRate / 100) : 0;
+    const items = pendingAppointments.map((appointment) => ({
+      appointmentId: appointment.id,
+      stylistId: stylist.id,
+      serviceName: appointment.service || 'Servicio',
+      serviceAmount: Number(appointment.price || 0),
+      commissionRate,
+      commissionAmount: stylistHasCommissionPay(stylist.paymentMode)
+        ? Number(appointment.price || 0) * (commissionRate / 100)
+        : 0,
+    }));
 
-    setAppointments(prev => prev.map(a => 
-      String(a.stylistId) === String(stylistId) && a.status === 'Finalizada' ? { ...a, isPaid: true } : a
+    return {
+      id: globalThis.crypto?.randomUUID?.() || `payroll-${Date.now()}-${stylist.id}`,
+      salonId: currentSalonId,
+      branchId: currentBranchId,
+      stylistId: stylist.id,
+      paymentScope,
+      periodStart: sortedDates[0] || null,
+      periodEnd: sortedDates[sortedDates.length - 1] || null,
+      paymentDate: paidAt,
+      paymentMethod: 'cash',
+      baseAmount,
+      commissionAmount,
+      totalAmount: baseAmount + commissionAmount,
+      servicesCount: pendingAppointments.length,
+      salesTotal,
+      commissionRate,
+      notes: paymentScope === 'batch' ? 'Liquidación general de equipo' : 'Liquidación individual de nómina',
+      status: 'paid',
+      createdBy: session?.user?.id || null,
+      createdAt: paidAt,
+      updatedAt: paidAt,
+      appointmentIds: pendingAppointments.map((appointment) => appointment.id),
+      items,
+    };
+  };
+
+  const handleConfirmPayment = async (stylistId) => {
+    const paidAt = new Date().toISOString();
+    const stylist = stylists.find((item) => String(item.id) === String(stylistId));
+    const pendingAppointments = appointments.filter(a => String(a.stylistId) === String(stylistId) && a.status === 'Finalizada' && !a.isPaid);
+    const updatedAppointments = pendingAppointments.map(a => ({ ...a, isPaid: true, paidAt, updatedAt: paidAt }));
+    const paymentDraft = stylist && pendingAppointments.length
+      ? buildPayrollPaymentDraft(stylist, pendingAppointments, paidAt, 'individual')
+      : null;
+
+    setAppointments(prev => prev.map(a =>
+      String(a.stylistId) === String(stylistId) && a.status === 'Finalizada' && !a.isPaid ? { ...a, isPaid: true, paidAt, updatedAt: paidAt } : a
     ));
+    if (paymentDraft) setPayrollPayments((prev) => [paymentDraft, ...prev]);
     setModals({ ...modals, paymentReceipt: false });
 
-    if (hasSupabaseConfig && bootstrapCompletedRef.current && updatedAppointments.length) {
+    if (hasSupabaseConfig && bootstrapCompletedRef.current && paymentDraft) {
+      try {
+        const savedPayment = await createPayrollPayment(paymentDraft, session?.user?.id, superAdminScopeOverride);
+        setPayrollPayments((prev) => prev.map((payment) => (
+          String(payment.id) === String(paymentDraft.id) ? savedPayment : payment
+        )));
+      } catch (error) {
+        handleSyncError(error, 'No pude liquidar el pago en Supabase.');
+      }
+    } else if (hasSupabaseConfig && bootstrapCompletedRef.current && updatedAppointments.length) {
       try {
         await upsertAppointments(updatedAppointments, services, currentSalonId, currentBranchId, stylists, clients);
       } catch (error) {
-        handleSyncError(error, 'No pude liquidar el pago en Supabase.');
+        handleSyncError(error, 'No pude marcar los servicios como pagados en Supabase.');
       }
     }
   };
 
   const handleConfirmStaffSettlement = async (stylistIds = []) => {
+    const paidAt = new Date().toISOString();
     const normalizedIds = new Set((stylistIds || []).map(id => String(id)));
-    const updatedAppointments = appointments
-      .filter(a => normalizedIds.has(String(a.stylistId)) && a.status === 'Finalizada' && !a.isPaid)
-      .map(a => ({ ...a, isPaid: true }));
+    const pendingAppointments = appointments.filter(a => normalizedIds.has(String(a.stylistId)) && a.status === 'Finalizada' && !a.isPaid);
+    const updatedAppointments = pendingAppointments.map(a => ({ ...a, isPaid: true, paidAt, updatedAt: paidAt }));
+    const paymentDrafts = stylists
+      .filter((stylist) => normalizedIds.has(String(stylist.id)))
+      .map((stylist) => {
+        const stylistAppointments = pendingAppointments.filter((appointment) => String(appointment.stylistId) === String(stylist.id));
+        return stylistAppointments.length ? buildPayrollPaymentDraft(stylist, stylistAppointments, paidAt, 'batch') : null;
+      })
+      .filter(Boolean);
 
     setAppointments(prev => prev.map(a =>
       normalizedIds.has(String(a.stylistId)) && a.status === 'Finalizada' && !a.isPaid
-        ? { ...a, isPaid: true }
+        ? { ...a, isPaid: true, paidAt, updatedAt: paidAt }
         : a
     ));
+    if (paymentDrafts.length) setPayrollPayments((prev) => [...paymentDrafts, ...prev]);
     setModals(prev => ({ ...prev, staffSettlement: false }));
 
-    if (hasSupabaseConfig && bootstrapCompletedRef.current && updatedAppointments.length) {
+    if (hasSupabaseConfig && bootstrapCompletedRef.current && paymentDrafts.length) {
+      try {
+        const savedPayments = await Promise.all(
+          paymentDrafts.map((paymentDraft) => createPayrollPayment(paymentDraft, session?.user?.id, superAdminScopeOverride)),
+        );
+        const savedByLocalId = new Map(savedPayments.map((savedPayment, index) => [String(paymentDrafts[index].id), savedPayment]));
+        setPayrollPayments((prev) => prev.map((payment) => savedByLocalId.get(String(payment.id)) || payment));
+      } catch (error) {
+        handleSyncError(error, 'No pude liquidar la planilla en Supabase.');
+      }
+    } else if (hasSupabaseConfig && bootstrapCompletedRef.current && updatedAppointments.length) {
       try {
         await upsertAppointments(updatedAppointments, services, currentSalonId, currentBranchId, stylists, clients);
       } catch (error) {
-        handleSyncError(error, 'No pude liquidar la planilla en Supabase.');
+        handleSyncError(error, 'No pude marcar la planilla como pagada en Supabase.');
       }
     }
   };
@@ -4098,6 +4191,7 @@ export default function App() {
             <NominaView
               stylists={stylists}
               appointments={appointments}
+              payrollPayments={payrollPayments}
               onClose={() => setActiveTab('estilistas')}
               onPagar={(stylist, nomina) => {
                 setSelectedData({ ...selectedData, paymentReceipt: { stylist, nomina } });
@@ -5172,13 +5266,119 @@ function StylistsView({ stylists, appointments, branches, currentSalonId, curren
   );
 }
 
-function NominaView({ stylists, appointments, onClose, onPagar, onLiquidarTodo }) {
+const getPayrollHistoryTimestamp = (appointment) => {
+  if (appointment.paidAt) return appointment.paidAt;
+  if (appointment.updatedAt) return appointment.updatedAt;
+  if (appointment.finishedAt) return appointment.finishedAt;
+  return appointment.date ? `${appointment.date}T${appointment.time || '00:00'}:00` : new Date().toISOString();
+};
+
+const formatPayrollHistoryDate = (timestamp) => {
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return 'Fecha sin registrar';
+  return date.toLocaleDateString('es-NI', {
+    weekday: 'long',
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+  });
+};
+
+const formatPayrollHistoryTime = (timestamp) => {
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return '--:--';
+  return date.toLocaleTimeString('es-NI', { hour: '2-digit', minute: '2-digit' });
+};
+
+const buildPayrollHistoryForStylist = (stylist, appointments = [], payrollPayments = []) => {
+  const formalPayments = (payrollPayments || [])
+    .filter((payment) => String(payment.stylistId) === String(stylist.id) && (payment.status || 'paid') === 'paid')
+    .map((payment) => ({
+      id: payment.id,
+      timestamp: payment.paymentDate || payment.createdAt || new Date().toISOString(),
+      services: (payment.items || []).map((item) => ({
+        id: item.appointmentId || item.id,
+        service: item.serviceName || 'Servicio',
+        price: Number(item.serviceAmount || 0),
+      })),
+      salesTotal: Number(payment.salesTotal || 0),
+      base: Number(payment.baseAmount || 0),
+      comission: Number(payment.commissionAmount || 0),
+      total: Number(payment.totalAmount || 0),
+      commissionRate: Number(payment.commissionRate || 0),
+      paymentScope: payment.paymentScope || 'individual',
+    }))
+    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+  if (formalPayments.length) return formalPayments;
+
+  const paidAppointments = (appointments || []).filter(
+    (appointment) => String(appointment.stylistId) === String(stylist.id)
+      && appointment.status === 'Finalizada'
+      && appointment.isPaid
+  );
+
+  const groups = paidAppointments.reduce((map, appointment) => {
+    const timestamp = getPayrollHistoryTimestamp(appointment);
+    const groupKey = appointment.paidAt || appointment.updatedAt
+      ? timestamp.slice(0, 16)
+      : `${appointment.date || 'sin-fecha'}-${appointment.stylistId}`;
+    const current = map.get(groupKey) || {
+      id: groupKey,
+      timestamp,
+      services: [],
+      salesTotal: 0,
+    };
+    current.services.push(appointment);
+    current.salesTotal += Number(appointment.price || 0);
+    if (new Date(timestamp).getTime() > new Date(current.timestamp).getTime()) {
+      current.timestamp = timestamp;
+    }
+    map.set(groupKey, current);
+    return map;
+  }, new Map());
+
+  return Array.from(groups.values())
+    .map((group) => {
+      const commissionRate = Number(stylist.commission || 0);
+      const base = stylistHasBasePay(stylist.paymentMode) ? Number(stylist.salary || 0) : 0;
+      const comission = stylistHasCommissionPay(stylist.paymentMode) ? group.salesTotal * (commissionRate / 100) : 0;
+      return {
+        ...group,
+        base,
+        comission,
+        total: base + comission,
+        commissionRate,
+      };
+    })
+    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+};
+
+function NominaView({ stylists, appointments, payrollPayments = [], onClose, onPagar, onLiquidarTodo }) {
+  const [selectedHistoryStylistId, setSelectedHistoryStylistId] = useState(null);
+
   const payrollRows = useMemo(() => {
     return stylists.map((stylist) => ({
       stylist,
       nomina: getStylistNominaData(stylist, appointments),
     }));
   }, [stylists, appointments]);
+
+  const paymentHistoryRows = useMemo(() => {
+    return stylists.map((stylist) => {
+      const history = buildPayrollHistoryForStylist(stylist, appointments, payrollPayments);
+      return {
+        stylist,
+        history,
+        totalPaid: history.reduce((sum, item) => sum + item.total, 0),
+        servicesPaid: history.reduce((sum, item) => sum + item.services.length, 0),
+      };
+    });
+  }, [stylists, appointments, payrollPayments]);
+
+  const selectedHistoryRow = paymentHistoryRows.find(
+    (row) => String(row.stylist.id) === String(selectedHistoryStylistId)
+  );
 
   const summary = useMemo(() => {
     return payrollRows.reduce((acc, row) => ({
@@ -5325,6 +5525,60 @@ function NominaView({ stylists, appointments, onClose, onPagar, onLiquidarTodo }
         </div>
       </div>
 
+      <section className="rounded-[2rem] border border-[#ee9fbc] bg-white p-5 shadow-[0_18px_44px_rgba(122,77,94,0.10)] md:rounded-[3rem] md:p-7">
+        <div className="mb-6 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+          <div>
+            <p className="text-[10px] font-black uppercase italic tracking-[0.24em] text-[#d94f83]">Historial de pagos</p>
+            <h4 className="mt-1 text-2xl font-black uppercase italic tracking-tighter text-[#302530]">Expediente por estilista</h4>
+          </div>
+          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#856a75]">Pagos liquidados de nómina</p>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 2xl:grid-cols-3">
+          {paymentHistoryRows.map(({ stylist, history, totalPaid, servicesPaid }) => {
+            const hasHistory = history.length > 0;
+            const lastPayment = history[0];
+            return (
+              <button
+                key={stylist.id}
+                type="button"
+                onClick={() => setSelectedHistoryStylistId(stylist.id)}
+                className={`group relative overflow-hidden rounded-[1.8rem] border bg-[#fffafd] p-5 text-left shadow-[0_14px_30px_rgba(122,77,94,0.08)] transition-all hover:-translate-y-0.5 hover:shadow-[0_18px_38px_rgba(122,77,94,0.16)] ${hasHistory ? 'border-[#b7d8c7] hover:border-[#6fae93]' : 'border-[#f2c1d4] hover:border-[#d94f83]'}`}
+              >
+                <div className={`absolute inset-x-0 top-0 h-1 ${hasHistory ? 'bg-[#6fae93]' : 'bg-[#ee9fbc]'}`} />
+                <div className="flex items-center gap-4">
+                  <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-sm font-black italic text-white shadow-lg ${stylist.bg || 'bg-[#d94f83]'}`}>
+                    {stylist.avatar || stylist.name?.slice(0, 2).toUpperCase()}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-black uppercase italic tracking-tight text-[#302530]">{stylist.fullName || stylist.name}</p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <span className={`rounded-full border px-2.5 py-1 text-[8px] font-black uppercase tracking-[0.12em] ${hasHistory ? 'border-[#b7d8c7] bg-[#edf7f2] text-[#4f8674]' : 'border-[#f2c1d4] bg-[#fff1f7] text-[#9b6076]'}`}>
+                        {history.length} {history.length === 1 ? 'pago' : 'pagos'}
+                      </span>
+                      <span className="rounded-full border border-[#f2c1d4] bg-white px-2.5 py-1 text-[8px] font-black uppercase tracking-[0.12em] text-[#856a75]">
+                        {servicesPaid} servicios
+                      </span>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[8px] font-black uppercase tracking-[0.18em] text-[#856a75]">Histórico</p>
+                    <p className={`mt-1 text-lg font-black italic tracking-tighter ${hasHistory ? 'text-[#4f8674]' : 'text-[#9b6076]'}`}>C$ {Math.round(totalPaid).toLocaleString()}</p>
+                  </div>
+                </div>
+
+                <div className="mt-4 flex items-center justify-between border-t border-[#f2c1d4] pt-3">
+                  <p className="text-[9px] font-black uppercase tracking-[0.18em] text-[#9b6076]">
+                    {hasHistory ? `Último: ${formatPayrollHistoryDate(lastPayment.timestamp)}` : 'Abrir expediente'}
+                  </p>
+                  <ArrowRight size={16} className={`${hasHistory ? 'text-[#4f8674]' : 'text-[#d94f83]'} transition-transform group-hover:translate-x-1`} />
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
       <div className="flex justify-end pt-4 md:pt-8">
         <button
           onClick={() => onLiquidarTodo(payrollRows, summary)}
@@ -5333,6 +5587,84 @@ function NominaView({ stylists, appointments, onClose, onPagar, onLiquidarTodo }
           Liquidar todo el equipo <ArrowRight size={18} />
         </button>
       </div>
+
+      {selectedHistoryRow && (
+        <div className="fixed inset-0 z-[420] flex items-center justify-center bg-[#302530]/70 p-4 backdrop-blur-md animate-in fade-in no-print">
+          <div className="max-h-[88dvh] w-full max-w-[58rem] overflow-hidden rounded-[2rem] border border-[#ee9fbc] bg-white shadow-[0_24px_70px_rgba(48,37,48,0.35)] md:rounded-[2.5rem]">
+            <div className="flex items-start justify-between gap-4 border-b border-[#f2c1d4] bg-[#fff7fb] p-5 md:p-7">
+              <div className="flex items-center gap-4">
+                <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-base font-black italic text-white shadow-lg ${selectedHistoryRow.stylist.bg || 'bg-[#d94f83]'}`}>
+                  {selectedHistoryRow.stylist.avatar || selectedHistoryRow.stylist.name?.slice(0, 2).toUpperCase()}
+                </div>
+                <div>
+                  <h4 className="text-2xl font-black uppercase italic tracking-tighter text-[#302530]">Historial de pagos</h4>
+                  <p className="mt-1 text-[10px] font-black uppercase tracking-[0.18em] text-[#856a75]">{selectedHistoryRow.stylist.fullName || selectedHistoryRow.stylist.name}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedHistoryStylistId(null)}
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[#ee9fbc] bg-white text-[#9b6076] transition-all hover:bg-[#d94f83] hover:text-white"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="grid gap-3 border-b border-[#f2c1d4] bg-white p-5 md:grid-cols-3 md:p-6">
+              <div className="rounded-2xl border border-[#f2c1d4] bg-[#fffafd] p-4">
+                <p className="text-[9px] font-black uppercase tracking-[0.18em] text-[#856a75]">Pagos registrados</p>
+                <p className="mt-2 text-3xl font-black italic text-[#302530]">{selectedHistoryRow.history.length}</p>
+              </div>
+              <div className="rounded-2xl border border-[#b7d8c7] bg-[#edf7f2] p-4">
+                <p className="text-[9px] font-black uppercase tracking-[0.18em] text-[#4f8674]">Total pagado</p>
+                <p className="mt-2 text-3xl font-black italic text-[#4f8674]">C$ {Math.round(selectedHistoryRow.totalPaid).toLocaleString()}</p>
+              </div>
+              <div className="rounded-2xl border border-[#f2c1d4] bg-[#fffafd] p-4">
+                <p className="text-[9px] font-black uppercase tracking-[0.18em] text-[#856a75]">Servicios liquidados</p>
+                <p className="mt-2 text-3xl font-black italic text-[#d94f83]">{selectedHistoryRow.servicesPaid}</p>
+              </div>
+            </div>
+
+            <div className="max-h-[46dvh] overflow-y-auto p-5 custom-scrollbar md:p-6">
+              {selectedHistoryRow.history.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-[#ee9fbc] bg-[#fff7fb] p-8 text-center">
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#856a75]">Todavía no hay pagos registrados para este estilista</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {selectedHistoryRow.history.map((payment) => (
+                    <div key={payment.id} className="rounded-2xl border border-[#f2c1d4] bg-[#fffafd] p-4">
+                      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                        <div>
+                          <p className="text-sm font-black uppercase italic text-[#302530]">{formatPayrollHistoryDate(payment.timestamp)}</p>
+                          <p className="mt-1 text-[10px] font-black uppercase tracking-[0.16em] text-[#856a75]">{formatPayrollHistoryTime(payment.timestamp)} · {payment.services.length} {payment.services.length === 1 ? 'servicio' : 'servicios'}</p>
+                          <p className="mt-3 text-[10px] font-bold uppercase tracking-[0.08em] text-[#9b6076]">
+                            {payment.services.map((service) => service.service || 'Servicio').join(' · ')}
+                          </p>
+                        </div>
+                        <div className="grid grid-cols-3 gap-3 text-right md:min-w-[20rem]">
+                          <div>
+                            <p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#856a75]">Base</p>
+                            <p className="mt-1 text-sm font-black italic text-[#302530]">C$ {Math.round(payment.base).toLocaleString()}</p>
+                          </div>
+                          <div>
+                            <p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#856a75]">Comisión</p>
+                            <p className="mt-1 text-sm font-black italic text-[#4f8674]">C$ {Math.round(payment.comission).toLocaleString()}</p>
+                          </div>
+                          <div>
+                            <p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#856a75]">Pagado</p>
+                            <p className="mt-1 text-lg font-black italic text-[#d94f83]">C$ {Math.round(payment.total).toLocaleString()}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
