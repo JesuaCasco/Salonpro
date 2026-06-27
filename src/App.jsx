@@ -5589,7 +5589,7 @@ function NominaView({ stylists, appointments, payrollPayments = [], onClose, onP
       </div>
 
       {selectedHistoryRow && (
-        <div className="fixed inset-0 z-[420] flex items-center justify-center bg-[#302530]/70 p-4 backdrop-blur-md animate-in fade-in no-print">
+        <div className="fixed inset-0 z-[999] flex items-center justify-center bg-[#302530]/70 p-4 backdrop-blur-md animate-in fade-in no-print">
           <div className="max-h-[88dvh] w-full max-w-[58rem] overflow-hidden rounded-[2rem] border border-[#ee9fbc] bg-white shadow-[0_24px_70px_rgba(48,37,48,0.35)] md:rounded-[2.5rem]">
             <div className="flex items-start justify-between gap-4 border-b border-[#f2c1d4] bg-[#fff7fb] p-5 md:p-7">
               <div className="flex items-center gap-4">
