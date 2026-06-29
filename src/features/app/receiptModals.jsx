@@ -439,8 +439,8 @@ export function StaffSettlementModal({ data, onClose, onConfirmSettlement, confi
 
   return (
     <div className="print-modal fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl animate-in fade-in text-white no-print">
-      <div className="bg-white text-black w-full max-w-7xl rounded-[2rem] md:rounded-[2.5rem] overflow-hidden shadow-2xl animate-in zoom-in-95 flex flex-col max-h-[95vh]">
-        <div className="p-4 md:p-10 overflow-y-auto custom-scrollbar" id="printable-staff-settlement">
+      <div className="staff-settlement-sheet bg-white text-black w-full max-w-7xl rounded-[2rem] md:rounded-[2.5rem] overflow-hidden shadow-2xl animate-in zoom-in-95 flex flex-col max-h-[95vh]">
+        <div className="staff-settlement-print-content p-4 md:p-10 overflow-y-auto custom-scrollbar" id="printable-staff-settlement">
           <div className="flex items-start justify-between gap-6 mb-8">
             <div>
               <h2 className="text-3xl font-black italic tracking-widest text-slate-900">SalonPro</h2>
@@ -473,8 +473,8 @@ export function StaffSettlementModal({ data, onClose, onConfirmSettlement, confi
             </div>
           </div>
 
-          <div className="rounded-[1.5rem] md:rounded-[2rem] border border-slate-200 overflow-hidden">
-            <table className="w-full table-fixed">
+          <div className="staff-settlement-table-wrap rounded-[1.5rem] md:rounded-[2rem] border border-slate-200 overflow-hidden">
+            <table className="staff-settlement-table w-full table-fixed">
               <thead className="bg-slate-100">
                 <tr className="text-[9px] font-black uppercase tracking-[0.14em] text-slate-500 xl:text-[10px]">
                   <th className="w-[30%] px-3 py-4 text-left xl:px-5">Estilista</th>

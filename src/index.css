@@ -601,3 +601,141 @@ button.bg-amber-600 {
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: #8a6875;
 }
+
+@media print {
+  @page staff-settlement-page {
+    size: A4 landscape;
+    margin: 8mm;
+  }
+
+  html,
+  body {
+    width: 100%;
+    min-height: auto !important;
+    background: #ffffff !important;
+  }
+
+  body * {
+    visibility: hidden !important;
+  }
+
+  #printable-receipt,
+  #printable-receipt *,
+  #printable-staff-settlement,
+  #printable-staff-settlement * {
+    visibility: visible !important;
+  }
+
+  .print-modal,
+  .print-modal > div,
+  .staff-settlement-sheet {
+    position: static !important;
+    inset: auto !important;
+    display: block !important;
+    width: auto !important;
+    max-width: none !important;
+    max-height: none !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+    box-shadow: none !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    transform: none !important;
+  }
+
+  #printable-staff-settlement {
+    page: staff-settlement-page;
+    position: absolute !important;
+    top: 0 !important;
+    left: 50% !important;
+    width: calc(297mm - 16mm) !important;
+    max-width: calc(297mm - 16mm) !important;
+    min-height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    transform: translateX(-50%) !important;
+    color: #111827 !important;
+    background: #ffffff !important;
+    box-sizing: border-box !important;
+  }
+
+  #printable-staff-settlement {
+    font-size: 8.5px !important;
+  }
+
+  #printable-staff-settlement .settlement-summary-cards {
+    display: none !important;
+  }
+
+  #printable-staff-settlement > div:first-child {
+    margin-bottom: 7mm !important;
+  }
+
+  #printable-staff-settlement .staff-settlement-table-wrap {
+    width: 100% !important;
+    overflow: visible !important;
+    border-radius: 3mm !important;
+  }
+
+  #printable-staff-settlement .staff-settlement-table {
+    width: 100% !important;
+    table-layout: fixed !important;
+    border-collapse: collapse !important;
+  }
+
+  #printable-staff-settlement .staff-settlement-table th,
+  #printable-staff-settlement .staff-settlement-table td {
+    padding: 2.6mm 2.2mm !important;
+    font-size: 8px !important;
+    line-height: 1.25 !important;
+    vertical-align: top !important;
+    overflow-wrap: normal !important;
+    word-break: normal !important;
+  }
+
+  #printable-staff-settlement .staff-settlement-table th:nth-child(1) {
+    width: 30% !important;
+  }
+
+  #printable-staff-settlement .staff-settlement-table th:nth-child(2) {
+    width: 22% !important;
+  }
+
+  #printable-staff-settlement .staff-settlement-table th:nth-child(3) {
+    width: 8% !important;
+  }
+
+  #printable-staff-settlement .staff-settlement-table th:nth-child(4) {
+    width: 13% !important;
+  }
+
+  #printable-staff-settlement .staff-settlement-table th:nth-child(5) {
+    width: 10% !important;
+  }
+
+  #printable-staff-settlement .staff-settlement-table th:nth-child(6) {
+    width: 17% !important;
+  }
+
+  #printable-staff-settlement .staff-settlement-table td:first-child p:first-child {
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    font-size: 8.2px !important;
+  }
+
+  #printable-staff-settlement .staff-settlement-table td:first-child p:last-child {
+    white-space: nowrap !important;
+    font-size: 7.2px !important;
+  }
+
+  #printable-staff-settlement .staff-settlement-table .signature-cell > div {
+    min-height: 16mm !important;
+  }
+
+  #printable-staff-settlement .mt-8 {
+    margin-top: 8mm !important;
+  }
+}
