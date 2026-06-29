@@ -719,6 +719,14 @@ button.bg-amber-600 {
     width: 17% !important;
   }
 
+  #printable-staff-settlement .staff-settlement-print-avatar {
+    display: none !important;
+  }
+
+  #printable-staff-settlement .staff-settlement-table td:first-child > div {
+    gap: 0 !important;
+  }
+
   #printable-staff-settlement .staff-settlement-table td:first-child p:first-child {
     white-space: nowrap !important;
     overflow: hidden !important;

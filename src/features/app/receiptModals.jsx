@@ -490,7 +490,7 @@ export function StaffSettlementModal({ data, onClose, onConfirmSettlement, confi
                   <tr key={stylist.id} className="border-t border-slate-200">
                     <td className="px-3 py-4 xl:px-5">
                       <div className="flex min-w-0 items-center gap-3 xl:gap-4">
-                        <div className={`w-10 h-10 shrink-0 ${stylist.bg} rounded-xl flex items-center justify-center font-black italic text-white xl:h-11 xl:w-11`}>
+                        <div className={`staff-settlement-print-avatar w-10 h-10 shrink-0 ${stylist.bg} rounded-xl flex items-center justify-center font-black italic text-white xl:h-11 xl:w-11`}>
                           {stylist.avatar}
                         </div>
                         <div className="min-w-0">
