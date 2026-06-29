@@ -489,10 +489,7 @@ export function StaffSettlementModal({ data, onClose, onConfirmSettlement, confi
                 {rows.map(({ stylist, nomina }) => (
                   <tr key={stylist.id} className="border-t border-slate-200">
                     <td className="px-3 py-4 xl:px-5">
-                      <div className="flex min-w-0 items-center gap-3 xl:gap-4">
-                        <div className={`staff-settlement-print-avatar w-10 h-10 shrink-0 ${stylist.bg} rounded-xl flex items-center justify-center font-black italic text-white xl:h-11 xl:w-11`}>
-                          {stylist.avatar}
-                        </div>
+                      <div className="flex min-w-0 items-center">
                         <div className="min-w-0">
                           <p className="truncate text-[12px] font-black uppercase italic text-slate-900 xl:text-sm">{stylist.fullName || stylist.name}</p>
                           <p className="mt-1 truncate text-[9px] font-bold uppercase text-slate-400 xl:text-[10px]">{stylist.cedula?.trim() || `ID STAFF ${stylist.id}`}</p>
