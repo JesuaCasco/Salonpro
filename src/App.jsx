@@ -6572,12 +6572,12 @@ function ReportsView({ appointments, clients, stylists, branches = [], currentBr
                       </button>
 
                       {showStaffRangeControls && (
-                        <div className="adaptive-popover absolute right-0 top-[calc(100%+0.75rem)] z-50 w-[min(88vw,22rem)] rounded-[1.8rem] border border-white/10 bg-slate-950/95 p-4 shadow-2xl shadow-black/60 backdrop-blur-xl space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
-                          <div className="rounded-2xl border border-indigo-500/20 bg-indigo-600/15 px-4 py-3">
-                            <span className="text-[9px] font-black uppercase tracking-[0.18em] text-indigo-300/80 leading-none">
+                        <div className="adaptive-popover absolute right-0 top-[calc(100%+0.75rem)] z-50 w-[min(88vw,22rem)] rounded-[1.8rem] border border-[#ee9fbc] bg-white/95 p-4 shadow-[0_24px_55px_rgba(122,77,94,0.22)] backdrop-blur-xl space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                          <div className="rounded-2xl border border-[#f2c1d4] bg-[#fff7fb] px-4 py-3">
+                            <span className="text-[9px] font-black uppercase tracking-[0.18em] text-[#d94f83] leading-none">
                               {staffRangePreset === 'custom' ? 'Rango personalizado' : `Vista ${periodOptions.find((option) => option.id === staffRangePreset)?.label || 'Mes'}`}
                             </span>
-                            <span className="mt-2 block text-[12px] font-black text-white leading-tight">
+                            <span className="mt-2 block text-[12px] font-black text-[#4f8674] leading-tight">
                               {staffRangeLabel}
                             </span>
                           </div>
@@ -6590,8 +6590,8 @@ function ReportsView({ appointments, clients, stylists, branches = [], currentBr
                                 onClick={() => setStaffRangePreset(period.id)}
                                 className={`min-h-[42px] rounded-2xl border text-[10px] font-black uppercase tracking-[0.14em] transition-all ${
                                   staffRangePreset === period.id
-                                    ? 'bg-indigo-600 text-white border-indigo-400 shadow-lg'
-                                    : 'bg-slate-950/70 text-slate-400 border-slate-800 hover:text-white'
+                                    ? 'bg-[#d94f83] text-white border-[#d94f83] shadow-[0_10px_24px_rgba(217,79,131,0.24)]'
+                                    : 'bg-[#fff7fb] text-[#856a75] border-[#f2c1d4] hover:bg-[#fbe9ef] hover:text-[#302530]'
                                 }`}
                               >
                                 {period.label}
@@ -6607,7 +6607,7 @@ function ReportsView({ appointments, clients, stylists, branches = [], currentBr
                                 setStaffRangePreset('custom');
                                 setStaffRangeStart(e.target.value);
                               }}
-                              className="min-h-[46px] rounded-2xl border border-slate-800 bg-slate-950/70 px-4 text-sm font-bold text-white outline-none focus:border-indigo-500"
+                              className="min-h-[46px] rounded-2xl border border-[#f2c1d4] bg-[#fff7fb] px-4 text-sm font-bold text-[#302530] outline-none focus:border-[#d94f83] focus:bg-white"
                             />
                             <input
                               type="date"
@@ -6616,7 +6616,7 @@ function ReportsView({ appointments, clients, stylists, branches = [], currentBr
                                 setStaffRangePreset('custom');
                                 setStaffRangeEnd(e.target.value);
                               }}
-                              className="min-h-[46px] rounded-2xl border border-slate-800 bg-slate-950/70 px-4 text-sm font-bold text-white outline-none focus:border-indigo-500"
+                              className="min-h-[46px] rounded-2xl border border-[#f2c1d4] bg-[#fff7fb] px-4 text-sm font-bold text-[#302530] outline-none focus:border-[#d94f83] focus:bg-white"
                             />
                           </div>
                         </div>
