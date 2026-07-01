@@ -2564,6 +2564,7 @@ export default function App() {
     { id: 'clientes', label: 'Clientes', icon: Users, allow: isAdmin || isCashier },
     { id: 'estilistas', label: 'Estilista', icon: UserCheck, allow: isAdmin },
     { id: 'services', label: 'Servicios', icon: Scissors, allow: isAdmin },
+    { id: 'inventario', label: 'Inventario', icon: Package, allow: isAdmin },
     { id: 'caja', label: 'Caja', icon: ShoppingBag, allow: isAdmin || isCashier },
     { id: 'reportes', label: 'Reportes', icon: BarChart3, allow: isAdmin },
     { id: 'sistema', label: 'Sistema', icon: Layers, allow: isAdmin },
@@ -4208,6 +4209,12 @@ export default function App() {
             />
           )}
           {activeTab === 'services' && <ServicesView services={services} onAdd={(cat) => { setSelectedData({...selectedData, service: { category: cat }}); setModals({...modals, service: true}); }} onEdit={(s) => { setSelectedData({...selectedData, service: s}); setModals({...modals, service: true}); }} onDelete={handleDeleteService} />}
+          {activeTab === 'inventario' && (
+            <InventoryView
+              services={services}
+              onGoToProducts={() => setActiveTab('services')}
+            />
+          )}
           {activeTab === 'caja' && (
             <POSView
               services={services}
@@ -4708,6 +4715,125 @@ function ServicesView({ services, onAdd, onEdit, onDelete }) {
         ))}
         <div onClick={() => onAdd(activeCategory)} className="border-4 border-dashed border-slate-900 rounded-[2.2rem] md:rounded-[3rem] p-6 md:p-10 flex flex-col items-center justify-center text-slate-800 hover:border-indigo-600 hover:text-indigo-400 transition-all cursor-pointer group min-h-[260px] md:min-h-[320px] text-white"><div className="w-14 h-14 md:w-16 md:h-16 rounded-full border-4 border-current flex items-center justify-center mb-4 group-hover:scale-110 transition-transform text-white"><Plus size={28} /></div><p className="font-black uppercase italic text-[10px] md:text-xs tracking-widest leading-none text-white text-center">{addLabel.replace(/^Nuevo/i, 'Añadir').replace(/^Nueva/i, 'Añadir')}</p></div>
       </div>
+    </div>
+  );
+}
+
+function InventoryView({ services = [], onGoToProducts }) {
+  const products = useMemo(
+    () => (services || []).filter((service) => service.category === 'Producto'),
+    [services],
+  );
+  const inventoryCards = [
+    {
+      id: 'products',
+      label: 'Productos catalogados',
+      value: products.length,
+      helper: 'Tomados del catálogo de servicios',
+      icon: Package,
+      tone: 'text-[#d94f83]',
+      bg: 'bg-[#fff7fb]',
+      border: 'border-[#ee9fbc]',
+    },
+    {
+      id: 'stock',
+      label: 'Stock controlado',
+      value: 'Próximo',
+      helper: 'Listo para conectar existencias',
+      icon: Layers,
+      tone: 'text-[#4f8674]',
+      bg: 'bg-[#edf7f2]',
+      border: 'border-[#b7d8c7]',
+    },
+    {
+      id: 'movements',
+      label: 'Movimientos',
+      value: 'Entradas / salidas',
+      helper: 'Base para compras, ajustes y ventas',
+      icon: Repeat,
+      tone: 'text-[#856a75]',
+      bg: 'bg-white',
+      border: 'border-[#f2c1d4]',
+    },
+  ];
+
+  return (
+    <div className="p-4 md:p-10 space-y-6 md:space-y-8 h-full animate-in fade-in text-[#302530] no-print">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div>
+          <h3 className="text-2xl sm:text-3xl md:text-4xl font-black italic uppercase tracking-tighter leading-none text-[#302530]">Inventario</h3>
+          <p className="text-[10px] text-[#d94f83] font-black uppercase mt-2 italic tracking-[0.2em] leading-none">Control de productos, stock y movimientos</p>
+        </div>
+        <button
+          type="button"
+          onClick={onGoToProducts}
+          className="w-full sm:w-auto bg-[#d94f83] hover:bg-[#c83f75] text-white px-7 py-4 rounded-[1.8rem] font-black text-[10px] uppercase italic tracking-[0.16em] shadow-[0_14px_30px_rgba(217,79,131,0.22)] flex items-center justify-center gap-3 transition-all active:scale-95"
+        >
+          <Package size={18} />
+          Ver productos
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+        {inventoryCards.map((card) => {
+          const Icon = card.icon;
+          return (
+            <div key={card.id} className={`rounded-[2rem] border ${card.border} ${card.bg} p-6 shadow-[0_18px_44px_rgba(122,77,94,0.10)]`}>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#856a75]">{card.label}</p>
+                  <p className={`mt-4 text-3xl font-black italic tracking-tighter leading-none ${card.tone}`}>{card.value}</p>
+                  <p className="mt-3 text-[11px] font-bold text-[#856a75]">{card.helper}</p>
+                </div>
+                <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border ${card.border} bg-white ${card.tone}`}>
+                  <Icon size={22} />
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <section className="rounded-[2.5rem] border border-[#ee9fbc] bg-white overflow-hidden shadow-[0_18px_44px_rgba(122,77,94,0.10)]">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-[#f2c1d4] bg-[#fff7fb] px-5 md:px-7 py-5">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#d94f83]">Catálogo base</p>
+            <h4 className="mt-1 text-xl md:text-2xl font-black uppercase italic tracking-tighter text-[#302530]">Productos para inventario</h4>
+          </div>
+          <span className="inline-flex w-fit items-center rounded-2xl border border-[#b7d8c7] bg-[#edf7f2] px-4 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-[#4f8674]">
+            Preparado para stock
+          </span>
+        </div>
+
+        {products.length > 0 ? (
+          <div className="overflow-x-auto custom-scrollbar">
+            <div className="min-w-[720px]">
+              <div className="grid grid-cols-[minmax(260px,1fr)_160px_160px_170px] gap-4 px-6 py-4 border-b border-[#f2c1d4] text-[9px] font-black uppercase tracking-[0.18em] text-[#856a75]">
+                <span>Producto</span>
+                <span>Categoría</span>
+                <span>Precio</span>
+                <span>Estado inventario</span>
+              </div>
+              <div className="divide-y divide-[#f7d7e2]">
+                {products.map((product) => (
+                  <div key={product.id} className="grid grid-cols-[minmax(260px,1fr)_160px_160px_170px] gap-4 px-6 py-4 items-center">
+                    <p className="truncate whitespace-nowrap text-sm font-black uppercase italic text-[#302530]">{product.name}</p>
+                    <span className="w-fit rounded-full border border-[#b7d8c7] bg-[#edf7f2] px-3 py-1.5 text-[9px] font-black uppercase text-[#4f8674]">Producto</span>
+                    <p className="text-base font-black italic text-[#4f8674]">C$ {Number(product.price || 0).toLocaleString('es-NI')}</p>
+                    <span className="w-fit rounded-full border border-[#f2c1d4] bg-[#fff7fb] px-3 py-1.5 text-[9px] font-black uppercase text-[#9b6076]">Pendiente</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="px-6 py-14 text-center">
+            <Package size={36} className="mx-auto mb-4 text-[#d94f83]" />
+            <p className="text-sm font-black uppercase italic text-[#302530]">No hay productos en el catálogo</p>
+            <p className="mt-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#856a75]">Agrega productos desde Servicios para prepararlos en inventario</p>
+          </div>
+        )}
+      </section>
     </div>
   );
 }
