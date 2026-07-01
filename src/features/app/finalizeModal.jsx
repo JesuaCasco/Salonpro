@@ -562,8 +562,9 @@ export function FinalizeModal({ onClose, onConfirm, services, clients, initial }
                   );
                 })}
               </div>
-              {paymentMethod === 'cash' ? (
-                <div className="rounded-[1.15rem] border border-slate-800 bg-slate-950/70 p-2">
+              <div className="min-h-[7.7rem] rounded-[1.15rem] border border-slate-800 bg-slate-950/70 p-2">
+                {paymentMethod === 'cash' ? (
+                <>
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       type="button"
@@ -628,8 +629,16 @@ export function FinalizeModal({ onClose, onConfirm, services, clients, initial }
                       </div>
                     </div>
                   ) : null}
-                </div>
-              ) : null}
+                </>
+                ) : (
+                  <div className="flex min-h-[6.45rem] flex-col items-center justify-center rounded-xl border border-[#efabc7] bg-[#fff8fb] px-3 text-center">
+                    <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#8f5d71]">
+                      {paymentMethod === 'card' ? 'Pago con tarjeta' : 'Pago por transferencia'}
+                    </p>
+                    <p className="mt-1 text-[10px] font-black italic text-[#4f8674]">Sin calculo de vuelto</p>
+                  </div>
+                )}
+              </div>
               <button
                 disabled={billItems.length === 0 || !cashPaymentIsEnough}
                 onClick={confirmFinalCharge}
