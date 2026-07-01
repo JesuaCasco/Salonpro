@@ -1726,17 +1726,21 @@ export default function App() {
   const effectiveOperationalSalonId = isSuperAdmin
     ? (superAdminViewSalonId || availableSalons[0]?.id || null)
     : (accessControl.currentSalonId || null);
+  const resolvedOperationalSalonId = effectiveOperationalSalonId || availableSalons[0]?.id || null;
   const effectiveOperationalBranchId = isSuperAdmin
     ? (
-        availableBranches.find((branch) => String(branch.salonId || '') === String(effectiveOperationalSalonId || ''))?.id
+        availableBranches.find((branch) => String(branch.salonId || '') === String(resolvedOperationalSalonId || ''))?.id
         || null
       )
     : (accessControl.currentBranchId || null);
+  const resolvedOperationalBranchId = effectiveOperationalBranchId
+    || availableBranches.find((branch) => String(branch.salonId || '') === String(resolvedOperationalSalonId || ''))?.id
+    || null;
   const superAdminScopeOverride = useMemo(() => (
-    isSuperAdmin && effectiveOperationalSalonId
-      ? { currentSalonId: effectiveOperationalSalonId, currentBranchId: effectiveOperationalBranchId }
+    isSuperAdmin && resolvedOperationalSalonId
+      ? { currentSalonId: resolvedOperationalSalonId, currentBranchId: resolvedOperationalBranchId }
       : {}
-  ), [isSuperAdmin, effectiveOperationalSalonId, effectiveOperationalBranchId]);
+  ), [isSuperAdmin, resolvedOperationalSalonId, resolvedOperationalBranchId]);
 
   const dismissFeedbackToast = React.useCallback(() => {
     if (feedbackTimerRef.current) {
@@ -2503,8 +2507,8 @@ export default function App() {
     }
   };
   const defaultStylistId = stylists[0]?.id || '';
-  const currentSalonId = effectiveOperationalSalonId;
-  const currentBranchId = effectiveOperationalBranchId;
+  const currentSalonId = resolvedOperationalSalonId;
+  const currentBranchId = resolvedOperationalBranchId;
   const currentSalon = availableSalons.find((shop) => String(shop.id) === String(currentSalonId || ''))
     || availableSalons[0]
     || null;
