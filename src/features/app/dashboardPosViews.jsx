@@ -811,6 +811,9 @@ export function POSView({
         const ticketLabel = formatTicketNumber(ticketNumber);
         const movementLabel = getNoteLabel(movement.notes, movement.type === 'out' ? 'Salida manual' : 'Entrada manual');
         const isPayrollPayment = movement.movementKind === 'payroll_payment';
+        const payrollStylistLabel = isPayrollPayment
+          ? String(movement.notes || '').replace(/^Pago de n[oó]mina\s*-\s*/i, '').trim()
+          : '';
         return {
           id: `movement-${movement.id}`,
           rawId: movement.id,
@@ -843,7 +846,7 @@ export function POSView({
               : (movement.movementKind === 'sale'
                 ? 'Sin detalle guardado'
                 : (isPayrollPayment
-                  ? (movement.notes || 'Pago de nómina')
+                  ? 'Pago de nómina'
                   : movementLabel))),
           method: movement.paymentMethod || 'cash',
           amount: Number(movement.amount || 0),
@@ -852,7 +855,7 @@ export function POSView({
           referenceType: movement.referenceType || null,
           referenceId: movement.referenceId || null,
           clientLabel: '-',
-          stylistLabel: '-',
+          stylistLabel: payrollStylistLabel || '-',
           createdBy: movement.createdBy || null,
           createdAt: movement.createdAt,
           isVoidedOriginal: voidedReferenceIds.has(String(movement.id)),
