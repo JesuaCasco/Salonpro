@@ -976,7 +976,7 @@ function SystemView({
                         <button
                           type="button"
                           onClick={() => startSalonEdit(shop)}
-                          className="mt-1 w-full rounded-2xl border border-indigo-500/25 bg-indigo-600/10 px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-indigo-200 transition-all hover:bg-indigo-600 hover:text-white"
+                          className="mt-1 w-full rounded-2xl border border-[#d94f83] bg-[#d94f83] px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-white shadow-[0_10px_22px_rgba(217,79,131,0.22)] transition-all hover:bg-[#c83f75]"
                         >
                           Editar salón
                         </button>
@@ -985,14 +985,14 @@ function SystemView({
                   ))}
                 </div>
                 <div className="hidden md:block rounded-[2.4rem] border border-white/5 bg-black/35 overflow-x-auto">
-                <div className="min-w-[980px]">
-                  <div className="grid grid-cols-[minmax(220px,1.2fr)_140px_minmax(230px,1.1fr)_120px_120px_140px_110px] gap-4 px-6 py-5 border-b border-white/5 text-[9px] font-black uppercase tracking-[0.24em] text-slate-500">
-                    <span>Salón</span>
-                    <span>Ciudad</span>
-                    <span>Propietario</span>
-                    <span>Plan</span>
-                    <span>Horario</span>
-                    <span>Sucursales</span>
+                <div className="min-w-[1180px]">
+                  <div className="grid grid-cols-[minmax(250px,1.2fr)_150px_minmax(280px,1.1fr)_130px_170px_150px_150px] gap-4 px-6 py-5 border-b border-white/5 text-[9px] font-black uppercase tracking-[0.18em] text-slate-500">
+                    <span className="whitespace-nowrap">Salón</span>
+                    <span className="whitespace-nowrap">Ciudad</span>
+                    <span className="whitespace-nowrap">Propietario</span>
+                    <span className="whitespace-nowrap">Plan</span>
+                    <span className="whitespace-nowrap">Horario</span>
+                    <span className="whitespace-nowrap">Sucursales</span>
                     <span></span>
                   </div>
 
@@ -1000,35 +1000,35 @@ function SystemView({
                     {salons.map((shop) => (
                       <div
                         key={shop.id}
-                        className="grid grid-cols-[minmax(220px,1.2fr)_140px_minmax(230px,1.1fr)_120px_120px_140px_110px] gap-4 px-6 py-5 items-center"
+                        className="grid grid-cols-[minmax(250px,1.2fr)_150px_minmax(280px,1.1fr)_130px_170px_150px_150px] gap-4 px-6 py-5 items-center"
                       >
                         <div className="min-w-0">
-                          <p className="text-base font-black uppercase italic tracking-tighter text-white break-all">
+                          <p className="truncate whitespace-nowrap text-base font-black uppercase italic tracking-tighter text-white">
                             {shop.name || 'Sin nombre'}
                           </p>
                         </div>
                         <div>
-                          <p className="text-sm font-bold text-slate-300">
+                          <p className="truncate whitespace-nowrap text-sm font-bold text-slate-300">
                             {shop.city || 'Sin ciudad'}
                           </p>
                         </div>
                         <div className="min-w-0">
-                          <p className="text-sm font-bold text-slate-300 break-all">
+                          <p className="truncate whitespace-nowrap text-sm font-bold text-slate-300">
                             {shop.ownerEmail || 'Sin correo del dueño'}
                           </p>
                           {shop.phone && (
-                            <p className="mt-2 text-[11px] text-slate-500">
+                            <p className="mt-2 truncate whitespace-nowrap text-[11px] text-slate-500">
                               {shop.phone}
                             </p>
                           )}
                         </div>
                         <div>
-                          <span className="inline-flex px-3 py-2 rounded-xl border border-white/10 bg-slate-950 text-[10px] font-black uppercase tracking-[0.2em] text-slate-200">
+                          <span className="inline-flex whitespace-nowrap px-3 py-2 rounded-xl border border-white/10 bg-slate-950 text-[10px] font-black uppercase tracking-[0.14em] text-slate-200">
                             {shop.plan || 'Sin plan'}
                           </span>
                         </div>
                         <div>
-                          <p className="text-[11px] font-black text-slate-200">
+                          <p className="whitespace-nowrap text-[11px] font-black text-slate-200">
                             {formatTime12h(shop.openTime || DEFAULT_SALON_OPEN_TIME)} - {formatTime12h(shop.closeTime || DEFAULT_SALON_CLOSE_TIME)}
                           </p>
                         </div>
@@ -1040,7 +1040,7 @@ function SystemView({
                         <button
                           type="button"
                           onClick={() => startSalonEdit(shop)}
-                          className="inline-flex items-center justify-center gap-2 rounded-xl border border-indigo-500/25 bg-indigo-600/10 px-3 py-2.5 text-[9px] font-black uppercase tracking-[0.12em] text-indigo-200 transition-all hover:bg-indigo-600 hover:text-white"
+                          className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-[#d94f83] bg-[#d94f83] px-4 py-2.5 text-[9px] font-black uppercase tracking-[0.12em] text-white shadow-[0_10px_22px_rgba(217,79,131,0.20)] transition-all hover:bg-[#c83f75]"
                         >
                           <Edit2 size={13} /> Editar
                         </button>
@@ -1127,7 +1127,7 @@ function SystemView({
                         <button
                           type="button"
                           onClick={() => startBranchEdit(branch)}
-                          className="mt-2 w-full px-4 py-3 rounded-[1.3rem] bg-white/5 hover:bg-indigo-600 text-white font-black uppercase italic text-[10px] tracking-[0.18em] transition-all flex items-center justify-center gap-2"
+                          className="mt-2 w-full px-4 py-3 rounded-[1.3rem] border border-[#d94f83] bg-[#d94f83] hover:bg-[#c83f75] text-white font-black uppercase italic text-[10px] tracking-[0.18em] transition-all flex items-center justify-center gap-2 shadow-[0_10px_22px_rgba(217,79,131,0.22)]"
                         >
                           <Edit2 size={14} />
                           Editar
@@ -1137,44 +1137,44 @@ function SystemView({
                   ))}
                 </div>
                 <div className="hidden md:block rounded-[2.4rem] border border-white/5 bg-black/35 overflow-x-auto">
-                <div className="min-w-[1120px]">
-                  <div className="grid grid-cols-[minmax(220px,1.1fr)_minmax(220px,1fr)_140px_150px_minmax(260px,1.3fr)_130px] gap-4 px-6 py-5 border-b border-white/5 text-[9px] font-black uppercase tracking-[0.24em] text-slate-500">
-                    <span>Sucursal</span>
-                    <span>Salón</span>
-                    <span>Código</span>
-                    <span>Ciudad</span>
-                    <span>Dirección</span>
-                    <span>Acciones</span>
+                <div className="min-w-[1180px]">
+                  <div className="grid grid-cols-[minmax(250px,1.1fr)_minmax(250px,1fr)_150px_160px_minmax(270px,1.3fr)_150px] gap-4 px-6 py-5 border-b border-white/5 text-[9px] font-black uppercase tracking-[0.18em] text-slate-500">
+                    <span className="whitespace-nowrap">Sucursal</span>
+                    <span className="whitespace-nowrap">Salón</span>
+                    <span className="whitespace-nowrap">Código</span>
+                    <span className="whitespace-nowrap">Ciudad</span>
+                    <span className="whitespace-nowrap">Dirección</span>
+                    <span className="whitespace-nowrap">Acciones</span>
                   </div>
 
                   <div className="divide-y divide-white/5">
                     {filteredBranches.map((branch) => (
                       <div
                         key={branch.id}
-                        className="grid grid-cols-[minmax(220px,1.1fr)_minmax(220px,1fr)_140px_150px_minmax(260px,1.3fr)_130px] gap-4 px-6 py-5 items-center"
+                        className="grid grid-cols-[minmax(250px,1.1fr)_minmax(250px,1fr)_150px_160px_minmax(270px,1.3fr)_150px] gap-4 px-6 py-5 items-center"
                       >
                         <div className="min-w-0">
-                          <p className="text-base font-black uppercase italic tracking-tighter text-white break-all">
+                          <p className="truncate whitespace-nowrap text-base font-black uppercase italic tracking-tighter text-white">
                             {branch.name || 'Sin nombre'}
                           </p>
                         </div>
                         <div className="min-w-0">
-                          <p className="text-sm font-bold text-slate-300 break-all">
+                          <p className="truncate whitespace-nowrap text-sm font-bold text-slate-300">
                             {branch.salonName || currentSalon?.name || 'Sin salón'}
                           </p>
                         </div>
                         <div>
-                          <p className="text-sm font-bold text-slate-300">
+                          <p className="truncate whitespace-nowrap text-sm font-bold text-slate-300">
                             {branch.code || 'Sin código'}
                           </p>
                         </div>
                         <div>
-                          <p className="text-sm font-bold text-slate-300">
+                          <p className="truncate whitespace-nowrap text-sm font-bold text-slate-300">
                             {branch.city || 'Sin ciudad'}
                           </p>
                         </div>
                         <div className="min-w-0">
-                          <p className="text-sm font-bold text-slate-300 break-all">
+                          <p className="truncate whitespace-nowrap text-sm font-bold text-slate-300">
                             {branch.address || 'Sin dirección'}
                           </p>
                         </div>
@@ -1182,7 +1182,7 @@ function SystemView({
                           <button
                             type="button"
                             onClick={() => startBranchEdit(branch)}
-                            className="px-4 py-3 rounded-[1.3rem] bg-white/5 hover:bg-indigo-600 text-white font-black uppercase italic text-[10px] tracking-[0.18em] transition-all flex items-center gap-2"
+                            className="px-4 py-3 rounded-[1.3rem] border border-[#d94f83] bg-[#d94f83] hover:bg-[#c83f75] text-white font-black uppercase italic text-[10px] tracking-[0.18em] transition-all flex items-center justify-center gap-2 whitespace-nowrap shadow-[0_10px_22px_rgba(217,79,131,0.20)]"
                           >
                             <Edit2 size={14} />
                             Editar
