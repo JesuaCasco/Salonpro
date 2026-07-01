@@ -1712,6 +1712,7 @@ export default function App() {
     const saved = localDevStorage?.getItem('sp_dev_payroll_payments') || null;
     return saved ? JSON.parse(saved) : [];
   });
+  const [inventoryItems, setInventoryItems] = useState([]);
   
   const [viewDate, setViewDate] = useState(getTodayString());
   const bootstrapCompletedRef = useRef(false);
@@ -1814,6 +1815,7 @@ export default function App() {
     setCashSessions([]);
     setCashMovements([]);
     setPayrollPayments([]);
+    setInventoryItems([]);
     setOperationalWarnings([]);
     setClientDirectoryData({ clients: [], appointments: [], stylists: [] });
     setClientDirectoryLoaded(false);
@@ -1846,6 +1848,7 @@ export default function App() {
     setCashSessions(Array.isArray(cached.cashSessions) ? cached.cashSessions : []);
     setCashMovements(Array.isArray(cached.cashMovements) ? cached.cashMovements : []);
     setPayrollPayments(Array.isArray(cached.payrollPayments) ? cached.payrollPayments : []);
+    setInventoryItems(Array.isArray(cached.inventoryItems) ? cached.inventoryItems : []);
     setOperationalWarnings(Array.isArray(cached.operationalWarnings) ? cached.operationalWarnings : []);
     setClientDirectoryData(cached.clientDirectoryData || { clients: [], appointments: [], stylists: [] });
     setClientDirectoryLoaded(Boolean(cached.clientDirectoryLoaded));
@@ -2052,10 +2055,12 @@ export default function App() {
           setCashSessions(snapshot.cashSessions || []);
           setCashMovements(snapshot.cashMovements || []);
           setPayrollPayments(snapshot.payrollPayments || []);
+          setInventoryItems(snapshot.inventoryItems || []);
           const nextOperationalWarnings = [
             snapshot.posSalesLoadError,
             snapshot.cashLoadError,
             snapshot.payrollLoadError,
+            snapshot.inventoryLoadError,
           ].filter(Boolean);
           setOperationalWarnings(nextOperationalWarnings);
           if (nextOperationalWarnings.length) {
@@ -2105,6 +2110,7 @@ export default function App() {
       cashSessions,
       cashMovements,
       payrollPayments,
+      inventoryItems,
       operationalWarnings,
       clientDirectoryData,
       clientDirectoryLoaded,
@@ -2130,6 +2136,7 @@ export default function App() {
     cashSessions,
     cashMovements,
     payrollPayments,
+    inventoryItems,
     operationalWarnings,
     clientDirectoryData,
     clientDirectoryLoaded,
@@ -4324,6 +4331,7 @@ export default function App() {
           {activeTab === 'inventario' && (
             <InventoryView
               services={services}
+              inventoryItems={inventoryItems}
               onGoToProducts={() => setActiveTab('services')}
             />
           )}
@@ -4831,10 +4839,22 @@ function ServicesView({ services, onAdd, onEdit, onDelete }) {
   );
 }
 
-function InventoryView({ services = [], onGoToProducts }) {
+function InventoryView({ services = [], inventoryItems = [], onGoToProducts }) {
   const products = useMemo(
     () => (services || []).filter((service) => service.category === 'Producto'),
     [services],
+  );
+  const inventoryByServiceId = useMemo(
+    () => new Map((inventoryItems || []).map((item) => [String(item.serviceId || ''), item])),
+    [inventoryItems],
+  );
+  const controlledStockCount = useMemo(
+    () => products.filter((product) => inventoryByServiceId.has(String(product.id))).length,
+    [products, inventoryByServiceId],
+  );
+  const totalStockUnits = useMemo(
+    () => (inventoryItems || []).reduce((sum, item) => sum + Number(item.currentStock || 0), 0),
+    [inventoryItems],
   );
   const inventoryCards = [
     {
@@ -4850,8 +4870,8 @@ function InventoryView({ services = [], onGoToProducts }) {
     {
       id: 'stock',
       label: 'Stock controlado',
-      value: 'Próximo',
-      helper: 'Listo para conectar existencias',
+      value: controlledStockCount,
+      helper: `${totalStockUnits.toLocaleString('es-NI')} unidades registradas`,
       icon: Layers,
       tone: 'text-[#4f8674]',
       bg: 'bg-[#edf7f2]',
@@ -4860,8 +4880,8 @@ function InventoryView({ services = [], onGoToProducts }) {
     {
       id: 'movements',
       label: 'Movimientos',
-      value: 'Entradas / salidas',
-      helper: 'Base para compras, ajustes y ventas',
+      value: 'Listo',
+      helper: 'Entradas, salidas, conteos y compras',
       icon: Repeat,
       tone: 'text-[#856a75]',
       bg: 'bg-white',
@@ -4928,12 +4948,24 @@ function InventoryView({ services = [], onGoToProducts }) {
               </div>
               <div className="divide-y divide-[#f7d7e2]">
                 {products.map((product) => (
-                  <div key={product.id} className="grid grid-cols-[minmax(260px,1fr)_160px_160px_170px] gap-4 px-6 py-4 items-center">
-                    <p className="truncate whitespace-nowrap text-sm font-black uppercase italic text-[#302530]">{product.name}</p>
-                    <span className="w-fit rounded-full border border-[#b7d8c7] bg-[#edf7f2] px-3 py-1.5 text-[9px] font-black uppercase text-[#4f8674]">Producto</span>
-                    <p className="text-base font-black italic text-[#4f8674]">C$ {Number(product.price || 0).toLocaleString('es-NI')}</p>
-                    <span className="w-fit rounded-full border border-[#f2c1d4] bg-[#fff7fb] px-3 py-1.5 text-[9px] font-black uppercase text-[#9b6076]">Pendiente</span>
-                  </div>
+                  (() => {
+                    const inventoryItem = inventoryByServiceId.get(String(product.id));
+                    const hasInventoryItem = Boolean(inventoryItem);
+                    return (
+                      <div key={product.id} className="grid grid-cols-[minmax(260px,1fr)_160px_160px_170px] gap-4 px-6 py-4 items-center">
+                        <p className="truncate whitespace-nowrap text-sm font-black uppercase italic text-[#302530]">{product.name}</p>
+                        <span className="w-fit rounded-full border border-[#b7d8c7] bg-[#edf7f2] px-3 py-1.5 text-[9px] font-black uppercase text-[#4f8674]">Producto</span>
+                        <p className="text-base font-black italic text-[#4f8674]">C$ {Number(product.price || 0).toLocaleString('es-NI')}</p>
+                        <span className={`w-fit rounded-full border px-3 py-1.5 text-[9px] font-black uppercase ${
+                          hasInventoryItem
+                            ? 'border-[#b7d8c7] bg-[#edf7f2] text-[#4f8674]'
+                            : 'border-[#f2c1d4] bg-[#fff7fb] text-[#9b6076]'
+                        }`}>
+                          {hasInventoryItem ? `Stock ${Number(inventoryItem.currentStock || 0).toLocaleString('es-NI')}` : 'Pendiente'}
+                        </span>
+                      </div>
+                    );
+                  })()
                 ))}
               </div>
             </div>

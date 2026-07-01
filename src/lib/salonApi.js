@@ -221,6 +221,24 @@ const toUiService = (row, comboMap) => ({
   isOptional: row.is_optional ?? true,
 });
 
+const toUiInventoryItem = (row) => ({
+  id: row.id,
+  salonId: row.salon_id || null,
+  branchId: row.branch_id || null,
+  serviceId: row.service_id || null,
+  sku: row.sku || '',
+  barcode: row.barcode || '',
+  unitName: row.unit_name || 'unidad',
+  trackStock: row.track_stock ?? true,
+  minStock: Number(row.min_stock || 0),
+  maxStock: row.max_stock == null ? null : Number(row.max_stock),
+  costPrice: Number(row.cost_price || 0),
+  currentStock: Number(row.current_stock || 0),
+  isActive: row.is_active ?? true,
+  createdAt: row.created_at,
+  updatedAt: row.updated_at,
+});
+
 const toUiPosSale = (row) => ({
   id: row.id,
   ticketNumber: Number(row.ticket_number ?? row.ticketNumber ?? 0),
@@ -674,6 +692,7 @@ export async function fetchSalonSnapshot(currentUserId, scopeOverride = {}) {
     cashSessionsResult,
     cashMovementsResult,
     payrollPaymentsResult,
+    inventoryItemsResult,
   ] = await Promise.all([
     applyTenantScope(
       supabase
@@ -751,6 +770,15 @@ export async function fetchSalonSnapshot(currentUserId, scopeOverride = {}) {
       scope,
       { includeGlobalBranchRows: false },
     ).then((result) => result, (error) => ({ data: [], error })),
+    applyTenantScope(
+      supabase
+        .from('inventory_items')
+        .select('*')
+        .eq('is_active', true)
+        .order('created_at', { ascending: true }),
+      scope,
+      { includeGlobalBranchRows: true },
+    ).then((result) => result, (error) => ({ data: [], error })),
   ]);
 
   if (servicesError) throw normalizeError(servicesError, 'No se pudieron cargar los servicios.');
@@ -799,6 +827,19 @@ export async function fetchSalonSnapshot(currentUserId, scopeOverride = {}) {
     payrollPaymentsData = payrollPaymentsResult?.data || [];
   }
 
+  let inventoryItemsData = [];
+  let inventoryLoadError = null;
+  if (inventoryItemsResult?.error) {
+    const normalizedError = normalizeError(
+      inventoryItemsResult.error,
+      'No se pudo cargar el inventario.',
+    );
+    inventoryLoadError = normalizedError.message;
+    console.warn('No se pudo cargar inventario:', normalizedError);
+  } else {
+    inventoryItemsData = inventoryItemsResult?.data || [];
+  }
+
   const scopedServiceIds = new Set((servicesData || []).map((row) => row.id));
   const comboMap = new Map();
   for (const row of comboItemsData || []) {
@@ -821,6 +862,7 @@ export async function fetchSalonSnapshot(currentUserId, scopeOverride = {}) {
   const cashSessions = (cashSessionsData || []).map(toUiCashSession);
   const cashMovements = (cashMovementsData || []).map(toUiCashMovement);
   const payrollPayments = (payrollPaymentsData || []).map(toUiPayrollPayment);
+  const inventoryItems = (inventoryItemsData || []).map(toUiInventoryItem);
   return {
     services,
     clients,
@@ -830,9 +872,11 @@ export async function fetchSalonSnapshot(currentUserId, scopeOverride = {}) {
     cashSessions,
     cashMovements,
     payrollPayments,
+    inventoryItems,
     posSalesLoadError,
     cashLoadError,
     payrollLoadError,
+    inventoryLoadError,
   };
 }
 
