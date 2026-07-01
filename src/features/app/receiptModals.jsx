@@ -163,6 +163,7 @@ export function CashClosureReceiptModal({ data, onClose }) {
 }
 
 export function PaymentReceiptModal({ data, onClose, onConfirmPayment, confirmAction = noopConfirm }) {
+  const [paymentMethod, setPaymentMethod] = useState('cash_box');
   if (!data) return null;
   const { stylist, nomina } = data;
   const hoy = new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' });
@@ -217,6 +218,30 @@ export function PaymentReceiptModal({ data, onClose, onConfirmPayment, confirmAc
             </div>
           </div>
 
+          <div className="mb-8 rounded-[1.5rem] border border-slate-200 bg-white p-4 no-print-section">
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Forma de pago</p>
+            <div className="mt-3 grid grid-cols-3 gap-2">
+              {[
+                { id: 'cash_box', label: 'Efectivo caja' },
+                { id: 'transfer', label: 'Transferencia' },
+                { id: 'external', label: 'Externo' },
+              ].map((method) => (
+                <button
+                  key={method.id}
+                  type="button"
+                  onClick={() => setPaymentMethod(method.id)}
+                  className={`rounded-2xl border px-3 py-3 text-[9px] font-black uppercase tracking-[0.12em] transition-all ${
+                    paymentMethod === method.id
+                      ? 'border-emerald-500 bg-emerald-600 text-white'
+                      : 'border-slate-200 bg-slate-50 text-slate-500 hover:border-emerald-300 hover:text-emerald-700'
+                  }`}
+                >
+                  {method.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="mt-20 grid grid-cols-2 gap-12 text-center no-print-section">
             <div className="border-t border-slate-300 pt-4">
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Administración</p>
@@ -243,7 +268,7 @@ export function PaymentReceiptModal({ data, onClose, onConfirmPayment, confirmAc
                 confirmLabel: 'Confirmar pago',
               });
               if (confirmed) {
-                onConfirmPayment(stylist.id);
+                onConfirmPayment(stylist.id, paymentMethod);
               }
             }}
             className="w-full px-6 py-4 bg-indigo-600 text-white font-black uppercase italic text-[11px] rounded-2xl shadow-xl shadow-indigo-900/20 hover:bg-indigo-700 transition-all flex items-center justify-center gap-2"
@@ -416,6 +441,7 @@ export function PosSaleReceiptModal({ data, onClose, onCancelSale, confirmAction
 }
 
 export function StaffSettlementModal({ data, onClose, onConfirmSettlement, confirmAction = noopConfirm }) {
+  const [paymentMethod, setPaymentMethod] = useState('cash_box');
   if (!data) return null;
 
   const { rows = [], summary } = data;
@@ -433,7 +459,7 @@ export function StaffSettlementModal({ data, onClose, onConfirmSettlement, confi
       confirmLabel: 'Liquidar',
     });
     if (confirmed) {
-      onConfirmSettlement(rows.map((row) => row.stylist.id));
+      onConfirmSettlement(rows.map((row) => row.stylist.id), paymentMethod);
     }
   };
 
@@ -537,6 +563,26 @@ export function StaffSettlementModal({ data, onClose, onConfirmSettlement, confi
         </div>
 
         <div className="p-4 md:p-8 bg-slate-50 border-t border-slate-100 flex flex-col md:flex-row gap-4 no-print">
+          <div className="grid grid-cols-3 gap-2 rounded-2xl border border-slate-200 bg-white p-2 md:w-[28rem]">
+            {[
+              { id: 'cash_box', label: 'Efectivo caja' },
+              { id: 'transfer', label: 'Transferencia' },
+              { id: 'external', label: 'Externo' },
+            ].map((method) => (
+              <button
+                key={method.id}
+                type="button"
+                onClick={() => setPaymentMethod(method.id)}
+                className={`rounded-xl border px-2 py-3 text-[8px] font-black uppercase tracking-[0.1em] transition-all ${
+                  paymentMethod === method.id
+                    ? 'border-emerald-500 bg-emerald-600 text-white'
+                    : 'border-slate-200 bg-slate-50 text-slate-500 hover:border-emerald-300 hover:text-emerald-700'
+                }`}
+              >
+                {method.label}
+              </button>
+            ))}
+          </div>
           <button onClick={onClose} className="md:w-auto px-6 py-4 bg-white border border-slate-200 text-slate-400 font-black uppercase italic text-[10px] rounded-2xl hover:bg-slate-100 transition-all">
             Cerrar
           </button>

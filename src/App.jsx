@@ -3179,29 +3179,98 @@ export default function App() {
     };
   };
 
-  const handleConfirmPayment = async (stylistId) => {
+  const normalizePayrollPaymentMethod = (method) => (
+    ['cash_box', 'transfer', 'external'].includes(method) ? method : 'cash_box'
+  );
+
+  const getPayrollPaymentMethodLabel = (method) => ({
+    cash_box: 'Efectivo caja',
+    transfer: 'Transferencia',
+    external: 'Externo',
+  }[normalizePayrollPaymentMethod(method)]);
+
+  const toPayrollDbPaymentMethod = (method) => ({
+    cash_box: 'cash',
+    transfer: 'transfer',
+    external: 'other',
+  }[normalizePayrollPaymentMethod(method)]);
+
+  const buildPayrollCashMovement = (payment, stylist, paidAt, referenceId = null) => ({
+    id: globalThis.crypto?.randomUUID?.() || `cash-payroll-${Date.now()}-${stylist?.id || payment.id}`,
+    cashSessionId: activeCashSession?.id || null,
+    salonId: currentSalonId,
+    branchId: currentBranchId,
+    type: 'out',
+    movementKind: 'payroll_payment',
+    paymentMethod: 'cash',
+    amount: Number(payment.totalAmount || 0),
+    notes: `Pago de nómina - ${stylist?.fullName || stylist?.name || 'Personal'}`,
+    referenceType: 'payroll_payment',
+    referenceId: referenceId || payment.id,
+    createdBy: session?.user?.id || null,
+    createdAt: paidAt,
+  });
+
+  const handleConfirmPayment = async (stylistId, method = 'cash_box') => {
+    const paymentMethod = normalizePayrollPaymentMethod(method);
+    if (paymentMethod === 'cash_box' && !activeCashSession) {
+      notify('Debes abrir caja antes de pagar nómina con efectivo de caja.', 'warning');
+      return;
+    }
     const paidAt = new Date().toISOString();
     const stylist = stylists.find((item) => String(item.id) === String(stylistId));
     const pendingAppointments = appointments.filter(a => String(a.stylistId) === String(stylistId) && a.status === 'Finalizada' && !a.isPaid);
     const updatedAppointments = pendingAppointments.map(a => ({ ...a, isPaid: true, paidAt, updatedAt: paidAt }));
     const paymentDraft = stylist && pendingAppointments.length
-      ? buildPayrollPaymentDraft(stylist, pendingAppointments, paidAt, 'individual')
+      ? {
+          ...buildPayrollPaymentDraft(stylist, pendingAppointments, paidAt, 'individual'),
+          paymentMethod: toPayrollDbPaymentMethod(paymentMethod),
+          notes: `Liquidación individual de nómina - ${getPayrollPaymentMethodLabel(paymentMethod)}`,
+        }
+      : null;
+    const cashMovementDraft = paymentDraft && paymentMethod === 'cash_box'
+      ? buildPayrollCashMovement(paymentDraft, stylist, paidAt)
       : null;
 
     setAppointments(prev => prev.map(a =>
       String(a.stylistId) === String(stylistId) && a.status === 'Finalizada' && !a.isPaid ? { ...a, isPaid: true, paidAt, updatedAt: paidAt } : a
     ));
     if (paymentDraft) setPayrollPayments((prev) => [paymentDraft, ...prev]);
+    if (cashMovementDraft) setCashMovements((prev) => [...prev, cashMovementDraft]);
     setModals({ ...modals, paymentReceipt: false });
 
     if (hasSupabaseConfig && bootstrapCompletedRef.current && paymentDraft) {
       try {
         const savedPayment = await createPayrollPayment(paymentDraft, session?.user?.id, superAdminScopeOverride);
+        let savedMovement = null;
+        if (paymentMethod === 'cash_box') {
+          savedMovement = await createCashAuditMovement(
+            {
+              cashSessionId: activeCashSession.id,
+              type: 'out',
+              amount: paymentDraft.totalAmount,
+              notes: `Pago de nómina - ${stylist?.fullName || stylist?.name || 'Personal'}`,
+              movementKind: 'payroll_payment',
+              paymentMethod: 'cash',
+              referenceType: 'payroll_payment',
+              referenceId: savedPayment.id,
+              salonId: currentSalonId,
+              branchId: currentBranchId,
+            },
+            session?.user?.id,
+            superAdminScopeOverride,
+          );
+        }
         setPayrollPayments((prev) => prev.map((payment) => (
           String(payment.id) === String(paymentDraft.id) ? savedPayment : payment
         )));
+        if (savedMovement && cashMovementDraft) {
+          setCashMovements((prev) => prev.map((movement) => (
+            String(movement.id) === String(cashMovementDraft.id) ? savedMovement : movement
+          )));
+        }
       } catch (error) {
-        handleSyncError(error, 'No pude liquidar el pago en Supabase.');
+        handleSyncError(error, 'No pude liquidar el pago y registrar la salida de caja en Supabase.');
       }
     } else if (hasSupabaseConfig && bootstrapCompletedRef.current && updatedAppointments.length) {
       try {
@@ -3212,7 +3281,12 @@ export default function App() {
     }
   };
 
-  const handleConfirmStaffSettlement = async (stylistIds = []) => {
+  const handleConfirmStaffSettlement = async (stylistIds = [], method = 'cash_box') => {
+    const paymentMethod = normalizePayrollPaymentMethod(method);
+    if (paymentMethod === 'cash_box' && !activeCashSession) {
+      notify('Debes abrir caja antes de liquidar nómina con efectivo de caja.', 'warning');
+      return;
+    }
     const paidAt = new Date().toISOString();
     const normalizedIds = new Set((stylistIds || []).map(id => String(id)));
     const pendingAppointments = appointments.filter(a => normalizedIds.has(String(a.stylistId)) && a.status === 'Finalizada' && !a.isPaid);
@@ -3221,9 +3295,19 @@ export default function App() {
       .filter((stylist) => normalizedIds.has(String(stylist.id)))
       .map((stylist) => {
         const stylistAppointments = pendingAppointments.filter((appointment) => String(appointment.stylistId) === String(stylist.id));
-        return stylistAppointments.length ? buildPayrollPaymentDraft(stylist, stylistAppointments, paidAt, 'batch') : null;
+        return stylistAppointments.length
+          ? {
+              ...buildPayrollPaymentDraft(stylist, stylistAppointments, paidAt, 'batch'),
+              paymentMethod: toPayrollDbPaymentMethod(paymentMethod),
+              notes: `Liquidación general de equipo - ${getPayrollPaymentMethodLabel(paymentMethod)}`,
+            }
+          : null;
       })
       .filter(Boolean);
+    const stylistById = new Map(stylists.map((stylist) => [String(stylist.id), stylist]));
+    const cashMovementDrafts = paymentMethod === 'cash_box'
+      ? paymentDrafts.map((paymentDraft) => buildPayrollCashMovement(paymentDraft, stylistById.get(String(paymentDraft.stylistId)), paidAt))
+      : [];
 
     setAppointments(prev => prev.map(a =>
       normalizedIds.has(String(a.stylistId)) && a.status === 'Finalizada' && !a.isPaid
@@ -3231,17 +3315,45 @@ export default function App() {
         : a
     ));
     if (paymentDrafts.length) setPayrollPayments((prev) => [...paymentDrafts, ...prev]);
+    if (cashMovementDrafts.length) setCashMovements((prev) => [...prev, ...cashMovementDrafts]);
     setModals(prev => ({ ...prev, staffSettlement: false }));
 
     if (hasSupabaseConfig && bootstrapCompletedRef.current && paymentDrafts.length) {
       try {
-        const savedPayments = await Promise.all(
-          paymentDrafts.map((paymentDraft) => createPayrollPayment(paymentDraft, session?.user?.id, superAdminScopeOverride)),
-        );
+        const savedPayments = [];
+        const savedMovements = [];
+        for (const paymentDraft of paymentDrafts) {
+          const savedPayment = await createPayrollPayment(paymentDraft, session?.user?.id, superAdminScopeOverride);
+          savedPayments.push(savedPayment);
+          if (paymentMethod === 'cash_box') {
+            const stylist = stylistById.get(String(paymentDraft.stylistId));
+            const savedMovement = await createCashAuditMovement(
+              {
+                cashSessionId: activeCashSession.id,
+                type: 'out',
+                amount: paymentDraft.totalAmount,
+                notes: `Pago de nómina - ${stylist?.fullName || stylist?.name || 'Personal'}`,
+                movementKind: 'payroll_payment',
+                paymentMethod: 'cash',
+                referenceType: 'payroll_payment',
+                referenceId: savedPayment.id,
+                salonId: currentSalonId,
+                branchId: currentBranchId,
+              },
+              session?.user?.id,
+              superAdminScopeOverride,
+            );
+            savedMovements.push({ localPaymentId: paymentDraft.id, movement: savedMovement });
+          }
+        }
         const savedByLocalId = new Map(savedPayments.map((savedPayment, index) => [String(paymentDrafts[index].id), savedPayment]));
         setPayrollPayments((prev) => prev.map((payment) => savedByLocalId.get(String(payment.id)) || payment));
+        if (savedMovements.length) {
+          const savedMovementByReference = new Map(savedMovements.map((item) => [String(item.localPaymentId), item.movement]));
+          setCashMovements((prev) => prev.map((movement) => savedMovementByReference.get(String(movement.referenceId)) || movement));
+        }
       } catch (error) {
-        handleSyncError(error, 'No pude liquidar la planilla en Supabase.');
+        handleSyncError(error, 'No pude liquidar la planilla y registrar las salidas de caja en Supabase.');
       }
     } else if (hasSupabaseConfig && bootstrapCompletedRef.current && updatedAppointments.length) {
       try {

@@ -810,6 +810,7 @@ export function POSView({
         const ticketNumber = movement.ticketNumber || getMovementTicketNumber(movement);
         const ticketLabel = formatTicketNumber(ticketNumber);
         const movementLabel = getNoteLabel(movement.notes, movement.type === 'out' ? 'Salida manual' : 'Entrada manual');
+        const isPayrollPayment = movement.movementKind === 'payroll_payment';
         return {
           id: `movement-${movement.id}`,
           rawId: movement.id,
@@ -823,21 +824,27 @@ export function POSView({
                 ? 'Apertura de caja'
                 : (movement.movementKind === 'sale'
                   ? (movement.notes || 'Venta sin detalle')
-                  : movementLabel))),
+                  : (isPayrollPayment
+                    ? 'Pago de nómina'
+                    : movementLabel)))),
           detail: movement.referenceType?.includes('void')
             ? 'Reverso / auditoría'
             : (movement.movementKind === 'opening'
               ? 'Fondo inicial'
               : (movement.movementKind === 'sale'
                 ? 'Venta registrada en caja'
-                : (movement.type === 'out' ? 'Salida de efectivo' : 'Entrada de efectivo'))),
+                : (isPayrollPayment
+                  ? 'Salida por pago al equipo'
+                  : (movement.type === 'out' ? 'Salida de efectivo' : 'Entrada de efectivo')))),
           sourceDetail: movement.referenceType?.includes('void')
             ? (movement.notes || 'Reverso de auditoría')
             : (movement.movementKind === 'opening'
               ? 'Fondo inicial de caja'
               : (movement.movementKind === 'sale'
                 ? 'Sin detalle guardado'
-                : movementLabel)),
+                : (isPayrollPayment
+                  ? (movement.notes || 'Pago de nómina')
+                  : movementLabel))),
           method: movement.paymentMethod || 'cash',
           amount: Number(movement.amount || 0),
           ticketNumber,
