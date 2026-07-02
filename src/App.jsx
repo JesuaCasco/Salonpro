@@ -11,6 +11,7 @@ import {
   deleteStylistRecord,
   deleteClientRecord,
   deleteServiceRecord,
+  deleteInventoryProduct,
   fetchAccessControlSnapshot,
   fetchSalonSnapshot,
   fetchClientDirectorySnapshot,
@@ -26,6 +27,7 @@ import {
   upsertStylists,
   upsertClients,
   upsertServices,
+  upsertInventoryProducts,
   updateManagedUserProfile,
 } from './lib/salonApi';
 import {
@@ -162,6 +164,39 @@ const UiFeedbackContext = createContext({
 
 const useUiFeedback = () => useContext(UiFeedbackContext);
 const AUTH_RUNTIME_CACHE_KEY = 'sp_auth_runtime_cache_v1';
+
+const inventoryProductToService = (item) => ({
+  id: item.serviceId || `inventory:${item.id}`,
+  inventoryItemId: item.id,
+  name: item.productName || item.name || 'Producto sin nombre',
+  price: Number(item.salePrice || 0),
+  category: 'Producto',
+  inventoryCategory: item.productCategory || 'Otros',
+  usageType: item.usageType || 'retail',
+  currentStock: Number(item.currentStock || 0),
+  costPrice: Number(item.costPrice || 0),
+  unitName: item.unitName || 'unidad',
+  sku: item.sku || '',
+  barcode: item.barcode || '',
+  isInventoryProduct: true,
+  items: [],
+  appliesTo: 'General',
+  discountType: 'percentage',
+  discountValue: 0,
+  targetServiceIds: [],
+  isOptional: true,
+});
+
+const mergeInventoryProductIntoServices = (currentServices, item) => {
+  const nextServices = (currentServices || []).filter(
+    (service) => String(service.inventoryItemId || '') !== String(item.id || '')
+      && String(service.id || '') !== String(item.serviceId || ''),
+  );
+
+  if (!['retail', 'both'].includes(item.usageType || 'retail')) return nextServices;
+
+  return [...nextServices, inventoryProductToService(item)];
+};
 
 const NETWORK_ERROR_PATTERNS = [
   'failed to fetch',
@@ -3536,6 +3571,76 @@ export default function App() {
     }
   };
 
+  const handleSaveInventoryProduct = async (productData) => {
+    if (!String(productData.productName || productData.name || '').trim()) {
+      notify('El producto necesita un nombre.', 'warning');
+      return;
+    }
+
+    if (hasSupabaseConfig && bootstrapCompletedRef.current && !currentSalonId) {
+      notify('No se puede guardar el producto porque no hay un salón activo.', 'error');
+      return;
+    }
+
+    const normalizedProduct = {
+      ...productData,
+      id: productData.id || makeId(),
+      productName: String(productData.productName || productData.name || '').trim(),
+      productCategory: productData.productCategory || 'Reventa',
+      usageType: productData.usageType || 'retail',
+      unitName: productData.unitName || 'unidad',
+      currentStock: Number(productData.currentStock || 0),
+      minStock: Number(productData.minStock || 0),
+      maxStock: productData.maxStock === '' || productData.maxStock == null ? '' : Number(productData.maxStock || 0),
+      costPrice: Number(productData.costPrice || 0),
+      salePrice: Number(productData.salePrice || 0),
+      salonId: productData.salonId || currentSalonId || null,
+      branchId: productData.branchId ?? currentBranchId ?? null,
+      isActive: productData.isActive ?? true,
+    };
+
+    let savedProducts = [normalizedProduct];
+
+    if (hasSupabaseConfig && bootstrapCompletedRef.current) {
+      try {
+        savedProducts = await upsertInventoryProducts([normalizedProduct], session?.user?.id, superAdminScopeOverride);
+      } catch (error) {
+        handleSyncError(error, 'No pude guardar el producto de inventario en Supabase.');
+        return;
+      }
+    }
+
+    const savedProduct = savedProducts[0] || normalizedProduct;
+    setInventoryItems((prev) => {
+      const exists = prev.some((item) => String(item.id) === String(savedProduct.id));
+      return exists
+        ? prev.map((item) => String(item.id) === String(savedProduct.id) ? savedProduct : item)
+        : [...prev, savedProduct];
+    });
+    setServices((prev) => mergeInventoryProductIntoServices(prev, savedProduct));
+    notify('Producto de inventario guardado.', 'success');
+  };
+
+  const handleDeleteInventoryProduct = async (productId) => {
+    const confirmed = await confirmAction({
+      title: 'Desactivar producto',
+      message: 'El producto dejará de aparecer para venta y control de inventario.',
+      confirmLabel: 'Desactivar',
+    });
+    if (!confirmed) return;
+
+    setInventoryItems((prev) => prev.filter((item) => String(item.id) !== String(productId)));
+    setServices((prev) => prev.filter((service) => String(service.inventoryItemId || '') !== String(productId)));
+
+    if (hasSupabaseConfig && bootstrapCompletedRef.current) {
+      try {
+        await deleteInventoryProduct(productId);
+      } catch (error) {
+        handleSyncError(error, 'No pude desactivar el producto de inventario en Supabase.');
+      }
+    }
+  };
+
   const handleDeleteClient = async (id) => {
     if (appointments.some(a => String(a.clientId) === String(id))) {
       notify('No puedes eliminar este cliente porque ya tiene citas registradas.', 'warning');
@@ -4327,12 +4432,14 @@ export default function App() {
               }}
             />
           )}
-          {activeTab === 'services' && <ServicesView services={services} onAdd={(cat) => { setSelectedData({...selectedData, service: { category: cat }}); setModals({...modals, service: true}); }} onEdit={(s) => { setSelectedData({...selectedData, service: s}); setModals({...modals, service: true}); }} onDelete={handleDeleteService} />}
+          {activeTab === 'services' && <ServicesView services={services} onAdd={(cat) => { setSelectedData({...selectedData, service: { category: cat }}); setModals({...modals, service: true}); }} onEdit={(s) => { setSelectedData({...selectedData, service: s}); setModals({...modals, service: true}); }} onDelete={handleDeleteService} onManageInventory={() => setActiveTab('inventario')} />}
           {activeTab === 'inventario' && (
             <InventoryView
               services={services}
               inventoryItems={inventoryItems}
               onGoToProducts={() => setActiveTab('services')}
+              onSaveProduct={handleSaveInventoryProduct}
+              onDeleteProduct={handleDeleteInventoryProduct}
             />
           )}
           {activeTab === 'caja' && (
@@ -4762,7 +4869,7 @@ function AgendaView({ viewDate, setViewDate, appointments, clients, stylists, bu
   );
 }
 
-function ServicesView({ services, onAdd, onEdit, onDelete }) {
+function ServicesView({ services, onAdd, onEdit, onDelete, onManageInventory }) {
   const [activeCategory, setActiveCategory] = useState('Cabello');
   const getNewServiceLabel = (category) => {
     if (category === 'Promocion') return 'Nueva Promoción';
@@ -4794,16 +4901,18 @@ function ServicesView({ services, onAdd, onEdit, onDelete }) {
           <h3 className="text-2xl sm:text-3xl md:text-4xl font-black italic uppercase tracking-tighter leading-none text-white">Menú de servicios</h3>
           <p className="mobile-simplify-subtitle text-[10px] text-indigo-400 font-black uppercase mt-2 italic tracking-[0.2em] leading-none">Gestión Maestra de Catálogo</p>
         </div>
-        <button onClick={() => onAdd(activeCategory)} className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-500 text-white px-8 md:px-10 py-4 md:py-5 rounded-[2rem] font-black text-[10px] md:text-xs uppercase italic shadow-2xl shadow-indigo-600/40 flex items-center justify-center gap-3 transition-all active:scale-95 group text-white"><Plus size={20} className="group-hover:rotate-90 transition-transform" /> {addLabel}</button>
+        <button onClick={() => activeCategory === 'Producto' ? onManageInventory?.() : onAdd(activeCategory)} className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-500 text-white px-8 md:px-10 py-4 md:py-5 rounded-[2rem] font-black text-[10px] md:text-xs uppercase italic shadow-2xl shadow-indigo-600/40 flex items-center justify-center gap-3 transition-all active:scale-95 group text-white"><Plus size={20} className="group-hover:rotate-90 transition-transform" /> {activeCategory === 'Producto' ? 'Gestionar inventario' : addLabel}</button>
       </div>
       <div className="grid w-full grid-cols-2 gap-3 p-3 bg-black border border-slate-800 rounded-[2.5rem] text-white sm:flex sm:flex-wrap sm:items-center sm:w-fit">
         {CATEGORIES.map(cat => <button key={cat} onClick={() => setActiveCategory(cat)} className={`service-category-tab border border-transparent px-4 md:px-8 py-4 rounded-[2rem] font-black uppercase italic text-[10px] tracking-widest transition-all ${activeCategory === cat ? 'service-category-tab--active shadow-xl shadow-indigo-600/40 translate-y-[-2px]' : 'text-slate-500'}`}>{CATEGORY_LABELS[cat] || cat}</button>)}
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 md:gap-8">
         {filteredServices.map(s => (
-          <div key={s.id} onClick={() => onEdit(s)} className="group bg-slate-900 border border-slate-800 rounded-[2.2rem] md:rounded-[3rem] p-6 md:p-10 hover:border-indigo-500 transition-all cursor-pointer relative shadow-2xl overflow-hidden flex flex-col justify-between min-h-[260px] md:min-h-[320px] text-white">
+          <div key={s.id} onClick={() => s.category === 'Producto' ? onManageInventory?.() : onEdit(s)} className="group bg-slate-900 border border-slate-800 rounded-[2.2rem] md:rounded-[3rem] p-6 md:p-10 hover:border-indigo-500 transition-all cursor-pointer relative shadow-2xl overflow-hidden flex flex-col justify-between min-h-[260px] md:min-h-[320px] text-white">
             <div className="absolute -right-8 -top-8 w-32 h-32 bg-indigo-600/10 rounded-full blur-3xl group-hover:bg-indigo-600/30 transition-all"></div>
-            <button onClick={(e) => { e.stopPropagation(); onDelete(s.id); }} className="absolute top-5 md:top-8 right-5 md:right-8 text-slate-600 hover:text-rose-500 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all z-10 text-white"><Trash2 size={18}/></button>
+            {s.category !== 'Producto' && (
+              <button onClick={(e) => { e.stopPropagation(); onDelete(s.id); }} className="absolute top-5 md:top-8 right-5 md:right-8 text-slate-600 hover:text-rose-500 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all z-10 text-white"><Trash2 size={18}/></button>
+            )}
             <div className="relative text-white">
               <div className="w-14 h-14 md:w-16 md:h-16 bg-black rounded-2xl flex items-center justify-center text-indigo-500 mb-6 md:mb-8 border border-slate-800 shadow-inner group-hover:scale-110 transition-transform group-hover:text-white group-hover:bg-indigo-600 text-white">{getIcon(s.category)}</div>
               <h4 className="text-xl md:text-2xl font-black uppercase italic leading-tight tracking-tighter group-hover:text-indigo-400 transition-colors text-white">{s.name}</h4>
@@ -4833,35 +4942,64 @@ function ServicesView({ services, onAdd, onEdit, onDelete }) {
             </div>
           </div>
         ))}
-        <div onClick={() => onAdd(activeCategory)} className="border-4 border-dashed border-slate-900 rounded-[2.2rem] md:rounded-[3rem] p-6 md:p-10 flex flex-col items-center justify-center text-slate-800 hover:border-indigo-600 hover:text-indigo-400 transition-all cursor-pointer group min-h-[260px] md:min-h-[320px] text-white"><div className="w-14 h-14 md:w-16 md:h-16 rounded-full border-4 border-current flex items-center justify-center mb-4 group-hover:scale-110 transition-transform text-white"><Plus size={28} /></div><p className="font-black uppercase italic text-[10px] md:text-xs tracking-widest leading-none text-white text-center">{addLabel.replace(/^Nuevo/i, 'Añadir').replace(/^Nueva/i, 'Añadir')}</p></div>
+        <div onClick={() => activeCategory === 'Producto' ? onManageInventory?.() : onAdd(activeCategory)} className="border-4 border-dashed border-slate-900 rounded-[2.2rem] md:rounded-[3rem] p-6 md:p-10 flex flex-col items-center justify-center text-slate-800 hover:border-indigo-600 hover:text-indigo-400 transition-all cursor-pointer group min-h-[260px] md:min-h-[320px] text-white"><div className="w-14 h-14 md:w-16 md:h-16 rounded-full border-4 border-current flex items-center justify-center mb-4 group-hover:scale-110 transition-transform text-white"><Plus size={28} /></div><p className="font-black uppercase italic text-[10px] md:text-xs tracking-widest leading-none text-white text-center">{activeCategory === 'Producto' ? 'Gestionar inventario' : addLabel.replace(/^Nuevo/i, 'Añadir').replace(/^Nueva/i, 'Añadir')}</p></div>
       </div>
     </div>
   );
 }
 
-function InventoryView({ services = [], inventoryItems = [], onGoToProducts }) {
-  const products = useMemo(
-    () => (services || []).filter((service) => service.category === 'Producto'),
-    [services],
-  );
-  const inventoryByServiceId = useMemo(
-    () => new Map((inventoryItems || []).map((item) => [String(item.serviceId || ''), item])),
+function InventoryView({ inventoryItems = [], onGoToProducts, onSaveProduct, onDeleteProduct }) {
+  const emptyForm = {
+    productName: '',
+    productCategory: 'Reventa',
+    usageType: 'retail',
+    currentStock: '',
+    minStock: '',
+    maxStock: '',
+    costPrice: '',
+    salePrice: '',
+    unitName: 'unidad',
+    sku: '',
+    notes: '',
+  };
+  const [editingProduct, setEditingProduct] = useState(null);
+  const [form, setForm] = useState(emptyForm);
+  const [search, setSearch] = useState('');
+  const productCategories = ['Reventa', 'Color', 'Tratamiento', 'Cabello', 'Uñas', 'Facial', 'Higiene', 'Herramientas', 'Otros'];
+  const usageOptions = [
+    { value: 'retail', label: 'Reventa', helper: 'Se vende en caja' },
+    { value: 'internal', label: 'Insumo', helper: 'Se usa en servicios' },
+    { value: 'both', label: 'Ambos', helper: 'Se vende y se usa' },
+  ];
+  const activeItems = useMemo(
+    () => (inventoryItems || []).filter((item) => item.isActive !== false),
     [inventoryItems],
   );
-  const controlledStockCount = useMemo(
-    () => products.filter((product) => inventoryByServiceId.has(String(product.id))).length,
-    [products, inventoryByServiceId],
-  );
-  const totalStockUnits = useMemo(
-    () => (inventoryItems || []).reduce((sum, item) => sum + Number(item.currentStock || 0), 0),
-    [inventoryItems],
+  const filteredItems = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    if (!term) return activeItems;
+    return activeItems.filter((item) => [
+      item.productName,
+      item.name,
+      item.productCategory,
+      item.sku,
+      item.usageType,
+    ].some((value) => String(value || '').toLowerCase().includes(term)));
+  }, [activeItems, search]);
+  const stockProducts = activeItems.filter((item) => item.trackStock !== false);
+  const sellableProducts = activeItems.filter((item) => ['retail', 'both'].includes(item.usageType || 'retail'));
+  const internalProducts = activeItems.filter((item) => ['internal', 'both'].includes(item.usageType || 'retail'));
+  const totalStockUnits = activeItems.reduce((sum, item) => sum + Number(item.currentStock || 0), 0);
+  const inventoryCostValue = activeItems.reduce(
+    (sum, item) => sum + (Number(item.currentStock || 0) * Number(item.costPrice || 0)),
+    0,
   );
   const inventoryCards = [
     {
       id: 'products',
-      label: 'Productos catalogados',
-      value: products.length,
-      helper: 'Tomados del catálogo de servicios',
+      label: 'Productos',
+      value: activeItems.length,
+      helper: `${sellableProducts.length} para venta directa`,
       icon: Package,
       tone: 'text-[#d94f83]',
       bg: 'bg-[#fff7fb]',
@@ -4870,7 +5008,7 @@ function InventoryView({ services = [], inventoryItems = [], onGoToProducts }) {
     {
       id: 'stock',
       label: 'Stock controlado',
-      value: controlledStockCount,
+      value: stockProducts.length,
       helper: `${totalStockUnits.toLocaleString('es-NI')} unidades registradas`,
       icon: Layers,
       tone: 'text-[#4f8674]',
@@ -4878,10 +5016,10 @@ function InventoryView({ services = [], inventoryItems = [], onGoToProducts }) {
       border: 'border-[#b7d8c7]',
     },
     {
-      id: 'movements',
-      label: 'Movimientos',
-      value: 'Listo',
-      helper: 'Entradas, salidas, conteos y compras',
+      id: 'cost',
+      label: 'Costo inventario',
+      value: `C$ ${inventoryCostValue.toLocaleString('es-NI')}`,
+      helper: `${internalProducts.length} insumos para servicios`,
       icon: Repeat,
       tone: 'text-[#856a75]',
       bg: 'bg-white',
@@ -4889,28 +5027,78 @@ function InventoryView({ services = [], inventoryItems = [], onGoToProducts }) {
     },
   ];
 
+  const openNewProduct = () => {
+    setEditingProduct(null);
+    setForm(emptyForm);
+  };
+
+  const openEditProduct = (product) => {
+    setEditingProduct(product);
+    setForm({
+      ...emptyForm,
+      ...product,
+      productName: product.productName || product.name || '',
+      currentStock: product.currentStock ?? '',
+      minStock: product.minStock ?? '',
+      maxStock: product.maxStock ?? '',
+      costPrice: product.costPrice ?? '',
+      salePrice: product.salePrice ?? product.price ?? '',
+      productCategory: product.productCategory || 'Reventa',
+      usageType: product.usageType || 'retail',
+      unitName: product.unitName || 'unidad',
+      sku: product.sku || '',
+      notes: product.notes || '',
+    });
+  };
+
+  const updateForm = (field, value) => setForm((prev) => ({ ...prev, [field]: value }));
+
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    onSaveProduct?.({
+      ...editingProduct,
+      ...form,
+      productName: form.productName,
+      name: form.productName,
+    });
+    openNewProduct();
+  };
+
+  const getUsageLabel = (usageType) => usageOptions.find((option) => option.value === usageType)?.label || 'Reventa';
+  const getMargin = (item) => Number(item.salePrice || 0) - Number(item.costPrice || 0);
+
   return (
     <div className="p-4 md:p-10 space-y-6 md:space-y-8 h-full animate-in fade-in text-[#302530] no-print">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
           <h3 className="text-2xl sm:text-3xl md:text-4xl font-black italic uppercase tracking-tighter leading-none text-[#302530]">Inventario</h3>
-          <p className="text-[10px] text-[#d94f83] font-black uppercase mt-2 italic tracking-[0.2em] leading-none">Control de productos, stock y movimientos</p>
+          <p className="text-[10px] text-[#d94f83] font-black uppercase mt-2 italic tracking-[0.2em] leading-none">Productos, stock, costo y rentabilidad</p>
         </div>
-        <button
-          type="button"
-          onClick={onGoToProducts}
-          className="w-full sm:w-auto bg-[#d94f83] hover:bg-[#c83f75] text-white px-7 py-4 rounded-[1.8rem] font-black text-[10px] uppercase italic tracking-[0.16em] shadow-[0_14px_30px_rgba(217,79,131,0.22)] flex items-center justify-center gap-3 transition-all active:scale-95"
-        >
-          <Package size={18} />
-          Ver productos
-        </button>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <button
+            type="button"
+            onClick={openNewProduct}
+            className="w-full sm:w-auto bg-[#d94f83] hover:bg-[#c83f75] text-white px-7 py-4 rounded-[1.4rem] font-black text-[10px] uppercase italic tracking-[0.16em] shadow-[0_14px_30px_rgba(217,79,131,0.22)] flex items-center justify-center gap-3 transition-all active:scale-95"
+          >
+            <Plus size={18} />
+            Nuevo producto
+          </button>
+          <button
+            type="button"
+            onClick={onGoToProducts}
+            className="w-full sm:w-auto border border-[#ee9fbc] bg-white text-[#9b6076] px-7 py-4 rounded-[1.4rem] font-black text-[10px] uppercase italic tracking-[0.16em] flex items-center justify-center gap-3 transition-all hover:bg-[#fff7fb]"
+          >
+            <Package size={18} />
+            Ver venta
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
         {inventoryCards.map((card) => {
           const Icon = card.icon;
           return (
-            <div key={card.id} className={`rounded-[2rem] border ${card.border} ${card.bg} p-6 shadow-[0_18px_44px_rgba(122,77,94,0.10)]`}>
+            <div key={card.id} className={`rounded-[1.7rem] border ${card.border} ${card.bg} p-6 shadow-[0_18px_44px_rgba(122,77,94,0.10)]`}>
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#856a75]">{card.label}</p>
@@ -4926,57 +5114,156 @@ function InventoryView({ services = [], inventoryItems = [], onGoToProducts }) {
         })}
       </div>
 
-      <section className="rounded-[2.5rem] border border-[#ee9fbc] bg-white overflow-hidden shadow-[0_18px_44px_rgba(122,77,94,0.10)]">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-[#f2c1d4] bg-[#fff7fb] px-5 md:px-7 py-5">
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#d94f83]">Catálogo base</p>
-            <h4 className="mt-1 text-xl md:text-2xl font-black uppercase italic tracking-tighter text-[#302530]">Productos para inventario</h4>
+      <section className="grid grid-cols-1 xl:grid-cols-[420px_minmax(0,1fr)] gap-5">
+        <form onSubmit={handleSubmit} className="rounded-[2rem] border border-[#ee9fbc] bg-white p-5 shadow-[0_18px_44px_rgba(122,77,94,0.10)] space-y-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#d94f83]">Producto</p>
+              <h4 className="mt-1 text-xl font-black uppercase italic tracking-tighter text-[#302530]">{editingProduct ? 'Editar inventario' : 'Nuevo producto'}</h4>
+            </div>
+            {editingProduct && (
+              <button type="button" onClick={openNewProduct} className="rounded-2xl border border-[#f2c1d4] px-4 py-2 text-[10px] font-black uppercase text-[#9b6076]">
+                Limpiar
+              </button>
+            )}
           </div>
-          <span className="inline-flex w-fit items-center rounded-2xl border border-[#b7d8c7] bg-[#edf7f2] px-4 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-[#4f8674]">
-            Preparado para stock
-          </span>
-        </div>
 
-        {products.length > 0 ? (
-          <div className="overflow-x-auto custom-scrollbar">
-            <div className="min-w-[720px]">
-              <div className="grid grid-cols-[minmax(260px,1fr)_160px_160px_170px] gap-4 px-6 py-4 border-b border-[#f2c1d4] text-[9px] font-black uppercase tracking-[0.18em] text-[#856a75]">
-                <span>Producto</span>
-                <span>Categoría</span>
-                <span>Precio</span>
-                <span>Estado inventario</span>
-              </div>
-              <div className="divide-y divide-[#f7d7e2]">
-                {products.map((product) => (
-                  (() => {
-                    const inventoryItem = inventoryByServiceId.get(String(product.id));
-                    const hasInventoryItem = Boolean(inventoryItem);
-                    return (
-                      <div key={product.id} className="grid grid-cols-[minmax(260px,1fr)_160px_160px_170px] gap-4 px-6 py-4 items-center">
-                        <p className="truncate whitespace-nowrap text-sm font-black uppercase italic text-[#302530]">{product.name}</p>
-                        <span className="w-fit rounded-full border border-[#b7d8c7] bg-[#edf7f2] px-3 py-1.5 text-[9px] font-black uppercase text-[#4f8674]">Producto</span>
-                        <p className="text-base font-black italic text-[#4f8674]">C$ {Number(product.price || 0).toLocaleString('es-NI')}</p>
-                        <span className={`w-fit rounded-full border px-3 py-1.5 text-[9px] font-black uppercase ${
-                          hasInventoryItem
-                            ? 'border-[#b7d8c7] bg-[#edf7f2] text-[#4f8674]'
-                            : 'border-[#f2c1d4] bg-[#fff7fb] text-[#9b6076]'
-                        }`}>
-                          {hasInventoryItem ? `Stock ${Number(inventoryItem.currentStock || 0).toLocaleString('es-NI')}` : 'Pendiente'}
-                        </span>
-                      </div>
-                    );
-                  })()
-                ))}
-              </div>
+          <label className="block space-y-2">
+            <span className="text-[9px] font-black uppercase tracking-[0.18em] text-[#9b6076]">Nombre</span>
+            <input value={form.productName} onChange={(event) => updateForm('productName', event.target.value)} className="w-full rounded-2xl border border-[#ee9fbc] bg-[#fff7fb] px-4 py-3 text-sm font-black text-[#302530] outline-none focus:border-[#d94f83]" placeholder="Ej. Shampoo hidratante" />
+          </label>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <label className="block space-y-2">
+              <span className="text-[9px] font-black uppercase tracking-[0.18em] text-[#9b6076]">Categoría</span>
+              <select value={form.productCategory} onChange={(event) => updateForm('productCategory', event.target.value)} className="w-full rounded-2xl border border-[#ee9fbc] bg-white px-4 py-3 text-xs font-black uppercase text-[#302530] outline-none">
+                {productCategories.map((category) => <option key={category} value={category}>{category}</option>)}
+              </select>
+            </label>
+            <label className="block space-y-2">
+              <span className="text-[9px] font-black uppercase tracking-[0.18em] text-[#9b6076]">Unidad</span>
+              <input value={form.unitName} onChange={(event) => updateForm('unitName', event.target.value)} className="w-full rounded-2xl border border-[#ee9fbc] bg-white px-4 py-3 text-xs font-black text-[#302530] outline-none" placeholder="unidad, ml, gr" />
+            </label>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2">
+            {usageOptions.map((option) => (
+              <button
+                type="button"
+                key={option.value}
+                onClick={() => updateForm('usageType', option.value)}
+                className={`rounded-2xl border px-3 py-3 text-left transition-all ${form.usageType === option.value ? 'border-[#6fb89b] bg-[#e8f6ef] text-[#2f6f61]' : 'border-[#ee9fbc] bg-white text-[#9b6076]'}`}
+              >
+                <span className="block text-[10px] font-black uppercase">{option.label}</span>
+                <span className="mt-1 block text-[8px] font-bold uppercase leading-tight opacity-80">{option.helper}</span>
+              </button>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block space-y-2">
+              <span className="text-[9px] font-black uppercase tracking-[0.18em] text-[#9b6076]">Stock</span>
+              <input type="number" min="0" value={form.currentStock} onChange={(event) => updateForm('currentStock', event.target.value)} className="w-full rounded-2xl border border-[#ee9fbc] bg-white px-4 py-3 text-sm font-black text-[#302530] outline-none" placeholder="0" />
+            </label>
+            <label className="block space-y-2">
+              <span className="text-[9px] font-black uppercase tracking-[0.18em] text-[#9b6076]">Stock mínimo</span>
+              <input type="number" min="0" value={form.minStock} onChange={(event) => updateForm('minStock', event.target.value)} className="w-full rounded-2xl border border-[#ee9fbc] bg-white px-4 py-3 text-sm font-black text-[#302530] outline-none" placeholder="0" />
+            </label>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block space-y-2">
+              <span className="text-[9px] font-black uppercase tracking-[0.18em] text-[#9b6076]">Costo compra</span>
+              <input type="number" min="0" step="0.01" value={form.costPrice} onChange={(event) => updateForm('costPrice', event.target.value)} className="w-full rounded-2xl border border-[#ee9fbc] bg-white px-4 py-3 text-sm font-black text-[#302530] outline-none" placeholder="C$ 0" />
+            </label>
+            <label className="block space-y-2">
+              <span className="text-[9px] font-black uppercase tracking-[0.18em] text-[#9b6076]">Precio venta</span>
+              <input type="number" min="0" step="0.01" value={form.salePrice} onChange={(event) => updateForm('salePrice', event.target.value)} className="w-full rounded-2xl border border-[#ee9fbc] bg-white px-4 py-3 text-sm font-black text-[#302530] outline-none" placeholder="C$ 0" />
+            </label>
+          </div>
+
+          <label className="block space-y-2">
+            <span className="text-[9px] font-black uppercase tracking-[0.18em] text-[#9b6076]">SKU / código interno</span>
+            <input value={form.sku} onChange={(event) => updateForm('sku', event.target.value)} className="w-full rounded-2xl border border-[#ee9fbc] bg-white px-4 py-3 text-xs font-black text-[#302530] outline-none" placeholder="Opcional" />
+          </label>
+
+          <label className="block space-y-2">
+            <span className="text-[9px] font-black uppercase tracking-[0.18em] text-[#9b6076]">Notas de costo o uso</span>
+            <textarea value={form.notes} onChange={(event) => updateForm('notes', event.target.value)} className="min-h-[76px] w-full resize-none rounded-2xl border border-[#ee9fbc] bg-white px-4 py-3 text-xs font-bold text-[#302530] outline-none" placeholder="Ej. Se usa para keratina, rinde 10 servicios..." />
+          </label>
+
+          <button type="submit" className="w-full rounded-2xl bg-[#6fb89b] px-5 py-4 text-[11px] font-black uppercase italic tracking-[0.16em] text-white shadow-[0_14px_30px_rgba(111,184,155,0.24)]">
+            {editingProduct ? 'Guardar cambios' : 'Crear producto'}
+          </button>
+        </form>
+
+        <section className="rounded-[2rem] border border-[#ee9fbc] bg-white overflow-hidden shadow-[0_18px_44px_rgba(122,77,94,0.10)]">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-[#f2c1d4] bg-[#fff7fb] px-5 md:px-7 py-5">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#d94f83]">Catálogo maestro</p>
+              <h4 className="mt-1 text-xl md:text-2xl font-black uppercase italic tracking-tighter text-[#302530]">Productos de inventario</h4>
+            </div>
+            <div className="relative w-full md:w-[320px]">
+              <Search size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#9b6076]" />
+              <input value={search} onChange={(event) => setSearch(event.target.value)} className="w-full rounded-2xl border border-[#ee9fbc] bg-white px-4 py-3 pr-11 text-xs font-black text-[#302530] outline-none" placeholder="Buscar producto..." />
             </div>
           </div>
-        ) : (
-          <div className="px-6 py-14 text-center">
-            <Package size={36} className="mx-auto mb-4 text-[#d94f83]" />
-            <p className="text-sm font-black uppercase italic text-[#302530]">No hay productos en el catálogo</p>
-            <p className="mt-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#856a75]">Agrega productos desde Servicios para prepararlos en inventario</p>
-          </div>
-        )}
+
+          {filteredItems.length > 0 ? (
+            <div className="overflow-x-auto custom-scrollbar">
+              <div className="min-w-[940px]">
+                <div className="grid grid-cols-[minmax(220px,1fr)_130px_130px_110px_120px_120px_120px] gap-4 px-6 py-4 border-b border-[#f2c1d4] text-[9px] font-black uppercase tracking-[0.16em] text-[#856a75]">
+                  <span>Producto</span>
+                  <span>Uso</span>
+                  <span>Categoría</span>
+                  <span>Stock</span>
+                  <span>Costo</span>
+                  <span>Venta</span>
+                  <span>Acción</span>
+                </div>
+                <div className="divide-y divide-[#f7d7e2]">
+                  {filteredItems.map((item) => {
+                    const margin = getMargin(item);
+                    const isLowStock = Number(item.minStock || 0) > 0 && Number(item.currentStock || 0) <= Number(item.minStock || 0);
+                    return (
+                      <div key={item.id} className="grid grid-cols-[minmax(220px,1fr)_130px_130px_110px_120px_120px_120px] gap-4 px-6 py-4 items-center">
+                        <div>
+                          <p className="truncate whitespace-nowrap text-sm font-black uppercase italic text-[#302530]">{item.productName || item.name}</p>
+                          <p className="mt-1 text-[9px] font-black uppercase tracking-[0.14em] text-[#9b6076]">{item.sku || 'Sin SKU'} · Margen C$ {margin.toLocaleString('es-NI')}</p>
+                        </div>
+                        <span className={`w-fit rounded-full border px-3 py-1.5 text-[9px] font-black uppercase ${
+                          item.usageType === 'internal'
+                            ? 'border-[#e7c97d] bg-[#fff8df] text-[#9b7516]'
+                            : item.usageType === 'both'
+                              ? 'border-[#b7d8c7] bg-[#edf7f2] text-[#4f8674]'
+                              : 'border-[#f2c1d4] bg-[#fff7fb] text-[#9b6076]'
+                        }`}>{getUsageLabel(item.usageType)}</span>
+                        <span className="w-fit rounded-full border border-[#b7d8c7] bg-[#edf7f2] px-3 py-1.5 text-[9px] font-black uppercase text-[#4f8674]">{item.productCategory || 'Otros'}</span>
+                        <span className={`text-base font-black italic ${isLowStock ? 'text-[#d94f83]' : 'text-[#4f8674]'}`}>{Number(item.currentStock || 0).toLocaleString('es-NI')}</span>
+                        <p className="text-sm font-black italic text-[#856a75]">C$ {Number(item.costPrice || 0).toLocaleString('es-NI')}</p>
+                        <p className="text-sm font-black italic text-[#4f8674]">C$ {Number(item.salePrice || 0).toLocaleString('es-NI')}</p>
+                        <div className="flex items-center gap-2">
+                          <button type="button" onClick={() => openEditProduct(item)} className="rounded-xl border border-[#ee9fbc] px-3 py-2 text-[9px] font-black uppercase text-[#d94f83] hover:bg-[#fff7fb]">
+                            Editar
+                          </button>
+                          <button type="button" onClick={() => onDeleteProduct?.(item.id)} className="rounded-xl border border-[#f2c1d4] px-3 py-2 text-[#9b6076] hover:bg-[#fff7fb]" aria-label="Desactivar producto">
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="px-6 py-14 text-center">
+              <Package size={36} className="mx-auto mb-4 text-[#d94f83]" />
+              <p className="text-sm font-black uppercase italic text-[#302530]">No hay productos de inventario</p>
+              <p className="mt-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#856a75]">Crea productos con stock, costo y precio para activar la venta e iniciar rentabilidad</p>
+            </div>
+          )}
+        </section>
       </section>
     </div>
   );
