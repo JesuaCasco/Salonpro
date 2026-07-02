@@ -208,12 +208,13 @@ const toUiStylist = (row) => ({
   isActive: row.is_active ?? true,
 });
 
-const toUiService = (row, comboMap) => ({
+const toUiService = (row, comboMap, usageMap = new Map()) => ({
   id: row.id,
   name: row.name,
   price: Number(row.price || 0),
   category: row.category,
   items: comboMap.get(row.id) || [],
+  inventoryUsage: usageMap.get(row.id) || [],
   appliesTo: row.applies_to || 'General',
   discountType: row.discount_type || 'percentage',
   discountValue: Number(row.discount_value || 0),
@@ -743,6 +744,7 @@ export async function fetchSalonSnapshot(currentUserId, scopeOverride = {}) {
     cashMovementsResult,
     payrollPaymentsResult,
     inventoryItemsResult,
+    serviceProductUsageResult,
   ] = await Promise.all([
     applyTenantScope(
       supabase
@@ -829,6 +831,14 @@ export async function fetchSalonSnapshot(currentUserId, scopeOverride = {}) {
       scope,
       { includeGlobalBranchRows: true },
     ).then((result) => result, (error) => ({ data: [], error })),
+    applyTenantScope(
+      supabase
+        .from('service_product_usage')
+        .select('*')
+        .eq('is_active', true),
+      scope,
+      { includeGlobalBranchRows: true },
+    ).then((result) => result, (error) => ({ data: [], error })),
   ]);
 
   if (servicesError) throw normalizeError(servicesError, 'No se pudieron cargar los servicios.');
@@ -890,12 +900,37 @@ export async function fetchSalonSnapshot(currentUserId, scopeOverride = {}) {
     inventoryItemsData = inventoryItemsResult?.data || [];
   }
 
+  let serviceProductUsageData = [];
+  if (serviceProductUsageResult?.error) {
+    const normalizedError = normalizeError(
+      serviceProductUsageResult.error,
+      'No se pudo cargar la configuración de insumos por servicio.',
+    );
+    console.warn('No se pudo cargar configuración de insumos por servicio:', normalizedError);
+  } else {
+    serviceProductUsageData = serviceProductUsageResult?.data || [];
+  }
+
   const scopedServiceIds = new Set((servicesData || []).map((row) => row.id));
   const comboMap = new Map();
   for (const row of comboItemsData || []) {
     if (scopedServiceIds.size && !scopedServiceIds.has(row.combo_service_id)) continue;
     const current = comboMap.get(row.combo_service_id) || [];
     comboMap.set(row.combo_service_id, [...current, row.item_service_id]);
+  }
+  const usageMap = new Map();
+  for (const row of serviceProductUsageData || []) {
+    if (scopedServiceIds.size && !scopedServiceIds.has(row.service_id)) continue;
+    const current = usageMap.get(row.service_id) || [];
+    usageMap.set(row.service_id, [
+      ...current,
+      {
+        id: row.id,
+        inventoryItemId: row.inventory_item_id,
+        quantity: Number(row.quantity || 0),
+        branchId: row.branch_id || null,
+      },
+    ]);
   }
 
   const inventoryItems = (inventoryItemsData || []).map(toUiInventoryItem);
@@ -907,7 +942,7 @@ export async function fetchSalonSnapshot(currentUserId, scopeOverride = {}) {
   );
   const baseServices = (servicesData || [])
     .filter((row) => row.category !== 'Producto' || !inventoryServiceIds.has(String(row.id)))
-    .map((row) => toUiService(row, comboMap));
+    .map((row) => toUiService(row, comboMap, usageMap));
   const inventoryProductServices = inventoryItems
     .filter((item) => ['retail', 'both'].includes(item.usageType))
     .map(inventoryItemToProductService);
@@ -1611,6 +1646,41 @@ export async function syncServiceComboItems(services) {
       .eq('item_service_id', row.item_service_id);
     if (deleteError) throw normalizeError(deleteError, 'No se pudieron depurar los combos obsoletos.');
   }
+}
+
+export async function syncServiceProductUsage(service, currentUserId, scopeOverride = {}) {
+  assertSupabase();
+  if (!service?.id) return;
+
+  const scope = await resolveUserScope(currentUserId, scopeOverride);
+  const salonId = scope.currentSalonId || service.salonId || null;
+  if (!salonId) throw normalizeError(null, 'No se pudo resolver el salón para guardar los insumos del servicio.');
+
+  const { error: deleteError } = await supabase
+    .from('service_product_usage')
+    .delete()
+    .eq('service_id', service.id);
+  if (deleteError) throw normalizeError(deleteError, 'No se pudo limpiar la configuración anterior de insumos.');
+
+  const rows = (service.inventoryUsage || [])
+    .map((usage) => ({
+      salon_id: salonId,
+      branch_id: usage.branchId || null,
+      service_id: service.id,
+      inventory_item_id: usage.inventoryItemId,
+      quantity: Number(usage.quantity || 0),
+      is_active: true,
+      created_by: currentUserId || null,
+      updated_by: currentUserId || null,
+    }))
+    .filter((row) => row.inventory_item_id && row.quantity > 0);
+
+  if (!rows.length) return;
+
+  const { error: insertError } = await supabase
+    .from('service_product_usage')
+    .insert(rows);
+  if (insertError) throw normalizeError(insertError, 'No se pudieron guardar los insumos del servicio.');
 }
 
 export async function deleteServiceRecord(serviceId) {

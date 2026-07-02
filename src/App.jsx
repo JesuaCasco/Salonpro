@@ -21,6 +21,7 @@ import {
   resetManagedUserPassword,
   replaceUserRoles,
   syncServiceComboItems,
+  syncServiceProductUsage,
   upsertBranch,
   upsertSalon,
   upsertAppointments,
@@ -3541,6 +3542,9 @@ export default function App() {
       ...serviceData,
       price: isPromotion ? 0 : Number(serviceData.price) || 0,
       items: serviceData.category === 'Combo' ? serviceData.items : [],
+      inventoryUsage: ['Combo', 'Promocion', 'Producto'].includes(serviceData.category)
+        ? []
+        : (serviceData.inventoryUsage || []),
       appliesTo: isPromotion ? 'General' : 'Servicio',
       discountType: isPromotion ? (serviceData.discountType || 'percentage') : 'percentage',
       discountValue: normalizedPromotionDiscount,
@@ -3565,6 +3569,7 @@ export default function App() {
       try {
         await upsertServices([savedService], currentSalonId);
         await syncServiceComboItems(nextServices);
+        await syncServiceProductUsage(savedService, session?.user?.id, superAdminScopeOverride);
       } catch (error) {
         handleSyncError(error, 'No pude guardar el servicio en Supabase.');
       }
@@ -4500,7 +4505,7 @@ export default function App() {
       {modals.client && <ClientModal onClose={() => setModals({...modals, client: false})} onSave={handleSaveClient} clients={clients} initial={selectedData.client} />}
       {modals.clientDetail && <ClientDetailModal client={selectedData.client} clients={effectiveClientDirectory.clients} appointments={effectiveClientDirectory.appointments} stylists={effectiveClientDirectory.stylists} onClose={() => setModals({...modals, clientDetail: false})} onEdit={() => { setModals({...modals, clientDetail: false, client: true}); }} onDelete={() => handleDeleteClient(selectedData.client.id)} onNewApt={() => { setModals({...modals, clientDetail: false, appointment: true}); setSelectedData({...selectedData, appointment: { date: getTodayString(), time: currentSalonHours[0] || DEFAULT_SALON_OPEN_TIME, stylistId: defaultStylistId, client: selectedData.client } }); }} />}
       {modals.finalize && <FinalizeModal onClose={() => setModals({...modals, finalize: false})} onConfirm={(ex) => handleUpdateStatus(selectedData.finalize.id, 'Finalizada', ex)} services={services} clients={clients} initial={selectedData.finalize} />}
-      {modals.service && <ServiceEditorModal services={services} onClose={() => setModals({...modals, service: false})} onSave={handleSaveService} initial={selectedData.service} />}
+      {modals.service && <ServiceEditorModal services={services} inventoryItems={inventoryItems} onClose={() => setModals({...modals, service: false})} onSave={handleSaveService} initial={selectedData.service} />}
       {modals.paymentReceipt && <PaymentReceiptModal data={selectedData.paymentReceipt} onClose={() => setModals({...modals, paymentReceipt: false})} onConfirmPayment={handleConfirmPayment} confirmAction={confirmAction} />}
       {modals.posSaleReceipt && <PosSaleReceiptModal data={selectedData.posSaleReceipt} onClose={() => setModals({...modals, posSaleReceipt: false})} onCancelSale={handleCancelPosSale} confirmAction={confirmAction} />}
       {modals.cashClosureReceipt && <CashClosureReceiptModal data={selectedData.cashClosureReceipt} onClose={() => setModals({...modals, cashClosureReceipt: false})} />}
