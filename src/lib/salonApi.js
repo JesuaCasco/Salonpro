@@ -226,6 +226,10 @@ const toUiInventoryItem = (row) => ({
   salonId: row.salon_id || null,
   branchId: row.branch_id || null,
   serviceId: row.service_id || null,
+  name: row.product_name || row.name || 'Producto sin nombre',
+  productName: row.product_name || row.name || 'Producto sin nombre',
+  productCategory: row.product_category || 'Otros',
+  usageType: row.usage_type || 'retail',
   sku: row.sku || '',
   barcode: row.barcode || '',
   unitName: row.unit_name || 'unidad',
@@ -233,10 +237,34 @@ const toUiInventoryItem = (row) => ({
   minStock: Number(row.min_stock || 0),
   maxStock: row.max_stock == null ? null : Number(row.max_stock),
   costPrice: Number(row.cost_price || 0),
+  salePrice: Number(row.sale_price || 0),
   currentStock: Number(row.current_stock || 0),
+  notes: row.notes || '',
   isActive: row.is_active ?? true,
   createdAt: row.created_at,
   updatedAt: row.updated_at,
+});
+
+const inventoryItemToProductService = (item) => ({
+  id: item.serviceId || `inventory:${item.id}`,
+  inventoryItemId: item.id,
+  name: item.productName || item.name || 'Producto sin nombre',
+  price: Number(item.salePrice || 0),
+  category: 'Producto',
+  inventoryCategory: item.productCategory || 'Otros',
+  usageType: item.usageType || 'retail',
+  currentStock: Number(item.currentStock || 0),
+  costPrice: Number(item.costPrice || 0),
+  unitName: item.unitName || 'unidad',
+  sku: item.sku || '',
+  barcode: item.barcode || '',
+  isInventoryProduct: true,
+  items: [],
+  appliesTo: 'General',
+  discountType: 'percentage',
+  discountValue: 0,
+  targetServiceIds: [],
+  isOptional: true,
 });
 
 const toUiPosSale = (row) => ({
@@ -524,6 +552,28 @@ const toDbService = (service, salonId) => ({
   ...(salonId ? { salon_id: salonId } : {}),
   branch_id: null,
 });
+
+const toDbInventoryProduct = (product, salonId, branchId = null, currentUserId = null) =>
+  withScopeIds({
+    id: product.id,
+    service_id: product.serviceId || null,
+    product_name: product.productName || product.name,
+    product_category: product.productCategory || 'Otros',
+    usage_type: product.usageType || 'retail',
+    sku: product.sku || null,
+    barcode: product.barcode || null,
+    unit_name: product.unitName || 'unidad',
+    track_stock: product.trackStock !== false,
+    min_stock: Number(product.minStock || 0),
+    max_stock: product.maxStock === '' || product.maxStock == null ? null : Number(product.maxStock),
+    cost_price: Number(product.costPrice || 0),
+    sale_price: Number(product.salePrice || product.price || 0),
+    current_stock: Number(product.currentStock || 0),
+    notes: product.notes || null,
+    is_active: product.isActive ?? true,
+    created_by: product.id ? undefined : currentUserId || null,
+    updated_by: currentUserId || null,
+  }, salonId, branchId);
 
 const toDbSalon = (salon) => ({
   id: salon.id,
@@ -848,7 +898,20 @@ export async function fetchSalonSnapshot(currentUserId, scopeOverride = {}) {
     comboMap.set(row.combo_service_id, [...current, row.item_service_id]);
   }
 
-  const services = (servicesData || []).map((row) => toUiService(row, comboMap));
+  const inventoryItems = (inventoryItemsData || []).map(toUiInventoryItem);
+  const inventoryServiceIds = new Set(
+    inventoryItems
+      .map((item) => item.serviceId)
+      .filter(Boolean)
+      .map(String),
+  );
+  const baseServices = (servicesData || [])
+    .filter((row) => row.category !== 'Producto' || !inventoryServiceIds.has(String(row.id)))
+    .map((row) => toUiService(row, comboMap));
+  const inventoryProductServices = inventoryItems
+    .filter((item) => ['retail', 'both'].includes(item.usageType))
+    .map(inventoryItemToProductService);
+  const services = [...baseServices, ...inventoryProductServices];
   const clients = (clientsData || []).map(toUiClient);
   const stylists = (stylistsData || []).map(toUiStylist);
   const appointments = (appointmentsData || []).map((row) =>
@@ -862,7 +925,6 @@ export async function fetchSalonSnapshot(currentUserId, scopeOverride = {}) {
   const cashSessions = (cashSessionsData || []).map(toUiCashSession);
   const cashMovements = (cashMovementsData || []).map(toUiCashMovement);
   const payrollPayments = (payrollPaymentsData || []).map(toUiPayrollPayment);
-  const inventoryItems = (inventoryItemsData || []).map(toUiInventoryItem);
   return {
     services,
     clients,
@@ -1478,6 +1540,39 @@ export async function upsertServices(services, salonId = null) {
     .from('services')
     .upsert(services.map((service) => toDbService(service, salonId)), { onConflict: 'id' });
   if (error) throw normalizeError(error, 'No se pudieron guardar los servicios.');
+}
+
+export async function upsertInventoryProducts(products, currentUserId, scopeOverride = {}) {
+  assertSupabase();
+  if (!products?.length) return [];
+
+  const scope = await resolveUserScope(currentUserId, scopeOverride);
+  const resolvedSalonId = scope.currentSalonId || products.find((product) => product.salonId)?.salonId || null;
+  const resolvedBranchId = scope.currentBranchId ?? products.find((product) => product.branchId !== undefined)?.branchId ?? null;
+
+  if (!resolvedSalonId) throw normalizeError(null, 'No se pudo resolver el salón para guardar el producto.');
+
+  const rows = products.map((product) => {
+    const row = toDbInventoryProduct(product, resolvedSalonId, product.branchId ?? resolvedBranchId, currentUserId);
+    return Object.fromEntries(Object.entries(row).filter(([, value]) => value !== undefined));
+  });
+
+  const { data, error } = await supabase
+    .from('inventory_items')
+    .upsert(rows, { onConflict: 'id' })
+    .select('*');
+  if (error) throw normalizeError(error, 'No se pudieron guardar los productos de inventario.');
+
+  return (data || []).map(toUiInventoryItem);
+}
+
+export async function deleteInventoryProduct(productId) {
+  assertSupabase();
+  const { error } = await supabase
+    .from('inventory_items')
+    .update({ is_active: false })
+    .eq('id', productId);
+  if (error) throw normalizeError(error, 'No se pudo desactivar el producto de inventario.');
 }
 
 export async function syncServiceComboItems(services) {
