@@ -4964,6 +4964,7 @@ function InventoryView({ inventoryItems = [], onGoToProducts, onSaveProduct, onD
   };
   const [editingProduct, setEditingProduct] = useState(null);
   const [form, setForm] = useState(emptyForm);
+  const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [search, setSearch] = useState('');
   const productCategories = ['Reventa', 'Color', 'Tratamiento', 'Cabello', 'Uñas', 'Facial', 'Higiene', 'Herramientas', 'Otros'];
   const usageOptions = [
@@ -5030,6 +5031,7 @@ function InventoryView({ inventoryItems = [], onGoToProducts, onSaveProduct, onD
   const openNewProduct = () => {
     setEditingProduct(null);
     setForm(emptyForm);
+    setIsProductModalOpen(true);
   };
 
   const openEditProduct = (product) => {
@@ -5049,6 +5051,13 @@ function InventoryView({ inventoryItems = [], onGoToProducts, onSaveProduct, onD
       sku: product.sku || '',
       notes: product.notes || '',
     });
+    setIsProductModalOpen(true);
+  };
+
+  const closeProductModal = () => {
+    setIsProductModalOpen(false);
+    setEditingProduct(null);
+    setForm(emptyForm);
   };
 
   const updateForm = (field, value) => setForm((prev) => ({ ...prev, [field]: value }));
@@ -5061,7 +5070,7 @@ function InventoryView({ inventoryItems = [], onGoToProducts, onSaveProduct, onD
       productName: form.productName,
       name: form.productName,
     });
-    openNewProduct();
+    closeProductModal();
   };
 
   const getUsageLabel = (usageType) => usageOptions.find((option) => option.value === usageType)?.label || 'Reventa';
@@ -5114,89 +5123,7 @@ function InventoryView({ inventoryItems = [], onGoToProducts, onSaveProduct, onD
         })}
       </div>
 
-      <section className="grid grid-cols-1 xl:grid-cols-[420px_minmax(0,1fr)] gap-5">
-        <form onSubmit={handleSubmit} className="rounded-[2rem] border border-[#ee9fbc] bg-white p-5 shadow-[0_18px_44px_rgba(122,77,94,0.10)] space-y-4">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#d94f83]">Producto</p>
-              <h4 className="mt-1 text-xl font-black uppercase italic tracking-tighter text-[#302530]">{editingProduct ? 'Editar inventario' : 'Nuevo producto'}</h4>
-            </div>
-            {editingProduct && (
-              <button type="button" onClick={openNewProduct} className="rounded-2xl border border-[#f2c1d4] px-4 py-2 text-[10px] font-black uppercase text-[#9b6076]">
-                Limpiar
-              </button>
-            )}
-          </div>
-
-          <label className="block space-y-2">
-            <span className="text-[9px] font-black uppercase tracking-[0.18em] text-[#9b6076]">Nombre</span>
-            <input value={form.productName} onChange={(event) => updateForm('productName', event.target.value)} className="w-full rounded-2xl border border-[#ee9fbc] bg-[#fff7fb] px-4 py-3 text-sm font-black text-[#302530] outline-none focus:border-[#d94f83]" placeholder="Ej. Shampoo hidratante" />
-          </label>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <label className="block space-y-2">
-              <span className="text-[9px] font-black uppercase tracking-[0.18em] text-[#9b6076]">Categoría</span>
-              <select value={form.productCategory} onChange={(event) => updateForm('productCategory', event.target.value)} className="w-full rounded-2xl border border-[#ee9fbc] bg-white px-4 py-3 text-xs font-black uppercase text-[#302530] outline-none">
-                {productCategories.map((category) => <option key={category} value={category}>{category}</option>)}
-              </select>
-            </label>
-            <label className="block space-y-2">
-              <span className="text-[9px] font-black uppercase tracking-[0.18em] text-[#9b6076]">Unidad</span>
-              <input value={form.unitName} onChange={(event) => updateForm('unitName', event.target.value)} className="w-full rounded-2xl border border-[#ee9fbc] bg-white px-4 py-3 text-xs font-black text-[#302530] outline-none" placeholder="unidad, ml, gr" />
-            </label>
-          </div>
-
-          <div className="grid grid-cols-3 gap-2">
-            {usageOptions.map((option) => (
-              <button
-                type="button"
-                key={option.value}
-                onClick={() => updateForm('usageType', option.value)}
-                className={`rounded-2xl border px-3 py-3 text-left transition-all ${form.usageType === option.value ? 'border-[#6fb89b] bg-[#e8f6ef] text-[#2f6f61]' : 'border-[#ee9fbc] bg-white text-[#9b6076]'}`}
-              >
-                <span className="block text-[10px] font-black uppercase">{option.label}</span>
-                <span className="mt-1 block text-[8px] font-bold uppercase leading-tight opacity-80">{option.helper}</span>
-              </button>
-            ))}
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <label className="block space-y-2">
-              <span className="text-[9px] font-black uppercase tracking-[0.18em] text-[#9b6076]">Stock</span>
-              <input type="number" min="0" value={form.currentStock} onChange={(event) => updateForm('currentStock', event.target.value)} className="w-full rounded-2xl border border-[#ee9fbc] bg-white px-4 py-3 text-sm font-black text-[#302530] outline-none" placeholder="0" />
-            </label>
-            <label className="block space-y-2">
-              <span className="text-[9px] font-black uppercase tracking-[0.18em] text-[#9b6076]">Stock mínimo</span>
-              <input type="number" min="0" value={form.minStock} onChange={(event) => updateForm('minStock', event.target.value)} className="w-full rounded-2xl border border-[#ee9fbc] bg-white px-4 py-3 text-sm font-black text-[#302530] outline-none" placeholder="0" />
-            </label>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <label className="block space-y-2">
-              <span className="text-[9px] font-black uppercase tracking-[0.18em] text-[#9b6076]">Costo compra</span>
-              <input type="number" min="0" step="0.01" value={form.costPrice} onChange={(event) => updateForm('costPrice', event.target.value)} className="w-full rounded-2xl border border-[#ee9fbc] bg-white px-4 py-3 text-sm font-black text-[#302530] outline-none" placeholder="C$ 0" />
-            </label>
-            <label className="block space-y-2">
-              <span className="text-[9px] font-black uppercase tracking-[0.18em] text-[#9b6076]">Precio venta</span>
-              <input type="number" min="0" step="0.01" value={form.salePrice} onChange={(event) => updateForm('salePrice', event.target.value)} className="w-full rounded-2xl border border-[#ee9fbc] bg-white px-4 py-3 text-sm font-black text-[#302530] outline-none" placeholder="C$ 0" />
-            </label>
-          </div>
-
-          <label className="block space-y-2">
-            <span className="text-[9px] font-black uppercase tracking-[0.18em] text-[#9b6076]">SKU / código interno</span>
-            <input value={form.sku} onChange={(event) => updateForm('sku', event.target.value)} className="w-full rounded-2xl border border-[#ee9fbc] bg-white px-4 py-3 text-xs font-black text-[#302530] outline-none" placeholder="Opcional" />
-          </label>
-
-          <label className="block space-y-2">
-            <span className="text-[9px] font-black uppercase tracking-[0.18em] text-[#9b6076]">Notas de costo o uso</span>
-            <textarea value={form.notes} onChange={(event) => updateForm('notes', event.target.value)} className="min-h-[76px] w-full resize-none rounded-2xl border border-[#ee9fbc] bg-white px-4 py-3 text-xs font-bold text-[#302530] outline-none" placeholder="Ej. Se usa para keratina, rinde 10 servicios..." />
-          </label>
-
-          <button type="submit" className="w-full rounded-2xl bg-[#6fb89b] px-5 py-4 text-[11px] font-black uppercase italic tracking-[0.16em] text-white shadow-[0_14px_30px_rgba(111,184,155,0.24)]">
-            {editingProduct ? 'Guardar cambios' : 'Crear producto'}
-          </button>
-        </form>
-
+      <section>
         <section className="rounded-[2rem] border border-[#ee9fbc] bg-white overflow-hidden shadow-[0_18px_44px_rgba(122,77,94,0.10)]">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-[#f2c1d4] bg-[#fff7fb] px-5 md:px-7 py-5">
             <div>
@@ -5265,6 +5192,103 @@ function InventoryView({ inventoryItems = [], onGoToProducts, onSaveProduct, onD
           )}
         </section>
       </section>
+
+      {isProductModalOpen && (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-[#24181f]/75 p-4 backdrop-blur-md">
+          <form onSubmit={handleSubmit} className="w-full max-w-4xl max-h-[calc(100vh-2rem)] overflow-y-auto rounded-[1.8rem] border border-[#ee9fbc] bg-white shadow-[0_28px_80px_rgba(52,31,42,0.35)] custom-scrollbar">
+            <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-[#f2c1d4] bg-[#fff7fb]/95 px-5 md:px-7 py-5 backdrop-blur">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#d94f83]">Producto</p>
+                <h4 className="mt-1 text-xl md:text-2xl font-black uppercase italic tracking-tighter text-[#302530]">{editingProduct ? 'Editar inventario' : 'Nuevo producto'}</h4>
+              </div>
+              <button type="button" onClick={closeProductModal} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[#ee9fbc] bg-white text-[#9b6076] transition-all hover:bg-[#fff7fb]" aria-label="Cerrar producto">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_310px] gap-5 p-5 md:p-7">
+              <div className="space-y-4">
+                <label className="block space-y-2">
+                  <span className="text-[9px] font-black uppercase tracking-[0.18em] text-[#9b6076]">Nombre</span>
+                  <input value={form.productName} onChange={(event) => updateForm('productName', event.target.value)} className="w-full rounded-2xl border border-[#ee9fbc] bg-[#fff7fb] px-4 py-3 text-sm font-black text-[#302530] outline-none focus:border-[#d94f83]" placeholder="Ej. Shampoo hidratante" />
+                </label>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <label className="block space-y-2">
+                    <span className="text-[9px] font-black uppercase tracking-[0.18em] text-[#9b6076]">Categoría</span>
+                    <select value={form.productCategory} onChange={(event) => updateForm('productCategory', event.target.value)} className="w-full rounded-2xl border border-[#ee9fbc] bg-white px-4 py-3 text-xs font-black uppercase text-[#302530] outline-none">
+                      {productCategories.map((category) => <option key={category} value={category}>{category}</option>)}
+                    </select>
+                  </label>
+                  <label className="block space-y-2">
+                    <span className="text-[9px] font-black uppercase tracking-[0.18em] text-[#9b6076]">Unidad</span>
+                    <input value={form.unitName} onChange={(event) => updateForm('unitName', event.target.value)} className="w-full rounded-2xl border border-[#ee9fbc] bg-white px-4 py-3 text-xs font-black text-[#302530] outline-none" placeholder="unidad, ml, gr" />
+                  </label>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  {usageOptions.map((option) => (
+                    <button
+                      type="button"
+                      key={option.value}
+                      onClick={() => updateForm('usageType', option.value)}
+                      className={`rounded-2xl border px-3 py-3 text-left transition-all ${form.usageType === option.value ? 'border-[#6fb89b] bg-[#e8f6ef] text-[#2f6f61]' : 'border-[#ee9fbc] bg-white text-[#9b6076]'}`}
+                    >
+                      <span className="block text-[10px] font-black uppercase">{option.label}</span>
+                      <span className="mt-1 block text-[8px] font-bold uppercase leading-tight opacity-80">{option.helper}</span>
+                    </button>
+                  ))}
+                </div>
+
+                <label className="block space-y-2">
+                  <span className="text-[9px] font-black uppercase tracking-[0.18em] text-[#9b6076]">Notas de costo o uso</span>
+                  <textarea value={form.notes} onChange={(event) => updateForm('notes', event.target.value)} className="min-h-[96px] w-full resize-none rounded-2xl border border-[#ee9fbc] bg-white px-4 py-3 text-xs font-bold text-[#302530] outline-none" placeholder="Ej. Se usa para keratina, rinde 10 servicios..." />
+                </label>
+              </div>
+
+              <div className="space-y-4 rounded-[1.5rem] border border-[#f2c1d4] bg-[#fff7fb] p-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="block space-y-2">
+                    <span className="text-[9px] font-black uppercase tracking-[0.18em] text-[#9b6076]">Stock</span>
+                    <input type="number" min="0" value={form.currentStock} onChange={(event) => updateForm('currentStock', event.target.value)} className="w-full rounded-2xl border border-[#ee9fbc] bg-white px-4 py-3 text-sm font-black text-[#302530] outline-none" placeholder="0" />
+                  </label>
+                  <label className="block space-y-2">
+                    <span className="text-[9px] font-black uppercase tracking-[0.18em] text-[#9b6076]">Mínimo</span>
+                    <input type="number" min="0" value={form.minStock} onChange={(event) => updateForm('minStock', event.target.value)} className="w-full rounded-2xl border border-[#ee9fbc] bg-white px-4 py-3 text-sm font-black text-[#302530] outline-none" placeholder="0" />
+                  </label>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="block space-y-2">
+                    <span className="text-[9px] font-black uppercase tracking-[0.18em] text-[#9b6076]">Costo compra</span>
+                    <input type="number" min="0" step="0.01" value={form.costPrice} onChange={(event) => updateForm('costPrice', event.target.value)} className="w-full rounded-2xl border border-[#ee9fbc] bg-white px-4 py-3 text-sm font-black text-[#302530] outline-none" placeholder="C$ 0" />
+                  </label>
+                  <label className="block space-y-2">
+                    <span className="text-[9px] font-black uppercase tracking-[0.18em] text-[#9b6076]">Precio venta</span>
+                    <input type="number" min="0" step="0.01" value={form.salePrice} onChange={(event) => updateForm('salePrice', event.target.value)} className="w-full rounded-2xl border border-[#ee9fbc] bg-white px-4 py-3 text-sm font-black text-[#302530] outline-none" placeholder="C$ 0" />
+                  </label>
+                </div>
+
+                <label className="block space-y-2">
+                  <span className="text-[9px] font-black uppercase tracking-[0.18em] text-[#9b6076]">SKU / código interno</span>
+                  <input value={form.sku} onChange={(event) => updateForm('sku', event.target.value)} className="w-full rounded-2xl border border-[#ee9fbc] bg-white px-4 py-3 text-xs font-black text-[#302530] outline-none" placeholder="Opcional" />
+                </label>
+
+                <div className="rounded-2xl border border-[#b7d8c7] bg-[#edf7f2] p-4">
+                  <p className="text-[9px] font-black uppercase tracking-[0.18em] text-[#4f8674]">Margen estimado</p>
+                  <p className="mt-2 text-2xl font-black italic text-[#2f6f61]">
+                    C$ {(Number(form.salePrice || 0) - Number(form.costPrice || 0)).toLocaleString('es-NI')}
+                  </p>
+                </div>
+
+                <button type="submit" className="w-full rounded-2xl bg-[#6fb89b] px-5 py-4 text-[11px] font-black uppercase italic tracking-[0.16em] text-white shadow-[0_14px_30px_rgba(111,184,155,0.24)]">
+                  {editingProduct ? 'Guardar cambios' : 'Crear producto'}
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 }
